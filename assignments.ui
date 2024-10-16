@@ -16,9 +16,9 @@
      <colorrole role="Window">
       <brush brushstyle="SolidPattern">
        <color alpha="255">
-        <red>71</red>
-        <green>71</green>
-        <blue>71</blue>
+        <red>91</red>
+        <green>91</green>
+        <blue>91</blue>
        </color>
       </brush>
      </colorrole>
@@ -27,9 +27,9 @@
      <colorrole role="Window">
       <brush brushstyle="SolidPattern">
        <color alpha="255">
-        <red>71</red>
-        <green>71</green>
-        <blue>71</blue>
+        <red>91</red>
+        <green>91</green>
+        <blue>91</blue>
        </color>
       </brush>
      </colorrole>
@@ -38,18 +38,18 @@
      <colorrole role="Base">
       <brush brushstyle="SolidPattern">
        <color alpha="255">
-        <red>71</red>
-        <green>71</green>
-        <blue>71</blue>
+        <red>91</red>
+        <green>91</green>
+        <blue>91</blue>
        </color>
       </brush>
      </colorrole>
      <colorrole role="Window">
       <brush brushstyle="SolidPattern">
        <color alpha="255">
-        <red>71</red>
-        <green>71</green>
-        <blue>71</blue>
+        <red>91</red>
+        <green>91</green>
+        <blue>91</blue>
        </color>
       </brush>
      </colorrole>
@@ -57,124 +57,34 @@
    </palette>
   </property>
   <property name="windowTitle">
-   <string>Assignments</string>
+   <string>MainWindow</string>
   </property>
   <widget class="QWidget" name="centralwidget">
-   <widget class="QTextBrowser" name="assignments_List">
+   <widget class="QTextBrowser" name="assignmentwindow">
     <property name="geometry">
      <rect>
       <x>30</x>
       <y>60</y>
       <width>741</width>
-      <height>351</height>
+      <height>371</height>
      </rect>
     </property>
    </widget>
-   <widget class="QTextBrowser" name="assignment_Details">
+   <widget class="QTextBrowser" name="assignmentnotes">
     <property name="geometry">
      <rect>
       <x>30</x>
-      <y>430</y>
+      <y>440</y>
       <width>741</width>
       <height>91</height>
      </rect>
     </property>
    </widget>
-   <widget class="QLabel" name="label_Deadline">
-    <property name="geometry">
-     <rect>
-      <x>80</x>
-      <y>30</y>
-      <width>61</width>
-      <height>16</height>
-     </rect>
-    </property>
-    <property name="palette">
-     <palette>
-      <active>
-       <colorrole role="WindowText">
-        <brush brushstyle="SolidPattern">
-         <color alpha="255">
-          <red>255</red>
-          <green>255</green>
-          <blue>255</blue>
-         </color>
-        </brush>
-       </colorrole>
-      </active>
-      <inactive>
-       <colorrole role="WindowText">
-        <brush brushstyle="SolidPattern">
-         <color alpha="255">
-          <red>255</red>
-          <green>255</green>
-          <blue>255</blue>
-         </color>
-        </brush>
-       </colorrole>
-      </inactive>
-      <disabled/>
-     </palette>
-    </property>
-    <property name="font">
-     <font>
-      <pointsize>10</pointsize>
-     </font>
-    </property>
-    <property name="text">
-     <string>Deadline</string>
-    </property>
-   </widget>
-   <widget class="QLabel" name="label_Assignment">
-    <property name="geometry">
-     <rect>
-      <x>340</x>
-      <y>30</y>
-      <width>81</width>
-      <height>16</height>
-     </rect>
-    </property>
-    <property name="palette">
-     <palette>
-      <active>
-       <colorrole role="WindowText">
-        <brush brushstyle="SolidPattern">
-         <color alpha="255">
-          <red>255</red>
-          <green>255</green>
-          <blue>255</blue>
-         </color>
-        </brush>
-       </colorrole>
-      </active>
-      <inactive>
-       <colorrole role="WindowText">
-        <brush brushstyle="SolidPattern">
-         <color alpha="255">
-          <red>255</red>
-          <green>255</green>
-          <blue>255</blue>
-         </color>
-        </brush>
-       </colorrole>
-      </inactive>
-      <disabled/>
-     </palette>
-    </property>
-    <property name="font">
-     <font>
-      <pointsize>10</pointsize>
-     </font>
-    </property>
-    <property name="text">
-     <string>Assignment</string>
-    </property>
-   </widget>
-   <widget class="QPushButton" name="button_Start">
+   <widget class="QPushButton" name="start">
     <property name="geometry">
      <rect>
       <x>60</x>
-      <y>530</y>
+      <y>540</y>
       <width>80</width>
       <height>24</height>
      </rect>
@@ -183,11 +93,11 @@
      <string>Start</string>
     </property>
    </widget>
-   <widget class="QPushButton" name="button_Done">
+   <widget class="QPushButton" name="done">
     <property name="geometry">
      <rect>
-      <x>200</x>
-      <y>530</y>
+      <x>210</x>
+      <y>540</y>
       <width>80</width>
       <height>24</height>
      </rect>
@@ -196,11 +106,11 @@
      <string>Done</string>
     </property>
    </widget>
-   <widget class="QPushButton" name="button_Abort">
+   <widget class="QPushButton" name="abort">
     <property name="geometry">
      <rect>
-      <x>340</x>
-      <y>530</y>
+      <x>360</x>
+      <y>540</y>
       <width>80</width>
       <height>24</height>
      </rect>
@@ -209,11 +119,11 @@
      <string>Abort</string>
     </property>
    </widget>
-   <widget class="QPushButton" name="button_Delete">
+   <widget class="QPushButton" name="delete_2">
     <property name="geometry">
      <rect>
-      <x>470</x>
-      <y>530</y>
+      <x>510</x>
+      <y>540</y>
       <width>80</width>
       <height>24</height>
      </rect>
@@ -222,17 +132,86 @@
      <string>Delete</string>
     </property>
    </widget>
-   <widget class="QPushButton" name="button_Close">
+   <widget class="QPushButton" name="close">
     <property name="geometry">
      <rect>
-      <x>610</x>
-      <y>530</y>
+      <x>670</x>
+      <y>540</y>
       <width>80</width>
       <height>24</height>
      </rect>
     </property>
     <property name="text">
      <string>Close</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="deadline">
+    <property name="geometry">
+     <rect>
+      <x>50</x>
+      <y>30</y>
+      <width>71</width>
+      <height>21</height>
+     </rect>
+    </property>
+    <property name="palette">
+     <palette>
+      <active>
+       <colorrole role="Text">
+        <brush brushstyle="SolidPattern">
+         <color alpha="255">
+          <red>255</red>
+          <green>255</green>
+          <blue>255</blue>
+         </color>
+        </brush>
+       </colorrole>
+      </active>
+      <inactive>
+       <colorrole role="Text">
+        <brush brushstyle="SolidPattern">
+         <color alpha="255">
+          <red>255</red>
+          <green>255</green>
+          <blue>255</blue>
+         </color>
+        </brush>
+       </colorrole>
+      </inactive>
+      <disabled/>
+     </palette>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>12</pointsize>
+     </font>
+    </property>
+    <property name="text">
+     <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#ffffff;&quot;&gt;Deadline&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+    </property>
+    <property name="alignment">
+     <set>Qt::AlignmentFlag::AlignCenter</set>
+    </property>
+   </widget>
+   <widget class="QLabel" name="assignment">
+    <property name="geometry">
+     <rect>
+      <x>220</x>
+      <y>30</y>
+      <width>91</width>
+      <height>21</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>12</pointsize>
+     </font>
+    </property>
+    <property name="text">
+     <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#ffffff;&quot;&gt;Assignment&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+    </property>
+    <property name="alignment">
+     <set>Qt::AlignmentFlag::AlignCenter</set>
     </property>
    </widget>
   </widget>

@@ -1,4 +1,5 @@
-#include "mainwindow.h"
+#include "cyberdom.h"
+#include "assignments.h"
 
 #include <QApplication>
 

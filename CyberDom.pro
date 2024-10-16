@@ -10,16 +10,17 @@ CONFIG += c++17
 
 SOURCES += \
     assignments.cpp \
-    main.cpp \
-    mainwindow.cpp
+    cyberdom.cpp \
+    main.cpp
 
 HEADERS += \
     assignments.h \
-    mainwindow.h
+    cyberdom.h
 
 FORMS += \
     assignments.ui \
-    mainwindow.ui
+    cyberdom.ui \
+    report_clothing.ui
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin
