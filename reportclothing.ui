@@ -1,0 +1,271 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>ReportClothing</class>
+ <widget class="QDialog" name="ReportClothing">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>716</width>
+    <height>533</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Report Clothing</string>
+  </property>
+  <widget class="QLabel" name="lbl_Title">
+   <property name="geometry">
+    <rect>
+     <x>30</x>
+     <y>30</y>
+     <width>141</width>
+     <height>21</height>
+    </rect>
+   </property>
+   <property name="font">
+    <font>
+     <pointsize>14</pointsize>
+    </font>
+   </property>
+   <property name="text">
+    <string>Report Clothing</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="lbl_Wearing">
+   <property name="geometry">
+    <rect>
+     <x>30</x>
+     <y>60</y>
+     <width>131</width>
+     <height>21</height>
+    </rect>
+   </property>
+   <property name="font">
+    <font>
+     <pointsize>12</pointsize>
+    </font>
+   </property>
+   <property name="text">
+    <string>You are wearing:</string>
+   </property>
+  </widget>
+  <widget class="QListView" name="lst_Wearing">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>90</y>
+     <width>341</width>
+     <height>321</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QComboBox" name="cb_Type">
+   <property name="geometry">
+    <rect>
+     <x>410</x>
+     <y>60</y>
+     <width>291</width>
+     <height>24</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QCheckBox" name="chk_Naked">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>420</y>
+     <width>91</width>
+     <height>22</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>I am Naked</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="btn_Remove">
+   <property name="geometry">
+    <rect>
+     <x>140</x>
+     <y>420</y>
+     <width>80</width>
+     <height>24</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Remove</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="btn_Cancel">
+   <property name="geometry">
+    <rect>
+     <x>30</x>
+     <y>480</y>
+     <width>80</width>
+     <height>24</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Cancel</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="btn_Report">
+   <property name="geometry">
+    <rect>
+     <x>140</x>
+     <y>480</y>
+     <width>80</width>
+     <height>24</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Report</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="btn_Select">
+   <property name="geometry">
+    <rect>
+     <x>480</x>
+     <y>420</y>
+     <width>80</width>
+     <height>24</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Select Item</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="btn_Add">
+   <property name="geometry">
+    <rect>
+     <x>370</x>
+     <y>480</y>
+     <width>80</width>
+     <height>24</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Add Item</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="btn_Edit">
+   <property name="geometry">
+    <rect>
+     <x>480</x>
+     <y>480</y>
+     <width>80</width>
+     <height>24</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Edit Item</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="btn_Delete">
+   <property name="geometry">
+    <rect>
+     <x>590</x>
+     <y>480</y>
+     <width>80</width>
+     <height>24</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Delete Item</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="btn_AddType">
+   <property name="geometry">
+    <rect>
+     <x>620</x>
+     <y>10</y>
+     <width>80</width>
+     <height>24</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Add Type</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="lbl_Type">
+   <property name="geometry">
+    <rect>
+     <x>360</x>
+     <y>60</y>
+     <width>56</width>
+     <height>21</height>
+    </rect>
+   </property>
+   <property name="font">
+    <font>
+     <pointsize>12</pointsize>
+    </font>
+   </property>
+   <property name="text">
+    <string>Type:</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="lbl_Available">
+   <property name="geometry">
+    <rect>
+     <x>360</x>
+     <y>30</y>
+     <width>161</width>
+     <height>21</height>
+    </rect>
+   </property>
+   <property name="font">
+    <font>
+     <pointsize>14</pointsize>
+    </font>
+   </property>
+   <property name="text">
+    <string>Clothes Available:</string>
+   </property>
+  </widget>
+  <widget class="QListWidget" name="lst_Available">
+   <property name="geometry">
+    <rect>
+     <x>370</x>
+     <y>90</y>
+     <width>331</width>
+     <height>321</height>
+    </rect>
+   </property>
+  </widget>
+ </widget>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>btn_Report</sender>
+   <signal>clicked()</signal>
+   <receiver>ReportClothing</receiver>
+   <slot>accept()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>179</x>
+     <y>491</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>357</x>
+     <y>266</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>btn_Cancel</sender>
+   <signal>clicked()</signal>
+   <receiver>ReportClothing</receiver>
+   <slot>reject()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>69</x>
+     <y>491</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>357</x>
+     <y>266</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+</ui>

@@ -9,18 +9,43 @@ CONFIG += c++17
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 SOURCES += \
+    about.cpp \
+    addclothing.cpp \
+    addclothtype.cpp \
+    askclothing.cpp \
+    askinstructions.cpp \
     assignments.cpp \
+    clothingitem.cpp \
+    main.cpp \
     cyberdom.cpp \
-    main.cpp
+    reportclothing.cpp \
+    rules.cpp \
+    timeadd.cpp
 
 HEADERS += \
+    about.h \
+    addclothing.h \
+    addclothtype.h \
+    askclothing.h \
+    askinstructions.h \
     assignments.h \
-    cyberdom.h
+    clothingitem.h \
+    cyberdom.h \
+    reportclothing.h \
+    rules.h \
+    timeadd.h
 
 FORMS += \
+    about.ui \
+    addclothing.ui \
+    addclothtype.ui \
+    askclothing.ui \
+    askinstructions.ui \
     assignments.ui \
     cyberdom.ui \
-    report_clothing.ui
+    reportclothing.ui \
+    rules.ui \
+    timeadd.ui
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin

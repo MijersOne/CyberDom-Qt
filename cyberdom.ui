@@ -10,123 +10,104 @@
     <height>600</height>
    </rect>
   </property>
-  <property name="palette">
-   <palette>
-    <active>
-     <colorrole role="Window">
-      <brush brushstyle="SolidPattern">
-       <color alpha="255">
-        <red>91</red>
-        <green>91</green>
-        <blue>91</blue>
-       </color>
-      </brush>
-     </colorrole>
-    </active>
-    <inactive>
-     <colorrole role="Window">
-      <brush brushstyle="SolidPattern">
-       <color alpha="255">
-        <red>91</red>
-        <green>91</green>
-        <blue>91</blue>
-       </color>
-      </brush>
-     </colorrole>
-    </inactive>
-    <disabled>
-     <colorrole role="Base">
-      <brush brushstyle="SolidPattern">
-       <color alpha="255">
-        <red>91</red>
-        <green>91</green>
-        <blue>91</blue>
-       </color>
-      </brush>
-     </colorrole>
-     <colorrole role="Window">
-      <brush brushstyle="SolidPattern">
-       <color alpha="255">
-        <red>91</red>
-        <green>91</green>
-        <blue>91</blue>
-       </color>
-      </brush>
-     </colorrole>
-    </disabled>
-   </palette>
-  </property>
   <property name="windowTitle">
-   <string>MainWindow</string>
+   <string>CyberDom</string>
   </property>
   <widget class="QWidget" name="centralwidget">
-   <widget class="QProgressBar" name="merit_bar">
-    <property name="geometry">
-     <rect>
-      <x>10</x>
-      <y>500</y>
-      <width>16777215</width>
-      <height>32</height>
-     </rect>
-    </property>
-    <property name="minimumSize">
-     <size>
-      <width>32</width>
-      <height>32</height>
-     </size>
-    </property>
-    <property name="maximum">
-     <number>2000</number>
-    </property>
-    <property name="value">
-     <number>650</number>
-    </property>
-    <property name="textVisible">
-     <bool>false</bool>
-    </property>
-    <property name="invertedAppearance">
-     <bool>false</bool>
-    </property>
-   </widget>
    <widget class="QTextBrowser" name="textBrowser">
     <property name="geometry">
      <rect>
-      <x>10</x>
-      <y>60</y>
-      <width>781</width>
-      <height>401</height>
+      <x>20</x>
+      <y>50</y>
+      <width>761</width>
+      <height>421</height>
      </rect>
     </property>
    </widget>
    <widget class="QLabel" name="label">
     <property name="geometry">
      <rect>
-      <x>10</x>
-      <y>10</y>
-      <width>71</width>
+      <x>20</x>
+      <y>480</y>
+      <width>121</width>
       <height>31</height>
      </rect>
     </property>
+    <property name="font">
+     <font>
+      <pointsize>16</pointsize>
+     </font>
+    </property>
     <property name="text">
-     <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:14pt; font-weight:700; color:#ffffff;&quot;&gt;Status:&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+     <string>Merits:</string>
+    </property>
+   </widget>
+   <widget class="QProgressBar" name="progressBar">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>520</y>
+      <width>761</width>
+      <height>24</height>
+     </rect>
+    </property>
+    <property name="sizePolicy">
+     <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+      <horstretch>0</horstretch>
+      <verstretch>0</verstretch>
+     </sizepolicy>
+    </property>
+    <property name="minimumSize">
+     <size>
+      <width>0</width>
+      <height>0</height>
+     </size>
+    </property>
+    <property name="sizeIncrement">
+     <size>
+      <width>0</width>
+      <height>0</height>
+     </size>
+    </property>
+    <property name="baseSize">
+     <size>
+      <width>0</width>
+      <height>0</height>
+     </size>
+    </property>
+    <property name="value">
+     <number>24</number>
     </property>
    </widget>
    <widget class="QLabel" name="label_2">
     <property name="geometry">
      <rect>
-      <x>10</x>
-      <y>470</y>
-      <width>61</width>
-      <height>21</height>
+      <x>20</x>
+      <y>10</y>
+      <width>121</width>
+      <height>31</height>
      </rect>
     </property>
     <property name="font">
      <font>
-      <pointsize>12</pointsize>
+      <pointsize>16</pointsize>
      </font>
     </property>
     <property name="text">
-     <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#ffffff;&quot;&gt;Merits:&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+     <string>Status:</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="clockLabel">
+    <property name="geometry">
+     <rect>
+      <x>690</x>
+      <y>480</y>
+      <width>71</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>12:00:00 AM</string>
     </property>
    </widget>
   </widget>
@@ -139,66 +120,16 @@
      <height>21</height>
     </rect>
    </property>
-   <property name="palette">
-    <palette>
-     <active>
-      <colorrole role="Window">
-       <brush brushstyle="SolidPattern">
-        <color alpha="255">
-         <red>255</red>
-         <green>255</green>
-         <blue>255</blue>
-        </color>
-       </brush>
-      </colorrole>
-     </active>
-     <inactive>
-      <colorrole role="Window">
-       <brush brushstyle="SolidPattern">
-        <color alpha="255">
-         <red>255</red>
-         <green>255</green>
-         <blue>255</blue>
-        </color>
-       </brush>
-      </colorrole>
-     </inactive>
-     <disabled>
-      <colorrole role="Base">
-       <brush brushstyle="SolidPattern">
-        <color alpha="255">
-         <red>255</red>
-         <green>255</green>
-         <blue>255</blue>
-        </color>
-       </brush>
-      </colorrole>
-      <colorrole role="Window">
-       <brush brushstyle="SolidPattern">
-        <color alpha="255">
-         <red>255</red>
-         <green>255</green>
-         <blue>255</blue>
-        </color>
-       </brush>
-      </colorrole>
-     </disabled>
-    </palette>
-   </property>
    <widget class="QMenu" name="menuFile">
     <property name="title">
      <string>File</string>
     </property>
-    <addaction name="actionMake_New_Report_File"/>
-    <addaction name="actionView_Report"/>
+    <addaction name="actionMake_A_New_Report_File"/>
+    <addaction name="actionView_Report_File"/>
     <addaction name="actionDelete_Status_File"/>
+    <addaction name="separator"/>
+    <addaction name="actionOptions"/>
     <addaction name="actionExit"/>
-   </widget>
-   <widget class="QMenu" name="menuAbout">
-    <property name="title">
-     <string>Help</string>
-    </property>
-    <addaction name="actionAbout"/>
    </widget>
    <widget class="QMenu" name="menuCommunication">
     <property name="title">
@@ -207,14 +138,16 @@
     <addaction name="actionAsk_Permission"/>
     <addaction name="actionReport"/>
     <addaction name="actionReport_Clothing"/>
-    <addaction name="actionConfess"/>
+    <addaction name="actionCofess"/>
     <addaction name="actionAsk_for_Clothing_Instructions"/>
     <addaction name="actionAsk_for_Other_Instructions"/>
+    <addaction name="actionAs_for_Punishment"/>
    </widget>
    <widget class="QMenu" name="menuAssignments">
     <property name="title">
      <string>Assignments</string>
     </property>
+    <addaction name="actionAssignments"/>
    </widget>
    <widget class="QMenu" name="menuRules">
     <property name="title">
@@ -225,13 +158,13 @@
     <addaction name="actionConfessions"/>
     <addaction name="actionClothing"/>
     <addaction name="actionInstructions"/>
-    <addaction name="actionOther"/>
+    <addaction name="actionOtherRules"/>
    </widget>
    <widget class="QMenu" name="menuTest">
     <property name="title">
      <string>Test</string>
     </property>
-    <addaction name="actionTime_Add"/>
+    <addaction name="actionTimeAdd"/>
     <addaction name="actionIgnore_Remind_Punishments"/>
     <addaction name="actionRandomize"/>
     <addaction name="actionPop_Ups_Quick"/>
@@ -248,39 +181,38 @@
     <addaction name="actionSet_Flags"/>
     <addaction name="actionList_and_Delete_Assignments"/>
    </widget>
+   <widget class="QMenu" name="menuHelp">
+    <property name="title">
+     <string>Help</string>
+    </property>
+    <addaction name="actionAbout"/>
+   </widget>
    <addaction name="menuFile"/>
    <addaction name="menuCommunication"/>
    <addaction name="menuAssignments"/>
    <addaction name="menuRules"/>
    <addaction name="menuTest"/>
-   <addaction name="menuAbout"/>
+   <addaction name="menuHelp"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
-  <action name="actionMake_New_Report_File">
-   <property name="checkable">
-    <bool>false</bool>
-   </property>
+  <action name="actionMake_A_New_Report_File">
    <property name="text">
-    <string>Make New Report File</string>
-   </property>
-   <property name="shortcut">
-    <string/>
-   </property>
-   <property name="iconVisibleInMenu">
-    <bool>true</bool>
-   </property>
-   <property name="shortcutVisibleInContextMenu">
-    <bool>true</bool>
+    <string>Make A New Report File</string>
    </property>
   </action>
-  <action name="actionView_Report">
+  <action name="actionView_Report_File">
    <property name="text">
-    <string>View Report</string>
+    <string>View Report File</string>
    </property>
   </action>
   <action name="actionDelete_Status_File">
    <property name="text">
     <string>Delete Status File</string>
+   </property>
+  </action>
+  <action name="actionOptions">
+   <property name="text">
+    <string>Options</string>
    </property>
   </action>
   <action name="actionExit">
@@ -303,7 +235,7 @@
     <string>Report Clothing</string>
    </property>
   </action>
-  <action name="actionConfess">
+  <action name="actionCofess">
    <property name="text">
     <string>Confess</string>
    </property>
@@ -333,24 +265,105 @@
     <string>Confessions</string>
    </property>
   </action>
-  <action name="actionClothing">
-   <property name="text">
-    <string>Clothing</string>
-   </property>
-  </action>
   <action name="actionInstructions">
    <property name="text">
     <string>Instructions</string>
    </property>
   </action>
-  <action name="actionOther">
+  <action name="actionOtherRules">
    <property name="text">
-    <string>Other</string>
+    <string>Other Rules</string>
    </property>
   </action>
-  <action name="actionTime_Add">
+  <action name="action1_Min">
+   <property name="text">
+    <string>1 Min</string>
+   </property>
+  </action>
+  <action name="action2_Mins">
+   <property name="text">
+    <string>2 Mins</string>
+   </property>
+  </action>
+  <action name="action5_Mins">
+   <property name="text">
+    <string>5 Mins</string>
+   </property>
+  </action>
+  <action name="action10_Mins">
+   <property name="text">
+    <string>10 Mins</string>
+   </property>
+  </action>
+  <action name="action20_Mins">
+   <property name="text">
+    <string>20 Mins</string>
+   </property>
+  </action>
+  <action name="action30_Mins">
+   <property name="text">
+    <string>30 Mins</string>
+   </property>
+  </action>
+  <action name="action1_Hours">
+   <property name="text">
+    <string>1 Hours</string>
+   </property>
+  </action>
+  <action name="action2_Hours">
+   <property name="text">
+    <string>2 Hours</string>
+   </property>
+  </action>
+  <action name="action6_Hours">
+   <property name="text">
+    <string>6 Hours</string>
+   </property>
+  </action>
+  <action name="action12_Hours">
+   <property name="text">
+    <string>12 Hours</string>
+   </property>
+  </action>
+  <action name="action24_Hours">
+   <property name="text">
+    <string>24 Hours</string>
+   </property>
+  </action>
+  <action name="action2_Days">
+   <property name="text">
+    <string>2 Days</string>
+   </property>
+  </action>
+  <action name="action7_Days">
+   <property name="text">
+    <string>7 Days</string>
+   </property>
+  </action>
+  <action name="actionAbout">
+   <property name="text">
+    <string>About</string>
+   </property>
+  </action>
+  <action name="actionAssignments">
+   <property name="text">
+    <string>Assignments</string>
+   </property>
+   <property name="menuRole">
+    <enum>QAction::MenuRole::TextHeuristicRole</enum>
+   </property>
+  </action>
+  <action name="actionTimeAdd">
    <property name="text">
     <string>Time Add</string>
+   </property>
+   <property name="menuRole">
+    <enum>QAction::MenuRole::NoRole</enum>
+   </property>
+  </action>
+  <action name="actionAs_for_Punishment">
+   <property name="text">
+    <string>Ask for Punishment</string>
    </property>
   </action>
   <action name="actionIgnore_Remind_Punishments">
@@ -428,14 +441,9 @@
     <string>List and Delete Assignments</string>
    </property>
   </action>
-  <action name="actionAbout">
+  <action name="actionClothing">
    <property name="text">
-    <string>About</string>
-   </property>
-  </action>
-  <action name="actionView_Assignments">
-   <property name="text">
-    <string>View Assignments</string>
+    <string>Clothing</string>
    </property>
   </action>
  </widget>

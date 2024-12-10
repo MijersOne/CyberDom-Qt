@@ -10,116 +10,60 @@
     <height>600</height>
    </rect>
   </property>
-  <property name="palette">
-   <palette>
-    <active>
-     <colorrole role="Window">
-      <brush brushstyle="SolidPattern">
-       <color alpha="255">
-        <red>91</red>
-        <green>91</green>
-        <blue>91</blue>
-       </color>
-      </brush>
-     </colorrole>
-    </active>
-    <inactive>
-     <colorrole role="Window">
-      <brush brushstyle="SolidPattern">
-       <color alpha="255">
-        <red>91</red>
-        <green>91</green>
-        <blue>91</blue>
-       </color>
-      </brush>
-     </colorrole>
-    </inactive>
-    <disabled>
-     <colorrole role="Base">
-      <brush brushstyle="SolidPattern">
-       <color alpha="255">
-        <red>91</red>
-        <green>91</green>
-        <blue>91</blue>
-       </color>
-      </brush>
-     </colorrole>
-     <colorrole role="Window">
-      <brush brushstyle="SolidPattern">
-       <color alpha="255">
-        <red>91</red>
-        <green>91</green>
-        <blue>91</blue>
-       </color>
-      </brush>
-     </colorrole>
-    </disabled>
-   </palette>
-  </property>
   <property name="windowTitle">
-   <string>MainWindow</string>
+   <string>Assignments</string>
   </property>
   <widget class="QWidget" name="centralwidget">
-   <widget class="QTextBrowser" name="assignmentwindow">
+   <widget class="QTextBrowser" name="text_AssignmentNotes">
     <property name="geometry">
      <rect>
-      <x>30</x>
-      <y>60</y>
-      <width>741</width>
-      <height>371</height>
-     </rect>
-    </property>
-   </widget>
-   <widget class="QTextBrowser" name="assignmentnotes">
-    <property name="geometry">
-     <rect>
-      <x>30</x>
+      <x>20</x>
       <y>440</y>
-      <width>741</width>
-      <height>91</height>
+      <width>761</width>
+      <height>81</height>
      </rect>
     </property>
    </widget>
-   <widget class="QPushButton" name="start">
+   <widget class="QPushButton" name="btn_Start">
     <property name="geometry">
      <rect>
-      <x>60</x>
+      <x>30</x>
       <y>540</y>
       <width>80</width>
       <height>24</height>
      </rect>
     </property>
     <property name="text">
-     <string>Start</string>
+     <string>&amp;Start</string>
     </property>
    </widget>
-   <widget class="QPushButton" name="done">
+   <widget class="QPushButton" name="btn_Done">
     <property name="geometry">
      <rect>
-      <x>210</x>
+      <x>190</x>
       <y>540</y>
       <width>80</width>
       <height>24</height>
      </rect>
     </property>
     <property name="text">
-     <string>Done</string>
+     <string>&amp;Done</string>
     </property>
    </widget>
-   <widget class="QPushButton" name="abort">
+   <widget class="QPushButton" name="btn_Abort">
     <property name="geometry">
      <rect>
-      <x>360</x>
+      <x>350</x>
       <y>540</y>
       <width>80</width>
       <height>24</height>
      </rect>
     </property>
     <property name="text">
-     <string>Abort</string>
+     <string>&amp;Abort</string>
     </property>
    </widget>
-   <widget class="QPushButton" name="delete_2">
+   <widget class="QPushButton" name="btn_Delete">
     <property name="geometry">
      <rect>
       <x>510</x>
@@ -132,54 +76,27 @@
      <string>Delete</string>
     </property>
    </widget>
-   <widget class="QPushButton" name="close">
+   <widget class="QPushButton" name="btn_Close">
     <property name="geometry">
      <rect>
-      <x>670</x>
+      <x>660</x>
       <y>540</y>
       <width>80</width>
       <height>24</height>
      </rect>
     </property>
     <property name="text">
-     <string>Close</string>
+     <string>&amp;Close</string>
     </property>
    </widget>
-   <widget class="QLabel" name="deadline">
+   <widget class="QLabel" name="label_Deadline">
     <property name="geometry">
      <rect>
-      <x>50</x>
+      <x>30</x>
       <y>30</y>
       <width>71</width>
       <height>21</height>
      </rect>
-    </property>
-    <property name="palette">
-     <palette>
-      <active>
-       <colorrole role="Text">
-        <brush brushstyle="SolidPattern">
-         <color alpha="255">
-          <red>255</red>
-          <green>255</green>
-          <blue>255</blue>
-         </color>
-        </brush>
-       </colorrole>
-      </active>
-      <inactive>
-       <colorrole role="Text">
-        <brush brushstyle="SolidPattern">
-         <color alpha="255">
-          <red>255</red>
-          <green>255</green>
-          <blue>255</blue>
-         </color>
-        </brush>
-       </colorrole>
-      </inactive>
-      <disabled/>
-     </palette>
     </property>
     <property name="font">
      <font>
@@ -187,13 +104,10 @@
      </font>
     </property>
     <property name="text">
-     <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#ffffff;&quot;&gt;Deadline&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-    </property>
-    <property name="alignment">
-     <set>Qt::AlignmentFlag::AlignCenter</set>
+     <string>Deadline</string>
     </property>
    </widget>
-   <widget class="QLabel" name="assignment">
+   <widget class="QLabel" name="label_Assignment">
     <property name="geometry">
      <rect>
       <x>220</x>
@@ -208,15 +122,39 @@
      </font>
     </property>
     <property name="text">
-     <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#ffffff;&quot;&gt;Assignment&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+     <string>Assignment</string>
     </property>
-    <property name="alignment">
-     <set>Qt::AlignmentFlag::AlignCenter</set>
+   </widget>
+   <widget class="QListWidget" name="list_Assignments">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>60</y>
+      <width>761</width>
+      <height>371</height>
+     </rect>
     </property>
    </widget>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
  </widget>
  <resources/>
- <connections/>
+ <connections>
+  <connection>
+   <sender>btn_Close</sender>
+   <signal>clicked()</signal>
+   <receiver>Assignments</receiver>
+   <slot>close()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>699</x>
+     <y>551</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>399</x>
+     <y>299</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
 </ui>
