@@ -1,24 +1,24 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>AddClothType</class>
- <widget class="QDialog" name="AddClothType">
+ <class>SelectPunishment</class>
+ <widget class="QDialog" name="SelectPunishment">
   <property name="geometry">
    <rect>
     <x>0</x>
     <y>0</y>
     <width>400</width>
-    <height>216</height>
+    <height>158</height>
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Add Cloth Type</string>
+   <string>Give Punishment</string>
   </property>
   <widget class="QDialogButtonBox" name="buttonBox">
    <property name="geometry">
     <rect>
-     <x>20</x>
-     <y>140</y>
-     <width>341</width>
+     <x>100</x>
+     <y>110</y>
+     <width>171</width>
      <height>32</height>
     </rect>
    </property>
@@ -28,36 +28,33 @@
    <property name="standardButtons">
     <set>QDialogButtonBox::StandardButton::Cancel|QDialogButtonBox::StandardButton::Ok</set>
    </property>
-   <property name="centerButtons">
-    <bool>true</bool>
-   </property>
   </widget>
-  <widget class="QLabel" name="lbl_ClothInstructions">
+  <widget class="QComboBox" name="comboBox">
    <property name="geometry">
     <rect>
-     <x>30</x>
+     <x>40</x>
+     <y>70</y>
+     <width>301</width>
+     <height>26</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label">
+   <property name="geometry">
+    <rect>
+     <x>40</x>
      <y>40</y>
-     <width>211</width>
+     <width>171</width>
      <height>21</height>
     </rect>
    </property>
    <property name="font">
     <font>
-     <pointsize>12</pointsize>
+     <pointsize>14</pointsize>
     </font>
    </property>
    <property name="text">
-    <string>Name of the new cloth type:</string>
-   </property>
-  </widget>
-  <widget class="QLineEdit" name="le_ClothType">
-   <property name="geometry">
-    <rect>
-     <x>30</x>
-     <y>80</y>
-     <width>341</width>
-     <height>23</height>
-    </rect>
+    <string>Select Punishment:</string>
    </property>
   </widget>
  </widget>
@@ -65,8 +62,24 @@
  <connections>
   <connection>
    <sender>buttonBox</sender>
+   <signal>accepted()</signal>
+   <receiver>SelectPunishment</receiver>
+   <slot>accept()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>248</x>
+     <y>254</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>157</x>
+     <y>274</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>buttonBox</sender>
    <signal>rejected()</signal>
-   <receiver>AddClothType</receiver>
+   <receiver>SelectPunishment</receiver>
    <slot>reject()</slot>
    <hints>
     <hint type="sourcelabel">
@@ -76,22 +89,6 @@
     <hint type="destinationlabel">
      <x>286</x>
      <y>274</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>buttonBox</sender>
-   <signal>accepted()</signal>
-   <receiver>AddClothType</receiver>
-   <slot>accept()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>190</x>
-     <y>155</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>199</x>
-     <y>107</y>
     </hint>
    </hints>
   </connection>

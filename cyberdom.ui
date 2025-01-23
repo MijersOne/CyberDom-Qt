@@ -24,7 +24,7 @@
      </rect>
     </property>
    </widget>
-   <widget class="QLabel" name="label">
+   <widget class="QLabel" name="lbl_Merits">
     <property name="geometry">
      <rect>
       <x>20</x>
@@ -79,7 +79,7 @@
      <number>24</number>
     </property>
    </widget>
-   <widget class="QLabel" name="label_2">
+   <widget class="QLabel" name="lbl_Status">
     <property name="geometry">
      <rect>
       <x>20</x>
@@ -102,8 +102,8 @@
      <rect>
       <x>690</x>
       <y>480</y>
-      <width>71</width>
-      <height>16</height>
+      <width>91</width>
+      <height>20</height>
      </rect>
     </property>
     <property name="text">
@@ -141,7 +141,7 @@
     <addaction name="actionCofess"/>
     <addaction name="actionAsk_for_Clothing_Instructions"/>
     <addaction name="actionAsk_for_Other_Instructions"/>
-    <addaction name="actionAs_for_Punishment"/>
+    <addaction name="actionAsk_for_Punishment"/>
    </widget>
    <widget class="QMenu" name="menuAssignments">
     <property name="title">
@@ -361,32 +361,47 @@
     <enum>QAction::MenuRole::NoRole</enum>
    </property>
   </action>
-  <action name="actionAs_for_Punishment">
+  <action name="actionAsk_for_Punishment">
    <property name="text">
     <string>Ask for Punishment</string>
    </property>
   </action>
   <action name="actionIgnore_Remind_Punishments">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
    <property name="text">
     <string>Ignore Remind Punishments</string>
    </property>
   </action>
   <action name="actionRandomize">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
    <property name="text">
     <string>Randomize</string>
    </property>
   </action>
   <action name="actionPop_Ups_Quick">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
    <property name="text">
     <string>Pop Ups Quick</string>
    </property>
   </action>
   <action name="actionAlways_Permit">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
    <property name="text">
     <string>Always Permit</string>
    </property>
   </action>
   <action name="actionAlways_Deny">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
    <property name="text">
     <string>Always Deny</string>
    </property>
