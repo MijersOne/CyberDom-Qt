@@ -356,12 +356,12 @@ QString CyberDom::promptForIniFile() {
 }
 
 void CyberDom::saveIniFilePath(const QString &filePath) {
-    QSettings settings("CyberDom", "Desire_Games"); // Replace with you app/company name
+    QSettings settings("Desire_Games", "CyberDom"); // Replace with you app/company name
     settings.setValue("SelectedIniFile", filePath);
 }
 
 QString CyberDom::loadIniFilePath() {
-    QSettings settings("CyberDom", "Desire_Games");
+    QSettings settings("Desire_Games", "CyberDom");
     return settings.value("SelectedIniFile", "").toString();
 }
 
