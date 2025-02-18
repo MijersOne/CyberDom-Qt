@@ -23,6 +23,8 @@ signals:
 
 private slots:
     void onOkClicked();
+    void addTime(int days, int hours, int minutes, int seconds);
+   // void on_toolButton_triggered(QAction *arg1);
 };
 
 #endif // TIMEADD_H

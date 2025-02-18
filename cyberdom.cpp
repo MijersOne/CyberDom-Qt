@@ -16,6 +16,7 @@
 #include "listflags.h" // Include the header for the ListFlags UI
 #include "setflags.h" // Include the header for the SetFlags UI
 #include "deleteassignments.h" // Include the header for the DeleteAssignments UI
+#include "askpunishment.h"
 
 #include <QFileDialog>
 #include <QMessageBox>
@@ -85,6 +86,9 @@ CyberDom::CyberDom(QWidget *parent)
     // Initialize the .ini file
     initializeIniFile();
 
+    // Load the INI file and set minMerits and maxMerits
+    loadIniFile();
+
     // Initialize the internal clock with the current system time
     internalClock = QDateTime::currentDateTime();
 
@@ -98,11 +102,55 @@ CyberDom::CyberDom(QWidget *parent)
 
     // Setup menu connections for Rules submenu
     setupMenuConnections();
+
+    // Override progress bar values from the loaded INI file
+    initializeProgressBarRange();
+
+    // Debugging values to confirm override
+    qDebug() << "CyberDom initialized with Min Merits:" << minMerits << "Max Merits:" << maxMerits;
+    qDebug() << "Final ProgressBar Min:" << ui->progressBar->minimum();
+    qDebug() << "Final ProgressBar Max:" << ui->progressBar->maximum();
 }
 
 CyberDom::~CyberDom()
 {
     delete ui;
+}
+
+int CyberDom::getMinMerits() const
+{
+    return minMerits;
+}
+
+int CyberDom::getMaxMerits() const
+{
+    return maxMerits;
+}
+
+int CyberDom::getAskPunishmentMin() const {
+    return askPunishmentMin;
+}
+
+int CyberDom::getAskPunishmentMax() const {
+    return askPunishmentMax;
+}
+
+void CyberDom::loadIniFile()
+{
+    QSettings settings("", QSettings::IniFormat);
+
+    bool ok;
+    minMerits = getIniValue("General", "MinMerits").toInt(&ok);
+    if (!ok) {
+        qDebug() << "Error converting MinMerits to int, using default value of 0";
+        minMerits = 0; // Default value
+    }
+
+    maxMerits = getIniValue("General", "MaxMerits").toInt(&ok);
+    if (!ok) {
+        qDebug() << "Error converting MaxMerits to int, using default value of 100";
+        maxMerits = 100; // Default value
+    }
 }
 
 void CyberDom::openAssignmentsWindow()
@@ -203,7 +251,10 @@ void CyberDom::setupMenuConnections()
 
 void CyberDom::openAskPunishmentDialog()
 {
-    AskPunishment askPunishmentDialog(this); // Create the AskPunishment dialog, passing the parent
+    int minPunishment = getAskPunishmentMin();
+    int maxPunishment = getAskPunishmentMax();
+
+    AskPunishment askPunishmentDialog(this, minPunishment, maxPunishment); // Create the AskPunishment dialog, passing the parent
     askPunishmentDialog.exec(); // Show the dialog modally
 }
 
@@ -213,24 +264,45 @@ void CyberDom::openChangeMeritsDialog()
     QSettings settings(currentIniFile, QSettings::IniFormat);
 
     // Fetch MinMerits, MaxMerits, and current Merits
-    int minMerits = settings.value("General/MinMerits", 0).toInt();
-    int maxMerits = settings.value("General/MaxMerits", 100).toInt();
-    int currentMerits = ui->progressBar->value(); // Use the current value of progressBar
+    //int minMerits = settings.value("General/MinMerits", 0).toInt();
+    int minMerits = getIniValue("General", "MinMerits").toInt();
+    //int maxMerits = settings.value("General/MaxMerits", 100).toInt();
+    int maxMerits = getIniValue("General", "MaxMerits").toInt();
 
     qDebug() << "Opening ChangeMerits Dialog with:";
     qDebug() << "  MinMerits:" << minMerits;
     qDebug() << "  MaxMerits:" << maxMerits;
-    qDebug() << "  CurrentMerits:" << currentMerits;
 
-    ChangeMerits changeMeritsDialog(this, minMerits, maxMerits, currentMerits); // Create the ChangeMerits dialog, passing the parent
+    ChangeMerits changeMeritsDialog(this, minMerits, maxMerits); // Create the ChangeMerits dialog, passing the parent
     connect(&changeMeritsDialog, &ChangeMerits::meritsUpdated, this, &CyberDom::updateMerits);
 
     changeMeritsDialog.exec(); // Show the dialog modally
+
+    qDebug() << "Opening ChangeMerits with MinMerits:" << minMerits << "MaxMerits:" << maxMerits;
 }
 
 void CyberDom::openChangeStatusDialog()
 {
-    ChangeStatus changeStatusDialog(this); // Create the ChangeStatus dialog, passing the parent
+    // Retrieve available statuses from INI file
+    QStringList availableStatuses;
+
+    // Loop through all sections and extract status names
+    for (const QString &section : iniData.keys()) {
+        if (section.toLower().startsWith("status-")) {
+            availableStatuses.append(section.mid(7)); // Extract the name after "Status-"
+        }
+    }
+
+    if (availableStatuses.isEmpty()) {
+            QMessageBox::warning(this, "No Statuses Found", "No statuses are defined in the script.");
+            return;
+        }
+
+    // Debugging to check all found statuses
+    qDebug() << "Available Statuses Loaded: " << availableStatuses;
+
+    ChangeStatus changeStatusDialog(this, currentStatus, availableStatuses); // Create the ChangeStatus dialog, passing the parent
+    connect(&changeStatusDialog, &ChangeStatus::statusUpdated, this, &CyberDom::updateStatus);
     changeStatusDialog.exec(); // Show the dialog modally
 }
 
@@ -307,21 +379,26 @@ void CyberDom::initializeIniFile() {
     }
 
     this->currentIniFile = iniFilePath; // Store the path for later use
-    qDebug() << "INI File Path set to:" << currentIniFile;
+
+    // Set up a separate settings file
+    QFileInfo iniFileInfo(currentIniFile);
+    settingsFile = iniFileInfo.absolutePath() + "/user_settings.ini";
 
     parseIniFile(); // Parse and store .ini data
 
-    // Apply the visibility of the Test Menu
-    if (testMenuEnabled) {
-        ui->menuTest->menuAction()->setVisible(true); // Show the Test Menu
-        qDebug() << "Test Menu is visible.";
-    } else {
-        ui->menuTest->menuAction()->setVisible(false); // Hide the Test Menu
-        qDebug() << "Test Menu is hidden.";
-    }
+    // Call parseAskPunishment() after parsing the INI
+    parseAskPunishment();
 
     // Parse and load any include files
     parseIncludeFiles(currentIniFile);
+
+    // Override UI values
+    initializeProgressBarRange();
+
+    // // Ensure Test Menu Visibility is set AFTER Parsing
+    // ui->menuTest->menuAction()->setVisible(testMenuEnabled);
+    // qDebug() << "[DEBUG] Final TestMenu Enabled Value: " << testMenuEnabled;
+    // qDebug() << "[DEBUG] Test Menu Visibility Set to: " << ui->menuTest->menuAction()->isVisible();
 
     // Check if the file exists
     QFile file(iniFilePath);
@@ -330,6 +407,8 @@ void CyberDom::initializeIniFile() {
     }
 
     QSettings settings(iniFilePath, QSettings::IniFormat);
+    currentStatus = settings.value("User/CurrentStatus", iniData["General"].value("DefaultStatus", "Normal")).toString();
+    qDebug() << "Loaded Default Status from INI or User Settings: " << currentStatus;
 
     // Load settings
     QString master = getIniValue("General", "Master");
@@ -343,6 +422,35 @@ void CyberDom::initializeIniFile() {
     qDebug() << "INI File Path:" << iniFilePath;
     qDebug() << "Master Variable:" << master;
     qDebug() << "SubName Variable:" << subName;
+}
+
+void CyberDom::updateStatus(const QString &newStatus) {
+    if (newStatus.isEmpty()) {
+        qDebug() << "Warning: Attempted to set an empty status.";
+        return;
+    }
+
+    currentStatus = newStatus;
+
+    // Convert underscores to spaces
+    QString formattedStatus = newStatus;
+    formattedStatus.replace("_", " ");
+
+    // Capitalize each word
+    QStringList words = formattedStatus.split(" ");
+    for (QString &word : words) {
+        word[0] = word[0].toUpper(); // Capitalize first letter
+    }
+    formattedStatus = words.join(" ");
+
+    // Update the label on the main window
+    ui->lbl_Status->setText("Status: " + formattedStatus);
+
+    // Save the status in the user settings file (not the script's INI)
+    QSettings settings(settingsFile, QSettings::IniFormat);
+    settings.setValue("User/CurrentStatus", currentStatus);
+
+    qDebug() << "Updated Status Label: " << formattedStatus;
 }
 
 void CyberDom::resetApplication() {
@@ -376,6 +484,15 @@ QString CyberDom::replaceVariables(const QString &input) const {
 void CyberDom::processIniValue(const QString &key) {
     QSettings settings(currentIniFile, QSettings::IniFormat);
 
+    QStringList globalKeys = settings.childKeys();
+    if (!globalKeys.isEmpty()) {
+        QMap<QString, QString> globalData;
+        for (const QString &key : globalKeys) {
+            globalData.insert(key, settings.value(key).toString());
+        }
+        iniData.insert("Global", globalData);
+    }
+
     if (!settings.contains(key)) {
         qDebug() << "Key not found in INI File:" << key;
         return;
@@ -388,96 +505,123 @@ void CyberDom::processIniValue(const QString &key) {
 }
 
 void CyberDom::parseIniFile() {
-    QFile file(currentIniFile);
-    if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        QTextStream in(&file);
-        qDebug() << "INI File Contents:";
-        while (!in.atEnd()) {
-            qDebug() << in.readLine();
-        }
-        file.close();
+    if (currentIniFile.isEmpty()) {
+        qDebug() << "Error: No INI file is selected.";
+        return;
     }
 
-    QSettings settings(currentIniFile, QSettings::IniFormat);
-    iniData.clear(); // Clear existing data
+    QFile file(currentIniFile);
+    if (!file.exists()) {
+        qDebug() << "Error: INI file does not exist ->" << currentIniFile;
+        return;
+    }
 
-    // Special case for [General]
-    QStringList generalKeys = settings.childKeys(); // Global keys (outside any group)
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        qDebug() << "Error: Failed to open INI file ->" << currentIniFile;
+        return;
+    }
+
+    QTextStream in(&file);
+    qDebug() << "INI File Contents:";
+    while (!in.atEnd()) {
+        qDebug() << in.readLine();
+    }
+    file.close();
+
+    QSettings settings(currentIniFile, QSettings::IniFormat);
+    iniData.clear(); // Clear previous data
+
+    // --- [General] Section Handling ---
+    settings.beginGroup("General");
+    QStringList generalKeys = settings.childKeys();
     if (!generalKeys.isEmpty()) {
         QMap<QString, QString> generalData;
         for (const QString &key : generalKeys) {
             QString value = settings.value(key).toString();
 
-            if(key == "AskPunishment") {
-                // Parse AskPunishment value
+            // Handle AskPunishment
+            if (key == "AskPunishment") {
                 QStringList values = value.split(",");
                 if (values.size() == 2) {
                     bool minOk, maxOk;
                     askPunishmentMin = values[0].trimmed().toInt(&minOk);
                     askPunishmentMax = values[1].trimmed().toInt(&maxOk);
 
-                    if(!minOk || !maxOk) {
-                        qDebug() << "Error: Non-numeric AskPunishment values found.";
-                        askPunishmentMin = 0; // Fallback default
-                        askPunishmentMax = 0; // Fallback default
+                    if (!minOk || !maxOk) {
+                        qDebug() << "Error: Non-numeric AskPunishment values found. Using defaults (0,0).";
+                        askPunishmentMin = 0;
+                        askPunishmentMax = 0;
                     }
                 } else {
-                    qDebug() << "Error: Invalid AskPunishment format. Expected two comma-separated values.";
-                    askPunishmentMin = 0; // Default value
-                    askPunishmentMax = 0; // Default value
+                    qDebug() << "Error: Invalid AskPunishment format. Expected two comma-separated values. Using defaults (0,0).";
+                    askPunishmentMin = 0;
+                    askPunishmentMax = 0;
                 }
             }
 
+            qDebug() << "[Debug] Reached Line 562 - Entering Function";
+            // Handle TestMenu
             if (key == "TestMenu") {
                 bool ok;
-                int intValue = value.trimmed().toInt(&ok); // Explicit conversion to integer
+                int intValue = value.trimmed().toInt(&ok);
                 if (ok) {
                     testMenuEnabled = (intValue == 1);
-                    qDebug() << "Parsed TestMenu as Integer:" << intValue << ", Enabled:" << testMenuEnabled;
-                } else {
-                    testMenuEnabled = false;
-                    qDebug() << "Failed to parse TestMenu value as integer. Defaulting to false.";
                 }
+                qDebug() << "[DEBUG] Parsed TestMenu Value from INI: " << intValue;
+                qDebug() << "[DEBUG] TestMenu Enabled Flag Set to: " << testMenuEnabled;
             }
 
-            // Debug Output
-            qDebug() << "Final TestMenu Enabled Value:" << testMenuEnabled;
-            qDebug() << "MaxMerits:" << iniData["General"]["MaxMerits"];
-            qDebug() << "MinMerits:" << iniData["General"]["MinMerits"];
-
-            generalData.insert(key, value);
+            // Ensure Test Menu Visibility is set AFTER Parsing
+            ui->menuTest->menuAction()->setVisible(testMenuEnabled);
+            qDebug() << "[DEBUG] Final TestMenu Enabled Value: " << testMenuEnabled;
+            qDebug() << "[DEBUG] Test Menu Visibility Set to: " << ui->menuTest->menuAction()->isVisible();
+            qDebug() << "[DEBUG] Exiting Function at Line 57";
         }
-        iniData.insert("General", generalData); // Insert [General] section manually
+
+        iniData.insert("General", generalData);
+    } else {
+        qDebug() << "Warning: [General] section missing in INI file.";
     }
+    settings.endGroup();
 
-    QStringList groups = settings.childGroups(); // Get all sections
+    // --- Parse All Other Sections ---
+    QStringList groups = settings.childGroups();
     for (const QString &group : groups) {
-        settings.beginGroup(group); // Enter the section
-        QStringList keys = settings.childKeys(); // Get keys in the section
-        qDebug() << "Section:" << group;
-        for (const QString &key : keys) {
-            qDebug() << "  Key:" << key << "Value:" << settings.value(key).toString();
-        }
+        if (group == "General") continue; // Already processed
 
+        settings.beginGroup(group);
+        QStringList keys = settings.childKeys();
         QMap<QString, QString> keyValues;
+
+        qDebug() << "Processing Section: " << group;
         for (const QString &key : keys) {
             QString value = settings.value(key).toString();
-            keyValues.insert(key, value); // Store key-value pairs
+            keyValues.insert(key, value);
+            qDebug() << "  Key:" << key << "Value:" << value;
         }
-        iniData.insert(group, keyValues); // Store the section
-        settings.endGroup(); // Exit the section
+
+        iniData.insert(group, keyValues);
+        settings.endGroup();
     }
 
-    // Debug: Print AskPunishment values
-    qDebug() << "AskPunishment Min:" << askPunishmentMin << "Max:" << askPunishmentMax;
+    // --- Validate and Log Results ---
+    qDebug() << "Final TestMenu Enabled Value:" << testMenuEnabled;
 
-    // Debug: Print all data
-    for (const QString &section : iniData.keys()) {
-        qDebug() << "Section:" << section;
-        for (const QString &key : iniData[section].keys()) {
-            qDebug() << "  Key:" << key << "Value:" << iniData[section][key];
-        }
+    // Validate and print Merit values
+    bool ok;
+    int maxMerits = iniData["General"].value("MaxMerits", "1000").toInt(&ok);
+    if (!ok) {
+        qDebug() << "Error converting MaxMerits to int. Using default 1000.";
+        maxMerits = 1000;
     }
+
+    int minMerits = iniData["General"].value("MinMerits", "0").toInt(&ok);
+    if (!ok) {
+        qDebug() << "Error converting MinMerits to int. Using default 0.";
+        minMerits = 0;
+    }
+
+    qDebug() << "Final Merit Ranges -> Min:" << minMerits << "Max:" << maxMerits;
 }
 
 void CyberDom::parseIncludeFiles(const QString &filePath) {
@@ -536,42 +680,51 @@ void CyberDom::loadIncludeFile(const QString &fileName) {
     qDebug() << "Loaded include file:" << filePath;
 }
 
-QString CyberDom::getIniValue(const QString &section, const QString &key) const {
-    if (iniData.contains(section) && iniData[section].contains(key)) {
-        return iniData[section][key];
+QString CyberDom::getIniValue(const QString &section, const QString &key, const QString &defaultValue) const {
+    if (iniData.contains(section)) {
+        qDebug() << "Warning: Section not found in INI -" << section;
+        return defaultValue;
     }
-    return QString(); // Return empty string if not found
+
+    if (!iniData[section].contains(key)) {
+        qDebug() << "Warning: Key not found in section -" << section << "/" << key;
+        return defaultValue;
+    }
+
+    QString value = iniData[section][key];
+    qDebug() << "getIniValue Retrieved -> Section: " << section << ", Key: " << key << ", Value: " << value;
+    return value;
 }
 
 int CyberDom::getMeritsFromIni() {
     QSettings settings(currentIniFile, QSettings::IniFormat);
-    return settings.value("Init/Merits", 0).toInt(); // Default to 0 if not found
+    return getIniValue("Init", "Merits").toInt(); // Default to 0 if not found
 }
 
 void CyberDom::initializeUiWithIniFile() {
     if (iniData.contains("init")) {
         int initialMerits = iniData["init"]["Merits"].toInt();
-        ui->progressBar->setValue("Merits: " + int initialMerits);
-        ui->lbl_Merits->setText(QString::number(initialMerits));
+        ui->progressBar->setValue(initialMerits);
+        ui->lbl_Merits->setText("Merits: " + QString::number(initialMerits));
+        ui->lbl_Status->setText("Status: " + currentStatus);
         qDebug() << "Initial Merits:" << initialMerits;
     }
 }
 
 void CyberDom::initializeProgressBarRange() {
-    int maxMerits = 100; // Default Value
-    int minMerits = 0; // Default Value
+    bool ok = false;
 
-    if (iniData.contains("General")) {
-        int maxMerits = iniData["General"].value("MaxMerits", "100").toInt();
-        int minMerits = iniData["General"].value("MinMerits", "0").toInt();
+    int maxMerits = getIniValue(QString("General"), QString("MaxMerits"), QString("1000")).toInt(&ok);
+    if (!ok) maxMerits = 1000; // Fallback value if conversion fails
 
-        qDebug() << "MaxMerits:" << maxMerits << "MinMerits:" << minMerits;
-    }
+    int minMerits = getIniValue("General", "MinMerits", "0").toInt(&ok);
+    if (!ok) minMerits = 0;
 
+    // Set the progress bar values correctly
     ui->progressBar->setMinimum(minMerits);
     ui->progressBar->setMaximum(maxMerits);
 
-    qDebug() << "ProgressBar Range:" << minMerits << "to" << maxMerits;
+    qDebug() << "ProgressBar Range Set: Min=" << minMerits << "Max=" << maxMerits;
 }
 
 void CyberDom::updateProgressBarValue() {
@@ -584,4 +737,43 @@ void CyberDom::updateMerits(int newMerits) {
     ui->lbl_Merits->setText("Merits: " + QString::number(newMerits)); // Update lbl_Merits
 
     qDebug() << "Merits updated to:" << newMerits;
+}
+
+void CyberDom::parseAskPunishment() {
+    QString askPunishmentValue = getIniValue("General", "AskPunishment", "25,75");
+
+    if (askPunishmentValue.isEmpty()) {
+        qDebug() << "Error: AskPunishment key not found. Using default values.";
+        askPunishmentMin = 25;
+        askPunishmentMax = 75;
+        return;
+}
+
+    qDebug() << "Raw AskPunishment Value from INI:" << askPunishmentValue;
+
+    QStringList values = askPunishmentValue.split(",");
+    if (values.size() != 2) {
+        qDebug() << "Error: Invalid AskPunishment format. Expected two comma-separated values.";
+        askPunishmentMin = 25;
+        askPunishmentMax = 75;
+        return;
+    }
+
+    bool okMin, okMax;
+    int minVal = values[0].toInt(&okMin);
+    int maxVal = values[1].toInt(&okMax);
+
+    qDebug() << "Parsed AskPunishment Values -> Min:" << minVal << ", Max:" << maxVal;
+
+    // If parsing failed, set defaults
+    if (!okMin || !okMax) {
+        qDebug() << "Error: Failed to convert AskPunishment values to integers.";
+        askPunishmentMin = 25;
+        askPunishmentMax = 75;
+    } else {
+        askPunishmentMin = minVal;
+        askPunishmentMax = maxVal;
+    }
+
+    qDebug() << "Final AskPunishment Values -> Min:" << askPunishmentMin << ", Max:" << askPunishmentMax;
 }

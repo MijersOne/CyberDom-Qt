@@ -12,7 +12,7 @@ class ChangeMerits : public QDialog
     Q_OBJECT
 
 public:
-    explicit ChangeMerits(QWidget *parent = nullptr, int minMerits = 0, int maxMerits = 100, int currentMerits = 0);
+    explicit ChangeMerits(QWidget *parent = nullptr, int minMerits = 0, int maxMerits = 100);
     ~ChangeMerits();
 
 signals:

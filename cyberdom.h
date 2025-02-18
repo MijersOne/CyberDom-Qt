@@ -24,10 +24,14 @@ public:
     ~CyberDom();
     QString replaceVariables(const QString &input) const;
 
+    int getMinMerits() const;
+    int getMaxMerits() const;
+
 public slots:
     void openAssignmentsWindow(); // Slot function to open the Assignments Window
     void openTimeAddDialog(); // Slot function to open the TimeAdd Dialog
     void updateInternalClock(); // Slot to update the internal clock display
+    void updateStatus(const QString &newStatus); // Slot function to update the Status
 
 private:
     QString promptForIniFile();
@@ -41,6 +45,10 @@ private:
     void initializeUiWithIniFile();
     void initializeProgressBarRange();
     void updateProgressBarValue();
+    void loadIniFile();
+    void parseAskPunishment();
+    QString settingsFile; // Path to the separate user settings file
+    QString currentStatus; // Store the current status
 
     QMap<QString, QMap<QString, QString>> iniData;
 
@@ -53,13 +61,19 @@ private:
 
     Rules *rulesDialog; // Pointer to hold the Rules dialog instance
 
-    QString getIniValue(const QString &section, const QString &key) const;
+    QString getIniValue(const QString &section, const QString &key, const QString &defaultValue = "") const;
     QString masterVariable; // Stores the value of "Master" from the .ini file
     QString subNameVariable; // Stores the value of "subName" from the .ini file
 
     int askPunishmentMin; // Minimum punishment value
     int askPunishmentMax; // Maximum punishment value
     int getMeritsFromIni();
+    int minMerits;
+    int maxMerits;
+    int minPunishment;
+    int maxPunishment;
+    int getAskPunishmentMin() const;
+    int getAskPunishmentMax() const;
 
     bool testMenuEnabled = false; // Tracks if the Test Menu should be shown
 
