@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Dialog</string>
+   <string>Set Flags</string>
   </property>
   <widget class="QDialogButtonBox" name="buttonBox">
    <property name="geometry">
@@ -19,7 +19,7 @@
      <x>750</x>
      <y>30</y>
      <width>81</width>
-     <height>241</height>
+     <height>451</height>
     </rect>
    </property>
    <property name="orientation">

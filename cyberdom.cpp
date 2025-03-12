@@ -6,7 +6,7 @@
 #include "selectpopup.h" // Include the header for the SelectPopups UI
 #include "selectpunishment.h" // Include the header for the SelectPunishments UI
 #include "ui_cyberdom.h"
-#include "ui_assignments.h" // Include the header for Assignments UI
+// #include "ui_assignments.h" // Include the header for Assignments UI
 #include "timeadd.h" // Include the header for Time_Add UI
 #include "about.h" // Include the header for About UI
 #include "askclothing.h" // Include the header for AskClothing UI
@@ -23,6 +23,9 @@
 #include <QSettings>
 #include <QProcess>
 #include <QFile>
+#include <QRandomGenerator>
+#include <cstdlib>
+#include <ctime>
 
 CyberDom::CyberDom(QWidget *parent)
     : QMainWindow(parent)
@@ -90,7 +93,20 @@ CyberDom::CyberDom(QWidget *parent)
     loadIniFile();
 
     // Initialize the internal clock with the current system time
-    internalClock = QDateTime::currentDateTime();
+    QSettings settings(settingsFile, QSettings::IniFormat);
+    QString savedDate = settings.value("System/CurrentDate", "").toString();
+    QString savedTime = settings.value("System/CurrentTime", "").toString();
+
+    if (savedDate.isEmpty()) {
+        // First run - use system date and time
+        internalClock = QDateTime::currentDateTime();
+        settings.setValue("System/CurrentDate", internalClock.date().toString("MM-dd-yyyy"));
+    } else {
+        // Use saved date but current time
+        QDate date = QDate::fromString(savedDate, "MM-dd-yyyy");
+        QTime time = QTime::fromString(savedTime, "HH:MM");
+        internalClock = QDateTime(date, time);
+    }
 
     // Setup the timer
     clockTimer = new QTimer(this);
@@ -106,6 +122,16 @@ CyberDom::CyberDom(QWidget *parent)
     // Override progress bar values from the loaded INI file
     initializeProgressBarRange();
 
+    // Intialize PunishmentTimer
+    punishmentTimer = new QTimer(this);
+    connect(punishmentTimer, &QTimer::timeout, this, &CyberDom::checkPunishments);
+    punishmentTimer->start(60000); // Check every minute
+
+    // Intialize Flag Timer
+    flagTimer = new QTimer(this);
+    connect(flagTimer, &QTimer::timeout, this, &CyberDom::checkFlagExpiry);
+    flagTimer->start(30000); // Check every 30 seconds
+
     // Debugging values to confirm override
     qDebug() << "CyberDom initialized with Min Merits:" << minMerits << "Max Merits:" << maxMerits;
     qDebug() << "Final ProgressBar Min:" << ui->progressBar->minimum();
@@ -115,6 +141,7 @@ CyberDom::CyberDom(QWidget *parent)
 CyberDom::~CyberDom()
 {
     delete ui;
+    delete scriptParser;
 }
 
 int CyberDom::getMinMerits() const
@@ -156,13 +183,24 @@ void CyberDom::loadIniFile()
 void CyberDom::openAssignmentsWindow()
 {
     if (!assignmentsWindow) {
-        assignmentsWindow = new QMainWindow(this); // Create the window if not already created
-        assignmentsUi.setupUi(assignmentsWindow); // Setup the Assignments UI
+        assignmentsWindow = new Assignments(this, this);
+        connect(this, &CyberDom::jobListUpdated, assignmentsWindow, &Assignments::populateJobList);
     }
-    assignmentsWindow->show(); // Show the Assignments Window
-    assignmentsWindow->raise(); // Bring the window to the front (optional)
-    assignmentsWindow->activateWindow(); // Activate the window (optional)
+    assignmentsWindow->show();
+    assignmentsWindow->raise();
+    assignmentsWindow->activateWindow();
 }
+
+// void CyberDom::openAssignmentsWindow()
+// {
+//     if (!assignmentsWindow) {
+//         assignmentsWindow = new QMainWindow(this); // Create the window if not already created
+//         assignmentsUi.setupUi(assignmentsWindow); // Setup the Assignments UI
+//     }
+//     assignmentsWindow->show(); // Show the Assignments Window
+//     assignmentsWindow->raise(); // Bring the window to the front (optional)
+//     assignmentsWindow->activateWindow(); // Activate the window (optional)
+// }
 
 void CyberDom::openTimeAddDialog()
 {
@@ -183,11 +221,23 @@ void CyberDom::applyTimeToClock(int days, int hours, int minutes, int seconds)
 
 void CyberDom::updateInternalClock()
 {
+    // Store previous time to check if we crossed midnight
+    QDateTime previousTime = internalClock;
+
     // Increment the internal clock by 1 second
     internalClock = internalClock.addSecs(1);
 
     // Update the QLabel to display the new time
     ui->clockLabel->setText(internalClock.toString("hh:mm:ss AP"));
+
+    // Check if we crossed midnight (new day)
+    if (previousTime.date() != internalClock.date()) {
+        qDebug() << "Date changed from: " << previousTime.toString("MM-dd-yyyy") << "to: " << internalClock.toString("MM-dd-yyyy");
+
+        // Save the current date to settings
+        QSettings settings(settingsFile, QSettings::IniFormat);
+        settings.setValue("System/CurrentDate", internalClock.date().toString("MM-dd-yyyy"));
+    }
 }
 
 void CyberDom::openAboutDialog()
@@ -314,7 +364,7 @@ void CyberDom::openLaunchJobDialog()
 
 void CyberDom::openSelectPunishmentDialog()
 {
-    SelectPunishment selectPunishmentDialog(this); // Create the SelectPunishment dialog, passing the parent
+    SelectPunishment selectPunishmentDialog(this, iniData); // Create the SelectPunishment dialog, passing the parent
     selectPunishmentDialog.exec(); // Show the dialog modally
 }
 
@@ -326,13 +376,15 @@ void CyberDom::openSelectPopupDialog()
 
 void CyberDom::openListFlagsDialog()
 {
-    ListFlags listFlagsDialog(this); // Create the ListFlags dialog, passing the parent
+    ListFlags listFlagsDialog(this, &flags);    // Create the ListFlags dialog, passing the parent
+    connect(&listFlagsDialog, &ListFlags::flagRemoveRequested, this, &CyberDom::removeFlag);
     listFlagsDialog.exec(); // Show the dialog modally
 }
 
 void CyberDom::openSetFlagsDialog()
 {
     SetFlags setFlagsDialog(this); // Create the SetFlags dialog, passing the parent
+    connect(&setFlagsDialog,&SetFlags::flagSetRequested, this, &CyberDom::setFlag);
     setFlagsDialog.exec(); // Show the dialog modally
 }
 
@@ -378,50 +430,8 @@ void CyberDom::initializeIniFile() {
         }
     }
 
-    this->currentIniFile = iniFilePath; // Store the path for later use
-
-    // Set up a separate settings file
-    QFileInfo iniFileInfo(currentIniFile);
-    settingsFile = iniFileInfo.absolutePath() + "/user_settings.ini";
-
-    parseIniFile(); // Parse and store .ini data
-
-    // Call parseAskPunishment() after parsing the INI
-    parseAskPunishment();
-
-    // Parse and load any include files
-    parseIncludeFiles(currentIniFile);
-
-    // Override UI values
-    initializeProgressBarRange();
-
-    // // Ensure Test Menu Visibility is set AFTER Parsing
-    // ui->menuTest->menuAction()->setVisible(testMenuEnabled);
-    // qDebug() << "[DEBUG] Final TestMenu Enabled Value: " << testMenuEnabled;
-    // qDebug() << "[DEBUG] Test Menu Visibility Set to: " << ui->menuTest->menuAction()->isVisible();
-
-    // Check if the file exists
-    QFile file(iniFilePath);
-    if (!file.exists()) {
-        qDebug() << "Error: INI file does not exist at the specified path.";
-    }
-
-    QSettings settings(iniFilePath, QSettings::IniFormat);
-    currentStatus = settings.value("User/CurrentStatus", iniData["General"].value("DefaultStatus", "Normal")).toString();
-    qDebug() << "Loaded Default Status from INI or User Settings: " << currentStatus;
-
-    // Load settings
-    QString master = getIniValue("General", "Master");
-    QString subName = getIniValue("General", "SubName");
-
-    // Initialize the UI components
-    initializeUiWithIniFile(); // Update lbl_Merits
-    initializeProgressBarRange(); // Set progressBar min/max
-    updateProgressBarValue(); // Set progressBar current value
-
-    qDebug() << "INI File Path:" << iniFilePath;
-    qDebug() << "Master Variable:" << master;
-    qDebug() << "SubName Variable:" << subName;
+    // Use new parsing method
+    loadAndParseScript(iniFilePath);
 }
 
 void CyberDom::updateStatus(const QString &newStatus) {
@@ -430,27 +440,146 @@ void CyberDom::updateStatus(const QString &newStatus) {
         return;
     }
 
+    // Store previous status for events (if needed)
+    QString previousStatus = currentStatus;
+
     currentStatus = newStatus;
 
     // Convert underscores to spaces
     QString formattedStatus = newStatus;
     formattedStatus.replace("_", " ");
 
-    // Capitalize each word
     QStringList words = formattedStatus.split(" ");
     for (QString &word : words) {
-        word[0] = word[0].toUpper(); // Capitalize first letter
+        if (!word.isEmpty()) {
+            word[0] = word[0].toUpper(); // Capitalize first letter
+        }
     }
     formattedStatus = words.join(" ");
 
     // Update the label on the main window
     ui->lbl_Status->setText("Status: " + formattedStatus);
 
-    // Save the status in the user settings file (not the script's INI)
+    // Update the text box with the Status text
+    updateStatusText();
+
+    // Save the status in the user settings
     QSettings settings(settingsFile, QSettings::IniFormat);
     settings.setValue("User/CurrentStatus", currentStatus);
 
     qDebug() << "Updated Status Label: " << formattedStatus;
+}
+
+void CyberDom::updateStatusText() {
+    ui->textBrowser->clear();
+
+    QString statusText = "";
+
+    // Add top text if defined in [General] section
+    if (iniData.contains("General") && iniData["General"].contains("TopText")) {
+        statusText += iniData["General"]["TopText"] + "\n\n";
+    }
+
+    // Get text from the current status definition
+    QString statusKey = "status-" + currentStatus;
+    if (iniData.contains(statusKey)) {
+        QMap<QString, QString> statusData = iniData[statusKey];
+
+        // Collect all text= lines
+        QStringList textLines;
+        for (auto it = statusData.begin(); it != statusData.end(); ++it) {
+            if (it.key().toLower() == "text") {
+                textLines.append(it.value());
+            }
+        }
+
+        if (!textLines.isEmpty()) {
+            statusText += textLines.join("\n") + "\n\n";
+        }
+    }
+
+    // Process special placeholders
+    statusText.replace("%instructions", lastInstructions);
+    statusText.replace("%clothing", lastClothingInstructions);
+
+    // Add text from active flags
+    QMapIterator<QString, FlagData> flagIter(flags);
+    while (flagIter.hasNext()) {
+        flagIter.next();
+        const FlagData &flagData = flagIter.value();
+
+        if (!flagData.text.isEmpty()) {
+            statusText += flagData.text + "\n";
+        } else {
+            // Try to get text from the script if not stored in the flag data
+            QString flagKey = "flag-" + flagIter.key();
+            if (iniData.contains(flagKey)) {
+                QMap<QString, QString> flagDefData = iniData[flagKey];
+                if (flagDefData.contains("text")) {
+                    statusText += flagDefData["text"] + "\n";
+                }
+            }
+        }
+    }
+
+    // Add bottom text if defined
+    if (iniData.contains("General") && iniData["General"].contains("BottomText")) {
+        statusText += "\n" + iniData["General"]["BottomText"];
+    }
+
+    // Set the completed text in the UI
+    ui->textBrowser->setText(statusText);
+}
+
+void CyberDom::updateInstructions(const QString &instructions) {
+    lastInstructions = instructions;
+    updateStatusText(); // Refresh the status text if needed
+}
+
+void CyberDom::updateClothingInstructions(const QString &instructions) {
+    lastClothingInstructions = instructions;
+    updateStatusText(); // Refresh status text if needed
+}
+
+void CyberDom::setFlag(const QString &flagName, int durationMinutes) {
+    // Create a new flag data structure
+    FlagData flagData;
+    flagData.name = flagName;
+    flagData.setTime = internalClock;
+
+    // Set expiry time if duration is specified
+    if (durationMinutes > 0) {
+        flagData.expiryTime = internalClock.addSecs(durationMinutes * 60);
+    }
+
+    // Add flag text if defined in the script
+    QString flagKey = "flag-" + flagName;
+    if (iniData.contains(flagKey)) {
+        QMap<QString, QString> flagDefData = iniData[flagKey];
+        if (flagDefData.contains("text")) {
+            flagData.text = flagDefData["text"];
+        }
+
+        // Handle groups if defined
+        if (flagDefData.contains("Group")) {
+            flagData.groups = flagDefData["Group"].split(",");
+        }
+    }
+
+    // Store the flag
+    flags[flagName] = flagData;
+
+    // Update UI
+    updateStatusText();
+    qDebug() << "Flag set: " << flagName;
+}
+
+void CyberDom::removeFlag(const QString &flagName) {
+    if (flags.contains(flagName)) {
+        flags.remove(flagName);
+        updateStatusText(); // Update text as flag might have added text
+        qDebug() << "Flag removed: " << flagName;
+    }
 }
 
 void CyberDom::resetApplication() {
@@ -461,8 +590,16 @@ void CyberDom::resetApplication() {
 
     if (response == QMessageBox::Yes) {
         // Clear stored settings
-        QSettings settings("CyberDom", "Desire_Games");
+        QSettings settings("Desire_Games", "CyberDom");
         settings.clear();
+
+        // Delete the physical User_Settings.ini file
+        QFile settingsFileObj(settingsFile);
+        if (settingsFileObj.exists()) {
+            if (!settingsFileObj.remove()) {
+                QMessageBox::warning(this, "Reset Warning", "Could not delete the settings file. The application will restart, but settings may persist.");
+            }
+        }
 
         // Notify the user
         QMessageBox::information(this, "Application Successfully Reset", "The application will now restart.");
@@ -504,125 +641,399 @@ void CyberDom::processIniValue(const QString &key) {
     qDebug() << "Processed value:" << value;
 }
 
-void CyberDom::parseIniFile() {
-    if (currentIniFile.isEmpty()) {
-        qDebug() << "Error: No INI file is selected.";
+void CyberDom::loadAndParseScript(const QString &filePath) {
+    if (filePath.isEmpty()) {
+        qDebug() << "[ERROR] No script file path provided.";
         return;
     }
 
-    QFile file(currentIniFile);
-    if (!file.exists()) {
-        qDebug() << "Error: INI file does not exist ->" << currentIniFile;
+    // Create new script parser if needed
+    if (!scriptParser) {
+        scriptParser = new ScriptParser(this);
+    }
+
+    // Parse the script file
+    if (!scriptParser->parseScript(filePath)) {
+        qDebug() << "[ERROR] Failed to parse script file.";
+        QMessageBox::critical(this, "[Script Error", "Failed to parse the script file. Please check that it's a valid script.");
         return;
     }
 
-    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        qDebug() << "Error: Failed to open INI file ->" << currentIniFile;
-        return;
-    }
+    // Store the path to the current ini file
+    this->currentIniFile = filePath;
 
-    QTextStream in(&file);
-    qDebug() << "INI File Contents:";
-    while (!in.atEnd()) {
-        qDebug() << in.readLine();
-    }
-    file.close();
+    // Setup a separate settings file for user data
+    QFileInfo iniFileInfo(currentIniFile);
+    settingsFile = iniFileInfo.absolutePath() + "/user_settings.ini";
 
-    QSettings settings(currentIniFile, QSettings::IniFormat);
-    iniData.clear(); // Clear previous data
+    // Apply the script settings to the application
+    applyScriptSettings();
 
-    // --- [General] Section Handling ---
-    settings.beginGroup("General");
-    QStringList generalKeys = settings.childKeys();
-    if (!generalKeys.isEmpty()) {
-        QMap<QString, QString> generalData;
-        for (const QString &key : generalKeys) {
-            QString value = settings.value(key).toString();
+    // Initialize UI with script data
+    initializeUiWithIniFile();
 
-            // Handle AskPunishment
-            if (key == "AskPunishment") {
-                QStringList values = value.split(",");
-                if (values.size() == 2) {
-                    bool minOk, maxOk;
-                    askPunishmentMin = values[0].trimmed().toInt(&minOk);
-                    askPunishmentMax = values[1].trimmed().toInt(&maxOk);
+    // Update the status display
+    setupInitialStatus();
 
-                    if (!minOk || !maxOk) {
-                        qDebug() << "Error: Non-numeric AskPunishment values found. Using defaults (0,0).";
-                        askPunishmentMin = 0;
-                        askPunishmentMax = 0;
-                    }
-                } else {
-                    qDebug() << "Error: Invalid AskPunishment format. Expected two comma-separated values. Using defaults (0,0).";
-                    askPunishmentMin = 0;
-                    askPunishmentMax = 0;
-                }
-            }
-
-            qDebug() << "[Debug] Reached Line 562 - Entering Function";
-            // Handle TestMenu
-            if (key == "TestMenu") {
-                bool ok;
-                int intValue = value.trimmed().toInt(&ok);
-                if (ok) {
-                    testMenuEnabled = (intValue == 1);
-                }
-                qDebug() << "[DEBUG] Parsed TestMenu Value from INI: " << intValue;
-                qDebug() << "[DEBUG] TestMenu Enabled Flag Set to: " << testMenuEnabled;
-            }
-
-            // Ensure Test Menu Visibility is set AFTER Parsing
-            ui->menuTest->menuAction()->setVisible(testMenuEnabled);
-            qDebug() << "[DEBUG] Final TestMenu Enabled Value: " << testMenuEnabled;
-            qDebug() << "[DEBUG] Test Menu Visibility Set to: " << ui->menuTest->menuAction()->isVisible();
-            qDebug() << "[DEBUG] Exiting Function at Line 57";
-        }
-
-        iniData.insert("General", generalData);
-    } else {
-        qDebug() << "Warning: [General] section missing in INI file.";
-    }
-    settings.endGroup();
-
-    // --- Parse All Other Sections ---
-    QStringList groups = settings.childGroups();
-    for (const QString &group : groups) {
-        if (group == "General") continue; // Already processed
-
-        settings.beginGroup(group);
-        QStringList keys = settings.childKeys();
-        QMap<QString, QString> keyValues;
-
-        qDebug() << "Processing Section: " << group;
-        for (const QString &key : keys) {
-            QString value = settings.value(key).toString();
-            keyValues.insert(key, value);
-            qDebug() << "  Key:" << key << "Value:" << value;
-        }
-
-        iniData.insert(group, keyValues);
-        settings.endGroup();
-    }
-
-    // --- Validate and Log Results ---
-    qDebug() << "Final TestMenu Enabled Value:" << testMenuEnabled;
-
-    // Validate and print Merit values
-    bool ok;
-    int maxMerits = iniData["General"].value("MaxMerits", "1000").toInt(&ok);
-    if (!ok) {
-        qDebug() << "Error converting MaxMerits to int. Using default 1000.";
-        maxMerits = 1000;
-    }
-
-    int minMerits = iniData["General"].value("MinMerits", "0").toInt(&ok);
-    if (!ok) {
-        qDebug() << "Error converting MinMerits to int. Using default 0.";
-        minMerits = 0;
-    }
-
-    qDebug() << "Final Merit Ranges -> Min:" << minMerits << "Max:" << maxMerits;
+    qDebug() << "Script successfully loaded and parsed from: " << filePath;
 }
+
+void CyberDom::applyScriptSettings() {
+    // Apply general settings
+    masterVariable = scriptParser->getMaster();
+    subNameVariable = scriptParser->getSubName();
+    minMerits = scriptParser->getMinMerits();
+    maxMerits = scriptParser->getMaxMerits();
+    testMenuEnabled = scriptParser->isTestMenuEnabled();
+
+    // Initialize progress bar range
+    initializeProgressBarRange();
+
+    // Update the window title
+    setWindowTitle(QString("%1's Virtual Master").arg(masterVariable));
+
+    // Set visibility of Test Menu
+    ui->menuTest->menuAction()->setVisible(testMenuEnabled);
+
+    // Parse and load job assignments
+    QList<JobSection> jobs = scriptParser->getJobSections();
+    for (const JobSection &job : jobs) {
+        // Add daily jobs to assignment list
+        if (job.runDays.contains("daily", Qt::CaseInsensitive)) {
+            assignedJobs.insert(job.name);
+            qDebug() << "[DEBUG] Assigned Daily Job: " << job.name;
+        }
+    }
+
+    // Update the ask punishment values
+    QString askPunishmentStr = scriptParser->getIniValue("General", "AskPunishment");
+    if (!askPunishmentStr.isEmpty()) {
+        QStringList values = askPunishmentStr.split(",");
+        if (values.size() == 2) {
+            bool minOk, maxOk;
+            askPunishmentMin = values[0].trimmed().toInt(&minOk);
+            askPunishmentMax = values[1].trimmed().toInt(&maxOk);
+
+            if (!minOk || !maxOk) {
+                askPunishmentMin = 25;
+                askPunishmentMax = 75;
+            }
+        }
+    } else {
+        askPunishmentMin = 25;
+        askPunishmentMax = 75;
+    }
+
+    // Build status groups from the parsed data
+    statusGroups.clear();
+    for (const StatusSection &status : scriptParser->getStatusSections()) {
+        for (const QString &group : status.groups) {
+            if (!statusGroups.contains(group)) {
+                statusGroups[group] = QStringList ();
+            }
+            statusGroups[group].append(status.name);
+        }
+    }
+}
+
+void CyberDom::setupInitialStatus() {
+    // Get settings from the user settings file if it exists
+    QSettings settings(settingsFile, QSettings::IniFormat);
+
+    QString savedStatus = settings.value("User/CurrentStatus").toString();
+
+    // If no saved status, check the init section for NewStatus
+    if (savedStatus.isEmpty()) {
+        QString iniStatus = scriptParser->getIniValue("init", "NewStatus");
+        if (!iniStatus.isEmpty()) {
+            savedStatus = iniStatus;
+        } else {
+            // Default to "Normal" if no status is defined
+            savedStatus = "Normal";
+        }
+    }
+
+    // Update the current status
+    currentStatus = savedStatus;
+
+    // Update the UI
+    updateStatusDisplay();
+    updateAvailableActions();
+
+    qDebug() << "Initial status set to: " << currentStatus;
+}
+
+void CyberDom::changeStatus(const QString &newStatus, bool isSubStatus) {
+    // Validate the new status exists
+    if (!scriptParser->getStatus(newStatus).name.isEmpty()) {
+        qDebug() << "[ERROR] Status: '" << newStatus << "' doesn't exist in the script.";
+        return;
+    }
+
+    // If this is a substatus, save the current status for later return
+    if (isSubStatus) {
+        statusHistory.push(currentStatus);
+    } else {
+        // Clear status history when changing to a primary status
+        statusHistory.clear();
+    }
+
+    // Update status
+    QString oldStatus = currentStatus;
+    currentStatus = newStatus;
+
+    // Update UI elements based on new status
+    updateStatusDisplay();
+    updateAvailableActions();
+
+    // Sae the status to settings
+    QSettings settings(settingsFile, QSettings::IniFormat);
+    settings.setValue("User/CurrentStatus", currentStatus);
+
+    // Log the status change
+    qDebug() << "Status changed from" << oldStatus << "to" << currentStatus;
+
+    // Check for and execute any status-entry procedures
+    executeStatusEntryProcedures(newStatus);
+}
+
+void CyberDom::returntoLastStatus() {
+    if (!statusHistory.isEmpty()) {
+        QString lastStatus = statusHistory.pop();
+        changeStatus(lastStatus);
+    } else {
+        // If no history, maybe go to a default status from general section
+        QString defaultStatus = scriptParser->getIniValue("General", "DefaultStatus");
+        if (!defaultStatus.isEmpty()) {
+            changeStatus(defaultStatus);
+        } else {
+            qDebug() << "No previous status to return to and no default status defined.";
+        }
+    }
+}
+
+bool CyberDom::isInStatusGroup(const QString &groupName) {
+    // Check if current status belongs to the given group
+    return statusGroups.value(groupName).contains(currentStatus);
+}
+
+void CyberDom::updateStatusDisplay() {
+    // Format the status name for display (replace underscores with spaces, capitalize words)
+    QString formattedStatus = currentStatus;
+    formattedStatus.replace("_", " ");
+
+    QStringList words = formattedStatus.split(" ");
+    for (QString &word : words) {
+        if (!word.isEmpty()) {
+            word[0] = word[0].toUpper(); // Capitalize the first letter
+        }
+    }
+    formattedStatus = words.join(" ");
+
+    // Update the label on the main window
+    ui->lbl_Status->setText("Status: " + formattedStatus);
+
+    // Update the text box with the Status text
+    updateStatusText();
+}
+
+void CyberDom::updateAvailableActions() {
+    // Get the current status data
+    StatusSection status = scriptParser->getStatus(currentStatus);
+
+    // Update UI based on status permissions
+    ui->actionPermissions->setEnabled(status.permissionsAllowed);
+    ui->actionAsk_for_Punishment->setEnabled(status.permissionsAllowed);
+    ui->actionConfessions->setEnabled(status.confessionsAllowed);
+    ui->actionReports->setEnabled(status.reportsAllowed);
+    ui->menuRules->setEnabled(status.rulesAllowed);
+    ui->menuAssignments->setEnabled(status.assignmentsAllowed);
+
+    // If ReportsOnly is true, disable everything except reports
+    if (status.reportsOnly) {
+        ui->actionPermissions->setEnabled(false);
+        ui->actionAsk_for_Punishment->setEnabled(false);
+        ui->actionConfessions->setEnabled(false);
+        ui->menuRules->setEnabled(false);
+        ui->menuAssignments->setEnabled(false);
+    }
+}
+
+void CyberDom::executeStatusEntryProcedures(const QString &statusName) {
+    // This would execute any procedures that should run when entering a status
+    // For now, this is a placeholder that will be implemented later
+    qDebug() << "Executing entry procedures for status: " << statusName;
+}
+
+// void CyberDom::parseIniFile() {
+//     if (currentIniFile.isEmpty()) {
+//         qDebug() << "Error: No INI file is selected.";
+//         return;
+//     }
+
+//     QFile file(currentIniFile);
+//     if (!file.exists()) {
+//         qDebug() << "Error: INI file does not exist ->" << currentIniFile;
+//         return;
+//     }
+
+//     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+//         qDebug() << "Error: Failed to open INI file ->" << currentIniFile;
+//         return;
+//     }
+
+//     QTextStream in(&file);
+//     qDebug() << "INI File Contents:";
+//     while (!in.atEnd()) {
+//         qDebug() << in.readLine();
+//     }
+//     file.close();
+
+//     QSettings settings(currentIniFile, QSettings::IniFormat);
+//     iniData.clear(); // Clear previous data
+
+//     // --- [General] Section Handling ---
+//     settings.beginGroup("General");
+//     QStringList generalKeys = settings.childKeys();
+//     if (!generalKeys.isEmpty()) {
+//         QMap<QString, QString> generalData;
+//         for (const QString &key : generalKeys) {
+//             QString value = settings.value(key).toString();
+
+//             // Handle AskPunishment
+//             if (key == "AskPunishment") {
+//                 QStringList values = value.split(",");
+//                 if (values.size() == 2) {
+//                     bool minOk, maxOk;
+//                     askPunishmentMin = values[0].trimmed().toInt(&minOk);
+//                     askPunishmentMax = values[1].trimmed().toInt(&maxOk);
+
+//                     if (!minOk || !maxOk) {
+//                         qDebug() << "Error: Non-numeric AskPunishment values found. Using defaults (0,0).";
+//                         askPunishmentMin = 0;
+//                         askPunishmentMax = 0;
+//                     }
+//                 } else {
+//                     qDebug() << "Error: Invalid AskPunishment format. Expected two comma-separated values. Using defaults (0,0).";
+//                     askPunishmentMin = 0;
+//                     askPunishmentMax = 0;
+//                 }
+//             }
+
+//             qDebug() << "[Debug] Reached Line 562 - Entering Function";
+//             // Handle TestMenu
+//             if (key == "TestMenu") {
+//                 bool ok;
+//                 int intValue = value.trimmed().toInt(&ok);
+//                 if (ok) {
+//                     testMenuEnabled = (intValue == 1);
+//                 }
+//                 qDebug() << "[DEBUG] Parsed TestMenu Value from INI: " << intValue;
+//                 qDebug() << "[DEBUG] TestMenu Enabled Flag Set to: " << testMenuEnabled;
+//             }
+
+//             // Ensure Test Menu Visibility is set AFTER Parsing
+//             ui->menuTest->menuAction()->setVisible(testMenuEnabled);
+//             qDebug() << "[DEBUG] Final TestMenu Enabled Value: " << testMenuEnabled;
+//             qDebug() << "[DEBUG] Test Menu Visibility Set to: " << ui->menuTest->menuAction()->isVisible();
+//             qDebug() << "[DEBUG] Exiting Function at Line 57";
+//         }
+
+//         iniData.insert("General", generalData);
+//     } else {
+//         qDebug() << "Warning: [General] section missing in INI file.";
+//     }
+//     settings.endGroup();
+
+//     QStringList groups = settings.childGroups();
+//     for (const QString &group : groups) {
+//         settings.beginGroup(group);
+
+//         if (group.startsWith("job-")) { // Identify job sections
+//             QString jobName = group.mid(4); // Remove "job-" prefix
+//             QMap<QString, QString> jobData;
+
+//             QStringList keys = settings.childKeys();
+//             for (const QString &key : keys) {
+//                 jobData.insert(key, settings.value(key).toString());
+//             }
+
+//             iniData.insert(group, jobData);
+
+//             // Check if job is currently assigned
+//             if (!assignedJobs.contains(jobName)) {
+//                 assignedJobs.insert(jobName);
+//                 qDebug() << "[DEBUG] Assigned Job: " << jobName;
+//             }
+//         }
+
+//         settings.endGroup();
+//     }
+
+//     qDebug() << "[DEBUG] Total Assigned Jobs: " << assignedJobs;
+
+//     // --- Parse All Other Sections ---
+//     for (const QString &group : groups) {
+//         if (group == "General") continue; // Already processed
+
+//         settings.beginGroup(group);
+//         QStringList keys = settings.childKeys();
+//         QMap<QString, QString> keyValues;
+
+//         qDebug() << "Processing Section: " << group;
+//         for (const QString &key : keys) {
+//             QString value = settings.value(key).toString();
+//             keyValues.insert(key, value);
+//             qDebug() << "  Key:" << key << "Value:" << value;
+//         }
+
+//         iniData.insert(group, keyValues);
+//         settings.endGroup();
+//     }
+
+//     // --- Validate and Log Results ---
+//     qDebug() << "Final TestMenu Enabled Value:" << testMenuEnabled;
+
+//     // Validate and print Merit values
+//     bool ok;
+//     int maxMerits = iniData["General"].value("MaxMerits", "1000").toInt(&ok);
+//     if (!ok) {
+//         qDebug() << "Error converting MaxMerits to int. Using default 1000.";
+//         maxMerits = 1000;
+//     }
+
+//     int minMerits = iniData["General"].value("MinMerits", "0").toInt(&ok);
+//     if (!ok) {
+//         qDebug() << "Error converting MinMerits to int. Using default 0.";
+//         minMerits = 0;
+//     }
+
+//     qDebug() << "Final Merit Ranges -> Min:" << minMerits << "Max:" << maxMerits;
+
+//     // if (group.startsWith("status-")) {
+//     //     QString statusName = group.mid(7); // Remove "status-" prefix
+//     //     QMap<QString, QString> statusData;
+
+//     //     QStringList keys = settings.childKeys();
+//     //     for (const QString &key : keys) {
+//     //         QString value = settings.value(key).toString();
+
+//     //         // Store multiple text lines with incremental keys if key is "text"
+//     //         if (key.toLower() == "text") {
+//     //             // Check if we already have text lines
+//     //             int i = 1;
+//     //             while (statusData.contains("text" + QString::number(i))) {
+//     //                 i++;
+//     //             }
+//     //             statusData.insert("text" + QString::number(i), value);
+//     //         } else {
+//     //             statusData.insert(key, value);
+//     //         }
+//     //     }
+
+//     //     iniData.insert(group, statusData);
+//     // }
+// }
 
 void CyberDom::parseIncludeFiles(const QString &filePath) {
     QFile file(filePath);
@@ -709,6 +1120,8 @@ void CyberDom::initializeUiWithIniFile() {
         ui->lbl_Status->setText("Status: " + currentStatus);
         qDebug() << "Initial Merits:" << initialMerits;
     }
+
+    updateStatusText();
 }
 
 void CyberDom::initializeProgressBarRange() {
@@ -776,4 +1189,302 @@ void CyberDom::parseAskPunishment() {
     }
 
     qDebug() << "Final AskPunishment Values -> Min:" << askPunishmentMin << ", Max:" << askPunishmentMax;
+}
+
+QStringList CyberDom::getAvailableJobs() {
+    QStringList jobList;
+
+    for (const QString &section : iniData.keys()) {
+        if (section.startsWith("job-")) {
+            jobList.append(section.mid(4)); // Remove "job-" prefix
+        }
+    }
+
+    qDebug() << "[DEBUG] Loaded Job List: " << jobList;
+    return jobList;
+}
+
+void CyberDom::assignScheduledJobs() {
+    QDateTime currentTime = QDateTime::currentDateTime();
+
+    for (const QString &job : iniData.keys()) {
+        if (!job.startsWith("job-")) continue;
+
+        QMap<QString, QString> jobDetails = iniData[job];
+
+        // Run Daily Jobs
+        if (jobDetails.contains("Run") && jobDetails["Run"] == "Daily") {
+            if (!activeAssignments.contains(job)) {
+                activeAssignments.insert(job);
+                qDebug() << "[DEBUG] Job Auto-Assigned (Daily Run): " << job;
+            }
+        }
+
+        // Run Jobs at Specific Intervals
+        if (jobDetails.contains("FirstInterval")) {
+            QTime jobStartTime = QTime::fromString(jobDetails["FirstInterval"], "hh:mm");
+            if (currentTime.time() >= jobStartTime && !activeAssignments.contains(job)) {
+                activeAssignments.insert(job);
+                qDebug() << "[DEBUG] Job Auto-Assigned (First Interval): " << job;
+            }
+        }
+    }
+}
+
+void CyberDom::assignJobFromTrigger(QString section) {
+    if (!iniData.contains(section)) return; // If section doesn't exist, return
+
+    QMap<QString, QString> sectionData = iniData[section];
+
+    if (sectionData.contains("Job")) {
+        QString jobName = sectionData["Job"].trimmed();
+        if (!activeAssignments.contains(jobName)) {
+            activeAssignments.insert(jobName);
+
+
+            // Extract EndTime if available
+            if (iniData.contains("job-" + jobName)) {
+                QMap<QString, QString> jobDetails = iniData["job-" + jobName];
+
+                if (jobDetails.contains("EndTime")) {
+                    // Extract EndTime (HH:MM format)
+                    QString endTimeStr = jobDetails["EndTime"];
+                    QTime endTime = QTime::fromString(endTimeStr, "HH:mm");
+
+                    if (endTime.isValid()) {
+                        // Create deadline datetime using current date initially
+                        QDateTime deadline = QDateTime(internalClock.date(), endTime);
+
+                        // If the deadline time has already passed today, move to tomorrow
+                        if (deadline <= internalClock) {
+                            deadline = deadline.addDays(1);
+                        }
+
+                        jobDeadlines[jobName] = deadline;
+                        qDebug() << "[DEBUG] Job deadline set: " << jobName << " - " << deadline.toString("MM-dd-yyyy hh:mm AP");
+                    }
+                }
+            }
+
+            qDebug() << "[DEBUG] Assigned Job: " << jobName;
+        }
+    }
+}
+
+void CyberDom::addJobToAssignments(QString jobName)
+{
+    if (!activeAssignments.contains(jobName)) {
+        activeAssignments.insert(jobName);
+        qDebug() << "[DEBUG] Job added to active assignments: " << jobName;
+
+        // Process the deadline based on EndTime
+        if (iniData.contains("job-" + jobName)) {
+            QMap<QString, QString> jobDetails = iniData["job-" + jobName];
+
+            if (jobDetails.contains("EndTime")) {
+                // Extract EndTime (HH:MM format)
+                QString endTimeStr = jobDetails["EndTime"];
+                QTime endTime = QTime::fromString(endTimeStr, "HH:mm");
+
+                if (endTime.isValid()) {
+                    // Create deadline datetime using the current date initially
+                    QDateTime deadline = QDateTime(internalClock.date(), endTime);
+
+                    // If the deadline time has already passed today, move to tomorrow
+                    if (deadline <= internalClock) {
+                        deadline = deadline.addDays(1);
+                    }
+
+                    jobDeadlines[jobName] = deadline;
+                    qDebug() << "[DEBUG] Job deadline set: " << jobName << " - " << deadline.toString("MM-dd-yyyy hh:mm AP");
+                } else {
+                    qDebug() << "[DEBUG] Invalid EndTime format for job: " << jobName;
+                }
+            }
+        }
+
+        emit jobListUpdated();
+        qDebug() << "[DEBUG] jobListUpdated Signal Emitted!";
+    } else {
+        qDebug() << "[DEBUG] Job already exists in active assignments: " << jobName;
+    }
+}
+
+void CyberDom::checkPunishments() {
+    QDateTime now = QDateTime::currentDateTime();
+
+    // Check if any punishments have reached their deadline
+    for (const QString &jobName : activeAssignments) {
+        if (jobDeadlines.contains(jobName) && jobDeadlines[jobName] <= now) {
+            // Handle completed punishments (e.g., remove from activeJobs, show a message)
+            qDebug() << "Punishment completed: " << jobName;
+            activeAssignments.remove(jobName);
+            jobDeadlines.remove(jobName);
+            emit jobListUpdated(); // Update the Assignments window
+        }
+    }
+}
+
+void CyberDom::addPunishmentToAssignments(QString punishmentName)
+{
+    if (!activeAssignments.contains(punishmentName)) {
+        activeAssignments.insert(punishmentName);
+        qDebug() << "[DEBUG] Punishment added to active assignments: " << punishmentName;
+
+        // Process the deadline based on Respite or other timing parameters
+        if (iniData.contains("punishment-" + punishmentName)) {
+            QMap<QString, QString> punishmentDetails = iniData["punishment-" + punishmentName];
+
+            // Calculate deadline based on punishment parameters
+            QDateTime deadline = internalClock; // Start with current time
+
+            // Check if punishment has Respite value
+            if (punishmentDetails.contains("Respite")) {
+                QString respiteStr = punishmentDetails["Respite"];
+                QStringList respiteParts = respiteStr.split(":");
+
+                if (respiteParts.size() >= 2) {
+                    int hours = respiteParts[0].toInt();
+                    int minutes = respiteParts[1].toInt();
+
+                    deadline = deadline.addSecs(hours * 3600 + minutes * 60);
+                    qDebug() << "[DEBUG] Punishment deadline set from Respite: " << deadline.toString("MM-dd-yyyy hh:mm AP");
+                }
+            }
+            // Check if punishment has a ValueUnit of time
+            else if (punishmentDetails.contains("ValueUnit")) {
+                QString valueUnit = punishmentDetails["ValueUnit"];
+                int value = 0;
+
+                // Get the severity/value
+                if (punishmentDetails.contains("value")) {
+                    value = punishmentDetails["value"].toInt();
+                }
+
+                if (valueUnit.toLower() == "minute") {
+                    deadline = deadline.addSecs(value * 60);
+                } else if (valueUnit.toLower() == "hour") {
+                    deadline = deadline.addSecs(value * 3600);
+                } else if (valueUnit.toLower() == "day") {
+                    deadline = deadline.addDays(value);
+                }
+
+                qDebug() << "[DEBUG] Punishment deadline set from ValueUnit: " << deadline.toString("MM-dd-yyyy hh:mm AP");
+            }
+
+            jobDeadlines[punishmentName] = deadline;
+        }
+
+        emit jobListUpdated();
+        qDebug() << "[DEBUG] jobListUpdated Signal Emitted!";
+    } else {
+        qDebug() << "[DEBUG] Punishment already exists in active assignments: " << punishmentName;
+    }
+}
+
+void CyberDom::applyPunishment(int severity, const QString &group)
+{
+    // Choose a punishment based on severity and group
+    QString punishmentName = selectPunishmentFromGroup(severity, group);
+
+    if (!punishmentName.isEmpty()) {
+        addPunishmentToAssignments(punishmentName);
+    }
+}
+
+QString CyberDom::selectPunishmentFromGroup(int severity, const QString &group)
+{
+    QList<QString> eligiblePunishments;
+
+    // Iterate through all punishments in iniData
+    QMapIterator<QString, QMap<QString, QString>> i(iniData);
+    while (i.hasNext()) {
+        i.next();
+
+        if (i.key().startsWith("punishment-")) {
+            QString punishmentId = i.key();
+            QString punishmentName = punishmentId.mid(11);
+            QMap<QString, QString> punishmentData = i.value();
+
+            // Check if punishment belongs to the specified group
+            if (group.isEmpty() ||
+                (punishmentData.contains("Group") && punishmentData["Group"].split(",").contains(group))) {
+
+                // Check if punishment is suitable for the severity
+                bool suitable = true;
+
+                if (punishmentData.contains("MinSeverity")) {
+                    int minSeverity = punishmentData["MinSeverity"].toInt();
+                    if (severity < minSeverity) {
+                        suitable = false;
+                    }
+                }
+
+                if (punishmentData.contains("MaxSeverity")) {
+                    int maxSeverity = punishmentData["MaxSeverity"].toInt();
+                    if (severity > maxSeverity) {
+                        suitable = false;
+                    }
+                }
+
+                if (suitable) {
+                    eligiblePunishments.append(punishmentName);
+                }
+            }
+        }
+    }
+
+    // If there are eligible punishments, choose one randomly
+    if (!eligiblePunishments.isEmpty()) {
+        int index;
+
+        #if QT_VERSION >= QT_VERSION_CHECK(5, 10, 0)
+            // Use QRandomGenerator for Qt 5.10+
+            index = QRandomGenerator::global()->bounded(eligiblePunishments.size());
+        #else
+            static bool seeded = false;
+            if (!seeded) {
+                std::srand(static_cast<unsigned int>(std::time(nullptr)));
+                seeded = true;
+            }
+            index = std::rand() % eligiblePunishments.size();
+        #endif
+
+        return eligiblePunishments.at(index);
+    }
+
+    return QString();  // Returns an empty string if no suitable punishment is found.
+}
+
+void CyberDom::checkFlagExpiry() {
+    QDateTime now = internalClock;
+    QMutableMapIterator<QString, FlagData> i(flags);
+
+    while (i.hasNext()) {
+        i.next();
+        if (i.value().expiryTime.isValid() && i.value().expiryTime <= now) {
+            QString flagName = i.key();
+
+            // Call any expire procedures defined in the script
+            QString flagKey = "flag-" + flagName;
+            if (iniData.contains(flagKey)) {
+                QString expireProcedure = iniData[flagKey].value("ExpireProcedure");
+                if (!expireProcedure.isEmpty()) {
+                    // Call the procedure (needs to be implemented)
+                }
+
+                // Show expiry message if defined
+                QString expireMessage = getIniValue("flag=" + flagName, "ExpireMessage");
+                if (!expireMessage.isEmpty()) {
+                    QMessageBox::information(this, "Flag Expired", expireMessage);
+                }
+            }
+
+            // Remove the flag
+            i.remove();
+            updateStatusText(); // Update the UI if needed
+
+            qDebug() << "Flag expired and removed: " << flagName;
+        }
+    }
 }

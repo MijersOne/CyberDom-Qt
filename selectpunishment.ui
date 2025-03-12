@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>400</width>
+    <width>513</width>
     <height>158</height>
    </rect>
   </property>
@@ -16,8 +16,8 @@
   <widget class="QDialogButtonBox" name="buttonBox">
    <property name="geometry">
     <rect>
-     <x>100</x>
-     <y>110</y>
+     <x>160</x>
+     <y>100</y>
      <width>171</width>
      <height>32</height>
     </rect>
@@ -29,17 +29,17 @@
     <set>QDialogButtonBox::StandardButton::Cancel|QDialogButtonBox::StandardButton::Ok</set>
    </property>
   </widget>
-  <widget class="QComboBox" name="comboBox">
+  <widget class="QComboBox" name="punishmentcomboBox">
    <property name="geometry">
     <rect>
      <x>40</x>
      <y>70</y>
-     <width>301</width>
+     <width>431</width>
      <height>26</height>
     </rect>
    </property>
   </widget>
-  <widget class="QLabel" name="label">
+  <widget class="QLabel" name="lbl_Punishments">
    <property name="geometry">
     <rect>
      <x>40</x>

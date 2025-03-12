@@ -29,7 +29,7 @@
     <set>QDialogButtonBox::StandardButton::Cancel|QDialogButtonBox::StandardButton::Ok</set>
    </property>
   </widget>
-  <widget class="QComboBox" name="comboBox">
+  <widget class="QComboBox" name="jobComboBox">
    <property name="geometry">
     <rect>
      <x>50</x>
@@ -55,6 +55,19 @@
    </property>
    <property name="text">
     <string>Select Job:</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="btnLaunchJob">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>100</y>
+     <width>80</width>
+     <height>26</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Launch</string>
    </property>
   </widget>
  </widget>

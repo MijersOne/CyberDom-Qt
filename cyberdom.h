@@ -2,12 +2,29 @@
 #define CYBERDOM_H
 
 #include <QMainWindow>
-#include "ui_assignments.h"
+//#include "ui_assignments.h"
 #include <QTimer>
 #include <QDateTime>
 #include <QMap>
 #include <QString>
+#include <QStringList>
+#include <QStack>
 #include "rules.h"
+#include "assignments.h"
+#include "scriptparser.h"
+
+// Forward declaration for Assignments
+class Assignments;
+class ScriptParser;
+
+// Define FlagData structure outside the class so it can be used by other classes
+struct FlagData {
+    QString name;
+    QDateTime setTime;
+    QDateTime expiryTime;
+    QStringList groups;
+    QString text;
+};
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -27,6 +44,39 @@ public:
     int getMinMerits() const;
     int getMaxMerits() const;
 
+    QSet<QString> assignedJobs;
+    QSet<QString> getActiveJobs() { return activeAssignments; }
+
+    QStringList getAvailableJobs();
+    QMap<QString, QMap<QString, QString>> iniData;
+    QMap<QString, QMap<QString, QString>> getIniData() const { return iniData; }
+    QMap<QString, QDateTime> getJobDeadlines() const { return jobDeadlines; }
+
+    void assignJobFromTrigger(QString section);
+    void assignScheduledJobs();
+    void addJobToAssignments(QString assignmentName);
+    void addPunishmentToAssignments(QString punishmentName);
+    void applyPunishment(int severity, const QString &group = QString());
+
+    QString selectPunishmentFromGroup(int severity, const QString &group);
+
+    void setFlag(const QString &flagName, int durationMinutes = 0);
+    void removeFlag(const QString &flagName);
+    bool isFlagSet(const QString &flagName) const;
+    QStringList getFlagsByGroup(const QString &groupName) const;
+    void setFlagGroup(const QString &groupName);
+    void removeFlagGroup(const QString &groupName);
+
+    const QMap<QString, FlagData>& getActiveFlags() const { return flags; }
+
+    // Status Management
+    void changeStatus(const QString &newStatus, bool isSubStatus = false);
+    void returntoLastStatus();
+    bool isInStatusGroup(const QString &groupName);
+
+signals:
+    void jobListUpdated();
+
 public slots:
     void openAssignmentsWindow(); // Slot function to open the Assignments Window
     void openTimeAddDialog(); // Slot function to open the TimeAdd Dialog
@@ -39,7 +89,13 @@ private:
     QString loadIniFilePath();
     void initializeIniFile(); // Add this declaration
     void processIniValue(const QString &key);
-    void parseIniFile(); // Parses and stores the .ini file sections and keys
+
+    // New Methods for enhanced script parsing
+    void loadAndParseScript(const QString &filePath);
+    void applyScriptSettings();
+    void setupInitialStatus();
+
+    // void parseIniFile(); // Parses and stores the .ini file sections and keys
     void parseIncludeFiles(const QString &filePath); // Parses and stores the .inc files
     void loadIncludeFile(const QString &fileName); // Load the .inc files
     void initializeUiWithIniFile();
@@ -50,11 +106,14 @@ private:
     QString settingsFile; // Path to the separate user settings file
     QString currentStatus; // Store the current status
 
-    QMap<QString, QMap<QString, QString>> iniData;
+    QSet<QString> activeAssignments;
+    QMap<QString, QDateTime> jobDeadlines;
 
     Ui::CyberDom *ui;
-    QMainWindow *assignmentsWindow = nullptr; // Pointer to hold the Assignments Window instance
-    Ui::Assignments assignmentsUi; // Instance of the Assignments UI class
+    Assignments *assignmentsWindow = nullptr;
+    ScriptParser *scriptParser = nullptr; // New script parser
+    //QMainWindow *assignmentsWindow = nullptr; // Pointer to hold the Assignments Window instance
+    //Ui::Assignments assignmentsUi; // Instance of the Assignments UI class
     QTimer *clockTimer; // Timer to manage internal clock updates
     QDateTime internalClock; // Holds the current value of the internal clock
     QString currentIniFile; // Stores the path to the current loaded .ini file
@@ -75,7 +134,28 @@ private:
     int getAskPunishmentMin() const;
     int getAskPunishmentMax() const;
 
+    QString lastInstructions; // Stores the last given instructions
+    QString lastClothingInstructions; // Stores the last given clothing instructions
+    QMap<QString, FlagData> flags; // Stores currently active flags
+
+    // Status tracking for substatus
+    QStack<QString> statusHistory; // For tracking status history for substatus
+    QMap<QString, QStringList> statusGroups; // For mapping status groups to status names
+
+    // New Methods
+    void updateStatusText();
+    void updateInstructions(const QString &instructions);
+    void updateClothingInstructions(const QString &instructions);
+    void updateAvailableActions(); // Updates UI based on the current status permissions
+    void executeStatusEntryProcedures(const QString &statusName); // Run any procedures triggered by status change
+    void updateStatusDisplay(); // Update status-related UI elements
+
+    QTimer *punishmentTimer;
+
     bool testMenuEnabled = false; // Tracks if the Test Menu should be shown
+    bool isPunishment = false;
+
+    QTimer *flagTimer;
 
 private slots:
     void applyTimeToClock(int days, int hours, int minutes, int seconds);
@@ -95,6 +175,8 @@ private slots:
     void openDeleteAssignmentsDialog(); // Slot to open the DeleteAssignments dialog
     void resetApplication(); // Slot to clear stored settings, notify the user of the reset, and exit the application so it can restart fresh
     void updateMerits(int newMerits);
+    void checkPunishments();
+    void checkFlagExpiry();
 };
 
 #endif // CYBERDOM_H

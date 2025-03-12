@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Dialog</string>
+   <string>List and Remove Flags</string>
   </property>
   <widget class="QListWidget" name="lw_Flags">
    <property name="geometry">
@@ -80,5 +80,22 @@
   </widget>
  </widget>
  <resources/>
- <connections/>
+ <connections>
+  <connection>
+   <sender>btn_Cancel</sender>
+   <signal>clicked()</signal>
+   <receiver>ListFlags</receiver>
+   <slot>reject()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>795</x>
+     <y>82</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>430</x>
+     <y>217</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
 </ui>

@@ -15,6 +15,12 @@ public:
     explicit SetFlags(QWidget *parent = nullptr);
     ~SetFlags();
 
+signals:
+    void flagSetRequested(const QString &flagName, int durationMinutes);
+
+private slots:
+    void setSelectedFlags();
+
 private:
     Ui::SetFlags *ui;
 };

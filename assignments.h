@@ -2,6 +2,9 @@
 #define ASSIGNMENTS_H
 
 #include <QMainWindow>
+#include <QListWidget>
+
+class CyberDom;
 
 namespace Ui {
 class Assignments;
@@ -12,11 +15,16 @@ class Assignments : public QMainWindow
     Q_OBJECT
 
 public:
-    explicit Assignments(QWidget *parent = nullptr);
+    explicit Assignments(QWidget *parent = nullptr, CyberDom *app = nullptr);
     ~Assignments();
+
+public slots:
+    void populateJobList();
+    void on_btn_Start_clicked();
 
 private:
     Ui::Assignments *ui;
+    CyberDom *mainApp;
 };
 
 #endif // ASSIGNMENTS_H
