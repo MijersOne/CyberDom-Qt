@@ -21,10 +21,14 @@ public:
 public slots:
     void populateJobList();
     void on_btn_Start_clicked();
+    void on_btn_Done_clicked();
+    void on_btn_Abort_clicked();
+    void on_btn_Delete_clicked();
 
 private:
     Ui::Assignments *ui;
     CyberDom *mainApp;
+    QString settingsFile;
 };
 
 #endif // ASSIGNMENTS_H

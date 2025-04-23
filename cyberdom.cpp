@@ -865,176 +865,6 @@ void CyberDom::executeStatusEntryProcedures(const QString &statusName) {
     qDebug() << "Executing entry procedures for status: " << statusName;
 }
 
-// void CyberDom::parseIniFile() {
-//     if (currentIniFile.isEmpty()) {
-//         qDebug() << "Error: No INI file is selected.";
-//         return;
-//     }
-
-//     QFile file(currentIniFile);
-//     if (!file.exists()) {
-//         qDebug() << "Error: INI file does not exist ->" << currentIniFile;
-//         return;
-//     }
-
-//     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-//         qDebug() << "Error: Failed to open INI file ->" << currentIniFile;
-//         return;
-//     }
-
-//     QTextStream in(&file);
-//     qDebug() << "INI File Contents:";
-//     while (!in.atEnd()) {
-//         qDebug() << in.readLine();
-//     }
-//     file.close();
-
-//     QSettings settings(currentIniFile, QSettings::IniFormat);
-//     iniData.clear(); // Clear previous data
-
-//     // --- [General] Section Handling ---
-//     settings.beginGroup("General");
-//     QStringList generalKeys = settings.childKeys();
-//     if (!generalKeys.isEmpty()) {
-//         QMap<QString, QString> generalData;
-//         for (const QString &key : generalKeys) {
-//             QString value = settings.value(key).toString();
-
-//             // Handle AskPunishment
-//             if (key == "AskPunishment") {
-//                 QStringList values = value.split(",");
-//                 if (values.size() == 2) {
-//                     bool minOk, maxOk;
-//                     askPunishmentMin = values[0].trimmed().toInt(&minOk);
-//                     askPunishmentMax = values[1].trimmed().toInt(&maxOk);
-
-//                     if (!minOk || !maxOk) {
-//                         qDebug() << "Error: Non-numeric AskPunishment values found. Using defaults (0,0).";
-//                         askPunishmentMin = 0;
-//                         askPunishmentMax = 0;
-//                     }
-//                 } else {
-//                     qDebug() << "Error: Invalid AskPunishment format. Expected two comma-separated values. Using defaults (0,0).";
-//                     askPunishmentMin = 0;
-//                     askPunishmentMax = 0;
-//                 }
-//             }
-
-//             qDebug() << "[Debug] Reached Line 562 - Entering Function";
-//             // Handle TestMenu
-//             if (key == "TestMenu") {
-//                 bool ok;
-//                 int intValue = value.trimmed().toInt(&ok);
-//                 if (ok) {
-//                     testMenuEnabled = (intValue == 1);
-//                 }
-//                 qDebug() << "[DEBUG] Parsed TestMenu Value from INI: " << intValue;
-//                 qDebug() << "[DEBUG] TestMenu Enabled Flag Set to: " << testMenuEnabled;
-//             }
-
-//             // Ensure Test Menu Visibility is set AFTER Parsing
-//             ui->menuTest->menuAction()->setVisible(testMenuEnabled);
-//             qDebug() << "[DEBUG] Final TestMenu Enabled Value: " << testMenuEnabled;
-//             qDebug() << "[DEBUG] Test Menu Visibility Set to: " << ui->menuTest->menuAction()->isVisible();
-//             qDebug() << "[DEBUG] Exiting Function at Line 57";
-//         }
-
-//         iniData.insert("General", generalData);
-//     } else {
-//         qDebug() << "Warning: [General] section missing in INI file.";
-//     }
-//     settings.endGroup();
-
-//     QStringList groups = settings.childGroups();
-//     for (const QString &group : groups) {
-//         settings.beginGroup(group);
-
-//         if (group.startsWith("job-")) { // Identify job sections
-//             QString jobName = group.mid(4); // Remove "job-" prefix
-//             QMap<QString, QString> jobData;
-
-//             QStringList keys = settings.childKeys();
-//             for (const QString &key : keys) {
-//                 jobData.insert(key, settings.value(key).toString());
-//             }
-
-//             iniData.insert(group, jobData);
-
-//             // Check if job is currently assigned
-//             if (!assignedJobs.contains(jobName)) {
-//                 assignedJobs.insert(jobName);
-//                 qDebug() << "[DEBUG] Assigned Job: " << jobName;
-//             }
-//         }
-
-//         settings.endGroup();
-//     }
-
-//     qDebug() << "[DEBUG] Total Assigned Jobs: " << assignedJobs;
-
-//     // --- Parse All Other Sections ---
-//     for (const QString &group : groups) {
-//         if (group == "General") continue; // Already processed
-
-//         settings.beginGroup(group);
-//         QStringList keys = settings.childKeys();
-//         QMap<QString, QString> keyValues;
-
-//         qDebug() << "Processing Section: " << group;
-//         for (const QString &key : keys) {
-//             QString value = settings.value(key).toString();
-//             keyValues.insert(key, value);
-//             qDebug() << "  Key:" << key << "Value:" << value;
-//         }
-
-//         iniData.insert(group, keyValues);
-//         settings.endGroup();
-//     }
-
-//     // --- Validate and Log Results ---
-//     qDebug() << "Final TestMenu Enabled Value:" << testMenuEnabled;
-
-//     // Validate and print Merit values
-//     bool ok;
-//     int maxMerits = iniData["General"].value("MaxMerits", "1000").toInt(&ok);
-//     if (!ok) {
-//         qDebug() << "Error converting MaxMerits to int. Using default 1000.";
-//         maxMerits = 1000;
-//     }
-
-//     int minMerits = iniData["General"].value("MinMerits", "0").toInt(&ok);
-//     if (!ok) {
-//         qDebug() << "Error converting MinMerits to int. Using default 0.";
-//         minMerits = 0;
-//     }
-
-//     qDebug() << "Final Merit Ranges -> Min:" << minMerits << "Max:" << maxMerits;
-
-//     // if (group.startsWith("status-")) {
-//     //     QString statusName = group.mid(7); // Remove "status-" prefix
-//     //     QMap<QString, QString> statusData;
-
-//     //     QStringList keys = settings.childKeys();
-//     //     for (const QString &key : keys) {
-//     //         QString value = settings.value(key).toString();
-
-//     //         // Store multiple text lines with incremental keys if key is "text"
-//     //         if (key.toLower() == "text") {
-//     //             // Check if we already have text lines
-//     //             int i = 1;
-//     //             while (statusData.contains("text" + QString::number(i))) {
-//     //                 i++;
-//     //             }
-//     //             statusData.insert("text" + QString::number(i), value);
-//     //         } else {
-//     //             statusData.insert(key, value);
-//     //         }
-//     //     }
-
-//     //     iniData.insert(group, statusData);
-//     // }
-// }
-
 void CyberDom::parseIncludeFiles(const QString &filePath) {
     QFile file(filePath);
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
@@ -1487,4 +1317,121 @@ void CyberDom::checkFlagExpiry() {
             qDebug() << "Flag expired and removed: " << flagName;
         }
     }
+}
+
+void CyberDom::startAssignment(const QString &assignmentName, bool isPunishment, const QString &newStatus)
+{
+    // Remember the previous status if newStatus is specified
+    QString previousStatus;
+    if (!newStatus.isEmpty()) {
+        previousStatus = currentStatus;
+        updateStatus(newStatus);
+    }
+
+    // Set appropriate flags for the assignment
+    QString sectionPrefix = isPunishment ? "punishment-" : "job-";
+    QString sectionName = sectionPrefix + assignmentName;
+
+    if (!iniData.contains(sectionName)) {
+        return;
+    }
+
+    QMap<QString, QString> details = iniData[sectionName];
+
+    // Set a flag to track this assignment as started
+    QString startFlagName = (isPunishment ? "punishment_" : "job_") + assignmentName + "_started";
+    setFlag(startFlagName);
+
+    // Store the previous status if needed for returning later
+    if (!newStatus.isEmpty()) {
+        QString statusFlagName = (isPunishment ? "punishment_" : "job_") + assignmentName + "_prev_status";
+        QSettings settings(settingsFile, QSettings::IniFormat);
+        settings.setValue("Assignments/" + statusFlagName, previousStatus);
+    }
+
+    // Record the start time
+    QDateTime startTime = internalClock;
+    QSettings settings(settingsFile, QSettings::IniFormat);
+    settings.setValue("Assignments/" + assignmentName + "_start_time", startTime);
+
+    // Execute StartProcedure if specified
+    if (details.contains("StartProcedure")) {
+        // Placeholder for procedure handling system
+        // executeProcedure(details["StartProcedure"]);
+    }
+
+    updateStatusText();
+    emit jobListUpdated();
+}
+
+void CyberDom::markAssignmentDone(const QString &assignmentName, bool isPunishment)
+{
+    // Prefix for section lookup
+    QString sectionPrefix = isPunishment ? "punishment-" : "job-";
+    QString sectionName = sectionPrefix + assignmentName;
+
+    if (!iniData.contains(sectionName)) {
+        return;
+    }
+
+    QMap<QString, QString> details = iniData[sectionName];
+
+    // Remove from active assignments
+    activeAssignments.remove(assignmentName);
+
+    // Remove from deadlines
+    jobDeadlines.remove(assignmentName);
+
+    // Cleanup any flags
+    QString startFlagName = (isPunishment ? "punishment_" : "job_") + assignmentName + "_started";
+    removeFlag(startFlagName);
+
+    // Return to previous status if needed
+    QString statusFlagName = (isPunishment ? "punishment_" : "job_") + assignmentName + "_prev_status";
+    QSettings settings(settingsFile, QSettings::IniFormat);
+    QString prevStatus = settings.value("Assignments/" + statusFlagName, "").toString();
+
+    if (!prevStatus.isEmpty()) {
+        updateStatus(prevStatus);
+        settings.remove("Assignments/" + statusFlagName);
+    }
+
+    // Add merit points if specified
+    if (details.contains("AddMerit")) {
+        bool ok;
+        int meritPoints = details["AddMerit"].toInt(&ok);
+        if (ok && meritPoints != 0) {
+            // Add the merit points
+            int currentMerits = settings.value("User/Merits", maxMerits / 2).toInt();
+            currentMerits += meritPoints;
+
+            // Ensure merits are within limits
+            if (currentMerits > maxMerits) currentMerits = maxMerits;
+            if (currentMerits < minMerits) currentMerits = minMerits;
+
+            // Save the new merit value
+            settings.setValue("User/Merits", currentMerits);
+
+            updateMerits(currentMerits);
+        }
+    }
+
+    // Execute DoneProcedure if specified
+    if (details.contains("DoneProcedure")) {
+        // Placeholder until procedure handling is implemented
+        // executeProcedure(details["DoneProcedure"]);
+    }
+
+    // For repeating jobs, schedule the next occurrence
+    if (!isPunishment && details.contains("Interval")) {
+        // Placeholder until JobOccurence is implemented
+        // scheduleNextJobOccurrence(assignmentName, details);
+    }
+
+    updateStatusText();
+    emit jobListUpdated();
+}
+
+bool CyberDom::isFlagSet(const QString &flagName) const {
+    return flags.contains(flagName);
 }

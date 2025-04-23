@@ -3,6 +3,7 @@
 #include "cyberdom.h"
 
 #include <QMessageBox>
+#include <QSettings>
 
 // extern CyberDom *mainApp;
 
@@ -13,6 +14,10 @@ Assignments::Assignments(QWidget *parent, CyberDom *app)
 {
     ui->setupUi(this);
     populateJobList(); // Call the function to populate the list when the window is opened.
+
+    connect(ui->btn_Done, &QPushButton::clicked, this, &Assignments::on_btn_Done_clicked);
+    connect(ui->btn_Abort, &QPushButton::clicked, this, &Assignments::on_btn_Abort_clicked);
+    connect(ui->btn_Delete, &QPushButton::clicked, this, &Assignments::on_btn_Delete_clicked);
 
     if (!mainApp) {
         qDebug() << "[ERROR] mainApp is NULL in Assignments!";
@@ -112,20 +117,219 @@ void Assignments::populateJobList() {
 void Assignments::on_btn_Start_clicked()
 {
     int selectedRow = ui->table_Assignments->currentRow();
-    if (selectedRow >= 0) {
-        QString jobName = ui->table_Assignments->item(selectedRow, 1)->text();
+    if (selectedRow < 0) {
+        QMessageBox::warning(this, "No Selection", "Please select an assignment to start.");
+        return;
+    }
 
-        // Safely get the type - handle case where column might not exist
-        QString type = "Assignment"; // Default Value
-        QTableWidgetItem* typeItem = ui->table_Assignments->item(selectedRow, 2);
-        if (typeItem) {
-            type = typeItem->text();
+    // Get the assignment details
+    QString assignmentName = ui->table_Assignments->item(selectedRow, 1)->text();
+    QString assignmentType = ui->table_Assignments->item(selectedRow, 2)->text();
+    bool isPunishment = (assignmentType.toLower() == "punishment");
+
+    // Check if the assignment exists in mainApps's data
+    QString sectionPrefix = isPunishment ? "punishment-" : "job-";
+    QString sectionName = sectionPrefix + assignmentName;
+
+    if (!mainApp->iniData.contains(sectionName)) {
+        QMessageBox::warning(this, "Error", QString("%1 not found in the script.").arg(assignmentType));
+        return;
+    }
+
+    // Get assignment details
+    QMap<QString, QString> details = mainApp->iniData[sectionName];
+    QString instructions = details.value("Text", "No specific instructions available.");
+
+    // Update the assignment notes text box
+    ui->text_AssignmentNotes->setText(instructions);
+
+    // Check if the assignment has a NewStatus
+    QString newStatus;
+    if (details.contains("NewStatus")) {
+        newStatus = details["NewStatus"];
+    }
+
+    QMessageBox::information(this, "Starting " + assignmentType, assignmentType + " " + assignmentName + " has been started.\n\n" + "Instructions: " + instructions);
+}
+
+void Assignments::on_btn_Done_clicked()
+{
+    int selectedRow = ui->table_Assignments->currentRow();
+    if (selectedRow < 0) {
+        QMessageBox::warning(this, "No Selection", "Please select an assignment to mark as done.");
+        return;
+    }
+
+    // Get assignment details
+    QString assignmentName = ui->table_Assignments->item(selectedRow, 1)->text();
+    QString assignmentType = ui->table_Assignments->item(selectedRow, 2)->text();
+    bool isPunishment = (assignmentType.toLower() == "punishment");
+
+    if (!mainApp) {
+        QMessageBox::warning(this, "Error", "Application reference lost.");
+        return;
+    }
+
+    // Check if the assignment was started if it requires starting
+    QString sectionPrefix = isPunishment ? "punishment-" : "job-";
+    QString sectionName = sectionPrefix + assignmentName;
+
+    if (!mainApp->iniData.contains(sectionName)) {
+        QMessageBox::warning(this, "Error", QString("%1 not found in the script.").arg(assignmentType));
+        return;
+    }
+
+    QMap<QString, QString> details = mainApp->iniData[sectionName];
+    bool mustStart = details.contains("muststart") && details["muststart"] == "1";
+
+    if (mustStart) {
+        QString startFlagName = (isPunishment ? "punishment_" : "job_") + assignmentName + "_started";
+        if (!mainApp->isFlagSet(startFlagName)) {
+            QMessageBox::warning(this, "Not Started", "This " + assignmentType.toLower() + " must be started before it can be marked done.");
+            return;
         }
 
-        // Process the selected job
-        QMessageBox::information(this, "Starting " + type, "Starting " + type.toLower() + ": " + jobName);
-        // Add job launching code here
-    } else {
-        QMessageBox::warning(this, "No Selection", "Please select an assignment to start.");
+        // Confirm with the user
+        int result = QMessageBox::question(this, "Confirm", "Are you sure you want to mark this " + assignmentType.toLower() + " as done?", QMessageBox::Yes | QMessageBox::No);
+
+        if (result == QMessageBox::No) {
+            return;
+        }
+
+        // Call the markAssignmentDone method that I'll implement in CyberDom
+        // mainApp->markAssignmentDone(assignmentName, isPunishment);
+
+        // For now I'll just remove it from the active assignments
+        if (isPunishment) {
+            mainApp->activeAssignments.remove(assignmentName);
+        } else {
+            mainApp->activeAssignments.remove(assignmentName);
+        }
+
+        populateJobList();
+
+        QMessageBox::information(this, assignmentType + "Completed", assignmentType + " " + assignmentName + " has been marked as completed.");
     }
+}
+
+void Assignments::on_btn_Abort_clicked()
+{
+    int selectedRow = ui->table_Assignments->currentRow();
+    if (selectedRow < 0) {
+        QMessageBox::warning(this, "No Selection", "Please select an assignment to abort.");
+        return;
+    }
+
+    // Get assignment details
+    QString assignmentName = ui->table_Assignments->item(selectedRow, 1)->text();
+    QString assignmentType = ui->table_Assignments->item(selectedRow, 2)->text();
+    bool isPunishment = (assignmentType.toLower() == "punishment-");
+
+    if (!mainApp) {
+        QMessageBox::warning(this, "Error", "Application to reference lost.");
+        return;
+    }
+
+    // Check if the assignment was started
+    QString startFlagName = (isPunishment ? "punishment_" : "job_") + assignmentName + "_started";
+    if (!mainApp->isFlagSet(startFlagName)) {
+        QMessageBox::warning(this, "Not Started", "This " + assignmentType.toLower() + " is not currently started.");
+        return;
+    }
+
+    // Confirm with the user
+    int result = QMessageBox::question(this, "Confirm", "Are you sure you want to abort this " + assignmentType.toLower() + "?\n\n" + "It will remain in your assignments list and you'll need to start over.", QMessageBox::Yes | QMessageBox::No);
+
+    if (result == QMessageBox::No) {
+        return;
+    }
+
+    // Placeholder to call the abortAssignment method
+    // mainApp->abortAssignment(assignmentName, isPunishment);
+
+    mainApp->removeFlag(startFlagName);
+
+    // Return to previous status if needed
+    QString statusFlagName = (isPunishment ? "punishment_" : "job_") + assignmentName + "_prev_status";
+    QSettings settings(settingsFile, QSettings::IniFormat);
+    QString prevStatus = settings.value("Assignments/" + statusFlagName, "").toString();
+
+    if (!prevStatus.isEmpty()) {
+        mainApp->updateStatus(prevStatus);
+        settings.remove("Assignments/" + statusFlagName);
+    }
+
+    QMessageBox::information(this, assignmentType + " Aborted", assignmentType + " " + assignmentName + " has been aborted.");
+
+    populateJobList();
+}
+
+void Assignments::on_btn_Delete_clicked()
+{
+
+    int selectedRow = ui->table_Assignments->currentRow();
+    if (selectedRow < 0) {
+        QMessageBox::warning(this, "No Selection", "Please select an assignment to delete.");
+        return;
+    }
+
+    QString assignmentName = ui->table_Assignments->item(selectedRow, 1)->text();
+    QString assignmentType = ui->table_Assignments->item(selectedRow, 2)->text();
+    bool isPunishment = (assignmentType.toLower() == "punishment");
+
+    if (!mainApp) {
+        QMessageBox::warning(this, "Error", "Application reference lost.");
+        return;
+    }
+
+    QString sectionPrefix = isPunishment ? "punishment-" : "job-";
+    QString sectionName = sectionPrefix + assignmentName;
+
+    if (!mainApp->iniData.contains(sectionName)) {
+        QMessageBox::warning(this, "Error", QString("%1 not found in script.").arg(assignmentType));
+        return;
+    }
+
+    QMap<QString, QString> details = mainApp->iniData[sectionName];
+
+    // Check if the assignment allows deletion
+    bool deleteAllowed = details.contains("DeleteAllowed") && details["DeleteAllowed"] == "1";
+
+    if (!deleteAllowed) {
+        QMessageBox::warning(this, "Delete Not Allowed", "This " + assignmentType.toLower() + " cannot be deleted.");
+        return;
+    }
+
+    int result = QMessageBox::question(this, "Confirm", "Are you sure you want to delete this " + assignmentType.toLower() + "?", QMessageBox::Yes | QMessageBox::No);
+
+    if (result == QMessageBox::No) {
+        return;
+    }
+
+    // Placeholder for deleteAssignmentMethod
+    // mainApp->deleteAssignment(assignmentName, isPunishment);
+
+    mainApp->activeAssignments.remove(assignmentName);
+    mainApp->removeJobDeadline(assignmentName);
+
+    QString startFlagName = (isPunishment ? "punishment_" : "job_") + assignmentName + "_started";
+    mainApp->removeFlag(startFlagName);
+
+    QString statusFlagName = (isPunishment ? "punishment_" : "job_") + assignmentName + "_prev_status";
+    QSettings settings(settingsFile, QSettings::IniFormat);
+    QString prevStatus = settings.value("Assignments/" + statusFlagName, "").toString();
+
+    if (!prevStatus.isEmpty()) {
+        mainApp->updateStatus(prevStatus);
+        settings.remove("Assignments/" + statusFlagName);
+    }
+
+    if (details.contains("DeleteProcedure")) {
+        // Placeholder for procedure handling system
+        // mainApp->executeProcedure(details["DeleteProcedure"]);
+    }
+
+    QMessageBox::information(this, assignmentType + " Deleted", assignmentType + " " + assignmentName + " has been deleted.");
+
+    populateJobList();
 }

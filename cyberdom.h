@@ -51,6 +51,7 @@ public:
     QMap<QString, QMap<QString, QString>> iniData;
     QMap<QString, QMap<QString, QString>> getIniData() const { return iniData; }
     QMap<QString, QDateTime> getJobDeadlines() const { return jobDeadlines; }
+    QSet<QString> activeAssignments;
 
     void assignJobFromTrigger(QString section);
     void assignScheduledJobs();
@@ -73,6 +74,14 @@ public:
     void changeStatus(const QString &newStatus, bool isSubStatus = false);
     void returntoLastStatus();
     bool isInStatusGroup(const QString &groupName);
+
+    void startAssignment(const QString &assignmentName, bool isPunishment, const QString &newStatus);
+    void markAssignmentDone(const QString &assignmentName, bool isPunishment);
+    void abortAssignment(const QString &assignmentName, bool isPunishment);
+    void deleteAssignment(const QString &assignmentName, bool isPunishment);
+
+    QString getSettingsFilePath() const { return settingsFile; }
+    void removeJobDeadline(const QString &jobName) { jobDeadlines.remove(jobName); }
 
 signals:
     void jobListUpdated();
@@ -106,14 +115,11 @@ private:
     QString settingsFile; // Path to the separate user settings file
     QString currentStatus; // Store the current status
 
-    QSet<QString> activeAssignments;
     QMap<QString, QDateTime> jobDeadlines;
 
     Ui::CyberDom *ui;
     Assignments *assignmentsWindow = nullptr;
     ScriptParser *scriptParser = nullptr; // New script parser
-    //QMainWindow *assignmentsWindow = nullptr; // Pointer to hold the Assignments Window instance
-    //Ui::Assignments assignmentsUi; // Instance of the Assignments UI class
     QTimer *clockTimer; // Timer to manage internal clock updates
     QDateTime internalClock; // Holds the current value of the internal clock
     QString currentIniFile; // Stores the path to the current loaded .ini file
