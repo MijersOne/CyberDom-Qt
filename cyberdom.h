@@ -12,8 +12,9 @@
 #include "rules.h"
 #include "assignments.h"
 #include "scriptparser.h"
+#include "clothingitem.h"
 
-// Forward declaration for Assignments
+// Forward declarations
 class Assignments;
 class ScriptParser;
 
@@ -82,6 +83,20 @@ public:
 
     QString getSettingsFilePath() const { return settingsFile; }
     void removeJobDeadline(const QString &jobName) { jobDeadlines.remove(jobName); }
+    
+    // Creates a sample script file for testing
+    void createSampleScriptFile();
+    
+    // Checks if the demo script exists and creates it if needed
+    void checkDemoScriptExists();
+
+    // Clothing management
+    QString getCurrentClothingInstructions() const { return lastClothingInstructions; }
+    QString getClothingReportPrompt() const;
+    void processClothingReport(const QList<ClothingItem> &wearingItems, bool isNaked);
+    void storeClothingReport(const QString &reportText);
+    QStringList getClothingSets(const QString &setPrefix);
+    QStringList getClothingOptions(const QString &setName);
 
 signals:
     void jobListUpdated();

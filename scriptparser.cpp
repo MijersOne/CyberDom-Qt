@@ -42,12 +42,18 @@ bool ScriptParser::parseScript(const QString &filePath) {
     eventsSection.clear();
     statusGroups.clear();
 
+    qDebug() << "\n[DEBUG] ============ PARSING SCRIPT FILE ============";
+    qDebug() << "[DEBUG] Script file path: " << filePath;
+
     QTextStream in(&file);
     QString currentSection;
     QString currentType;
+    int lineCount = 0;
+    int statusSectionCount = 0;
 
     while (!in.atEnd()) {
         QString line = in.readLine().trimmed();
+        lineCount++;
 
         // Skip empty lines and comments
         if (line.isEmpty() || line.startsWith(";")) {
@@ -65,6 +71,16 @@ bool ScriptParser::parseScript(const QString &filePath) {
 
         // Check for section header
         if (line.startsWith("[") && line.endsWith("]")) {
+            QString sectionHeader = line.mid(1, line.length() - 2);
+            qDebug() << "[DEBUG] Line " << lineCount << ": Found section: " << sectionHeader;
+            
+            // Specifically log status sections
+            if (sectionHeader.toLower().startsWith("status-") || 
+                sectionHeader.toLower().contains("status")) {
+                statusSectionCount++;
+                qDebug() << "[DEBUG] Found status section: " << sectionHeader << " (total: " << statusSectionCount << ")";
+            }
+            
             parseSectionLine(line, currentSection, currentType);
             continue;
         }
@@ -76,6 +92,33 @@ bool ScriptParser::parseScript(const QString &filePath) {
     }
 
     file.close();
+
+    qDebug() << "[DEBUG] Finished parsing file, total lines: " << lineCount;
+    qDebug() << "[DEBUG] Total raw sections found: " << rawSections.size();
+    
+    // Debug: Output all raw section names
+    QStringList sectionNames = rawSections.keys();
+    qDebug() << "[DEBUG] Raw section names: " << sectionNames.join(", ");
+    
+    // Debug: Check specifically for status sections in rawSections
+    int rawStatusCount = 0;
+    for (const QString &sectionName : sectionNames) {
+        if (sectionName.toLower().startsWith("status-") || 
+            sectionName.toLower() == "status" ||
+            (sectionName.toLower().contains("status") && sectionName.contains("-"))) {
+            rawStatusCount++;
+            qDebug() << "[DEBUG] Raw status section found: " << sectionName;
+            
+            // Debug the actual content of each status section
+            QMap<QString, QStringList> sectionData = rawSections[sectionName];
+            qDebug() << "[DEBUG] Status section " << sectionName << " contains " << sectionData.size() << " keys:";
+            for (auto it = sectionData.begin(); it != sectionData.end(); ++it) {
+                qDebug() << "[DEBUG]   - Key: " << it.key() << ", Values: " << it.value().join(", ");
+            }
+        }
+    }
+    qDebug() << "[DEBUG] Total raw status sections: " << rawStatusCount;
+    qDebug() << "[DEBUG] ============ END PARSING SCRIPT FILE ============\n";
 
     // Process the raw sections into structured data
     processGeneralSection();
@@ -113,78 +156,91 @@ void ScriptParser::parseSectionLine(const QString &line, QString &currentSection
         return;
     }
 
+    // Add debug output to see what sections are being parsed
+    qDebug() << "[DEBUG] Parsing section: " << sectionName;
+
+    // To ensure we properly handle status sections, first extract the raw section name without any prefix
+    QString rawSectionName = sectionName;
+    
+    // Normalize section name for comparison (lowercase)
+    QString normalizedName = sectionName.toLower();
+
     // Determine section type
-    if (sectionName.toLower() == "general") {
-        currentSection = sectionName;
+    if (normalizedName == "general") {
+        currentSection = "general";
         currentType = "general";
-    } else if (sectionName.toLower() == "init") {
-        currentSection = sectionName;
+    } else if (normalizedName == "init") {
+        currentSection = "init";
         currentType = "init";
-    } else if (sectionName.toLower() == "events") {
-        currentSection = sectionName;
+    } else if (normalizedName == "events") {
+        currentSection = "events";
         currentType = "events";
-    } else if (sectionName.toLower().startsWith("status-")) {
-        currentSection = sectionName;
-        currentType = "events";
-    } else if (sectionName.toLower().startsWith("permission-")) {
-        currentSection = sectionName;
+    } else if (normalizedName.startsWith("status-")) {
+        // This handles the exact format "Status-Normal" from your script
+        currentSection = rawSectionName; // Keep the original casing
+        currentType = "status";
+        qDebug() << "[DEBUG] Found status section: " << sectionName;
+    } else if (normalizedName.startsWith("permission-")) {
+        currentSection = "permission";
         currentType = "permission";
-    } else if (sectionName.toLower().startsWith("report-")) {
-        currentSection = sectionName;
+    } else if (normalizedName.startsWith("report-")) {
+        currentSection = "report";
         currentType = "report";
-    } else if (sectionName.toLower().startsWith("confession-")) {
-        currentSection = sectionName;
+    } else if (normalizedName.startsWith("confession-")) {
+        currentSection = "confession";
         currentType = "confession";
-    } else if (sectionName.toLower().startsWith("job-")) {
+    } else if (normalizedName.startsWith("job-")) {
         currentSection = sectionName;
         currentType = "job";
-    } else if (sectionName.toLower().startsWith("punishment-")) {
-        currentSection = sectionName;
+        qDebug() << "[DEBUG] Found job section: " << sectionName;
+    } else if (normalizedName.startsWith("punishment-")) {
+        currentSection = "punishment";
         currentType = "punishment";
-    } else if (sectionName.toLower().startsWith("flag-")) {
-        currentSection = sectionName;
+    } else if (normalizedName.startsWith("flag-")) {
+        currentSection = "flag";
         currentType = "flag";
-    } else if (sectionName.toLower().startsWith("procedure-")) {
-        currentSection = sectionName;
+    } else if (normalizedName.startsWith("procedure-")) {
+        currentSection = "procedure";
         currentType = "procedure";
-    } else if (sectionName.toLower().startsWith("popup-")) {
-        currentSection = sectionName;
+    } else if (normalizedName.startsWith("popup-")) {
+        currentSection = "popup";
         currentType = "popup";
-    } else if (sectionName.toLower().startsWith("timer-")) {
-        currentSection = sectionName;
+    } else if (normalizedName.startsWith("timer-")) {
+        currentSection = "timer";
         currentType = "timer";
-    } else if (sectionName.toLower().startsWith("instructions-")) {
-        currentSection = sectionName;
+    } else if (normalizedName.startsWith("instructions-")) {
+        currentSection = "instruction";
         currentType = "instruction";
-    } else if (sectionName.toLower().startsWith("clothing-")) {
-        currentSection = sectionName;
+    } else if (normalizedName.startsWith("clothing-")) {
+        currentSection = "clothing";
         currentType = "clothing";
-    } else if (sectionName.toLower().startsWith("clothtype-")) {
-        currentSection = sectionName;
+    } else if (normalizedName.startsWith("clothtype-")) {
+        currentSection = rawSectionName; // Keep the original section name with prefix
         currentType = "clothtype";
-    } else if (sectionName.toLower().startsWith("set-")) {
-        currentSection = sectionName;
+        qDebug() << "[DEBUG] Found cloth type section: " << sectionName;
+    } else if (normalizedName.startsWith("set-")) {
+        currentSection = "set";
         currentType = "set";
-    } else if (sectionName.toLower().startsWith("rule-")) {
-        currentSection = sectionName;
+    } else if (normalizedName.startsWith("rule-")) {
+        currentSection = "rule";
         currentType = "rule";
-    } else if (sectionName.toLower().startsWith("question-")) {
-        currentSection = sectionName;
+    } else if (normalizedName.startsWith("question-")) {
+        currentSection = "question";
         currentType = "question";
-    } else if (sectionName.toLower().startsWith("popupgroup-")) {
-        currentSection = sectionName;
+    } else if (normalizedName.startsWith("popupgroup-")) {
+        currentSection = "popupgroup";
         currentType = "popupgroup";
-    } else if (sectionName.toLower().startsWith("case-")) {
-        currentSection = sectionName;
+    } else if (normalizedName.startsWith("case-")) {
+        currentSection = "case";
         currentType = "case";
-    } else if (sectionName.toLower().startsWith("ftp")) {
-        currentSection = sectionName;
+    } else if (normalizedName.startsWith("ftp")) {
+        currentSection = "ftp";
         currentType = "ftp";
-    } else if (sectionName.toLower().startsWith("font")) {
-        currentSection = sectionName;
+    } else if (normalizedName.startsWith("font")) {
+        currentSection = "font";
         currentType = "font";
-    } else if (sectionName.toLower().startsWith("language")) {
-        currentSection = sectionName;
+    } else if (normalizedName.startsWith("language")) {
+        currentSection = "language";
         currentType = "language";
     } else {
         qDebug() << "[Warning] Unknown section type:" << sectionName;
@@ -229,46 +285,74 @@ void ScriptParser::processGeneralSection() {
 }
 
 void ScriptParser::processStatusSections() {
+    qDebug() << "[DEBUG] Processing status sections. Total raw sections: " << rawSections.size();
+    int count = 0;
+    
+    // Create a list to store status section keys for debugging
+    QStringList statusSectionKeys;
+    
     QMapIterator<QString, QMap<QString, QStringList>> i(rawSections);
     while (i.hasNext()) {
         i.next();
-        if (!i.key().toLower().startsWith("status-")) continue;
+        
+        // Check if this section is a status section by checking if it starts with "Status-" 
+        // (case-insensitive for comparison but preserve original case for the name)
+        if (i.key().toLower().startsWith("status-")) {
+            QString statusName = i.key().mid(7); // Remove "Status-" prefix
+            statusSectionKeys.append(i.key()); // Add to our debug list
+            
+            qDebug() << "[DEBUG] Processing status section: " << i.key() << " -> status name: " << statusName;
+            count++;
 
-        StatusSection status;
-        status.name = i.key().mid(7); // Remove "status-" prefix
-        status.type = "status";
-        status.keyValues = i.value();
+            StatusSection status;
+            status.name = statusName;
+            status.type = "status";
+            status.keyValues = i.value();
 
-        // Process specific status attributes
-        status.isSubStatus = (i.value().contains("substatus") && i.value()["substatus"].contains("1"));
-        status.reportsOnly = (i.value().contains("reportsonly") && i.value()["reportsonly"].contains("1"));
-        status.assignmentsAllowed = !(i.value().contains("assignments") && i.value()["assignments"].contains("0"));
-        status.permissionsAllowed = !(i.value().contains("permissions") && i.value()["permissions"].contains("0"));
-        status.confessionsAllowed = !(i.value().contains("confessions") && i.value()["confessions"].contains("0"));
-        status.reportsAllowed = !(i.value().contains("reports") && i.value()["reports"].contains("0"));
-        status.rulesAllowed = !(i.value().contains("rules") && i.value()["rules"].contains("0"));
+            // Process specific status attributes
+            status.isSubStatus = (i.value().contains("substatus") && i.value()["substatus"].contains("1"));
+            status.reportsOnly = (i.value().contains("reportsonly") && i.value()["reportsonly"].contains("1"));
+            status.assignmentsAllowed = !(i.value().contains("assignments") && i.value()["assignments"].contains("0"));
+            status.permissionsAllowed = !(i.value().contains("permissions") && i.value()["permissions"].contains("0"));
+            status.confessionsAllowed = !(i.value().contains("confessions") && i.value()["confessions"].contains("0"));
+            status.reportsAllowed = !(i.value().contains("reports") && i.value()["reports"].contains("0"));
+            status.rulesAllowed = !(i.value().contains("rules") && i.value()["rules"].contains("0"));
 
-        // Process status groups
-        if (i.value().contains("group")) {
-            status.groups = i.value()["group"];
+            // Process status groups
+            if (i.value().contains("group")) {
+                status.groups = i.value()["group"];
 
-            // Also build the status groups mapping
-            for (const QString &group : status.groups) {
-                if (!statusGroups.contains(group)) {
-                    statusGroups[group] = QStringList();
+                // Also build the status groups mapping
+                for (const QString &group : status.groups) {
+                    if (!statusGroups.contains(group)) {
+                        statusGroups[group] = QStringList();
+                    }
+                    statusGroups[group].append(status.name);
                 }
-                statusGroups[group].append(status.name);
             }
-        }
 
-        // Process quick reports
-        if (i.value().contains("quickreport")) {
-            status.quickReports = i.value()["quickreport"];
-        }
+            // Process quick reports
+            if (i.value().contains("quickreport")) {
+                status.quickReports = i.value()["quickreport"];
+            }
 
-        // Store the processed status
-        statusSections[status.name] = status;
+            // Store the processed status
+            statusSections[status.name] = status;
+            qDebug() << "[DEBUG] Added status: " << status.name;
+        }
     }
+    
+    qDebug() << "[DEBUG] Status Section Keys: " << statusSectionKeys.join(", ");
+    qDebug() << "[DEBUG] Processed " << count << " status sections. Result: " << statusSections.size() << " status entries";
+    
+    // Debug all raw sections to see what's available
+    QStringList allSections;
+    QMapIterator<QString, QMap<QString, QStringList>> j(rawSections);
+    while (j.hasNext()) {
+        j.next();
+        allSections.append(j.key());
+    }
+    qDebug() << "[DEBUG] All raw sections: " << allSections.join(", ");
 }
 
 void ScriptParser::processPermissionSections() {
@@ -436,6 +520,10 @@ void ScriptParser::processConfessionSections() {
 
 void ScriptParser::processJobSections() {
     QMapIterator<QString, QMap<QString, QStringList>> i(rawSections);
+    int jobCount = 0;
+    
+    qDebug() << "[DEBUG] Starting to process job sections";
+    
     while (i.hasNext()) {
         i.next();
         if (!i.key().toLower().startsWith("job-")) continue;
@@ -513,90 +601,123 @@ void ScriptParser::processJobSections() {
 
         // Store the processed job
         jobSections[job.name] = job;
+        jobCount++;
+        
+        qDebug() << "[DEBUG] Processed job section: " << job.name;
     }
+    
+    qDebug() << "[DEBUG] Finished processing job sections. Total jobs found: " << jobCount;
 }
 
 void ScriptParser::processPunishmentSections() {
+    qDebug() << "\n[DEBUG] ============ PROCESSING PUNISHMENT SECTIONS ============";
+    qDebug() << "[DEBUG] Looking for punishment sections in " << rawSections.size() << " raw sections";
+    
+    int punishmentCount = 0;
+    QStringList punishmentSectionKeys;
+    
     QMapIterator<QString, QMap<QString, QStringList>> i(rawSections);
     while (i.hasNext()) {
         i.next();
-        if (!i.key().toLower().startsWith("punishment-")) continue;
+        
+        if (i.key().toLower().startsWith("punishment-")) {
+            punishmentSectionKeys.append(i.key()); // Store for debugging
+            
+            QString sectionName = i.key();
+            QString punishmentName = i.key().mid(11); // Remove "punishment-" prefix
+            qDebug() << "[DEBUG] Processing punishment section: " << sectionName << " -> punishment name: " << punishmentName;
+            punishmentCount++;
 
-        PunishmentSection punishment;
-        punishment.name = i.key().mid(11); // Remove "punishment-" prefix
-        punishment.type = "punishment";
-        punishment.keyValues = i.value();
+            PunishmentSection punishment;
+            punishment.name = punishmentName;
+            punishment.type = "punishment";
+            punishment.keyValues = i.value();
 
-        // Process specific punishment attributes
-        if (i.value().contains("value")) {
-            bool ok;
-            punishment.value = i.value()["value"].first().toDouble(&ok);
-            if (!ok) punishment.value = 1.0;
-        }
-
-        if (i.value().contains("valueunit")) {
-            punishment.valueUnit = i.value()["valueunit"].first();
-        }
-
-        if (i.value().contains("max")) {
-            bool ok;
-            punishment.max = i.value()["max"].first().toInt(&ok);
-            if (!ok) punishment.max = 20;
-        }
-
-        if (i.value().contains("min")) {
-            bool ok;
-            punishment.min = i.value()["min"].first().toInt(&ok);
-            if (!ok) punishment.min = 1;
-        }
-
-        if (i.value().contains("minseverity")) {
-            bool ok;
-            punishment.minSeverity = i.value()["minseverity"].first().toInt(&ok);
-            if (!ok) punishment.minSeverity = 0;
-        }
-
-        if (i.value().contains("maxseverity")) {
-            bool ok;
-            punishment.maxSeverity = i.value()["maxseverity"].first().toInt(&ok);
-            if (!ok) punishment.maxSeverity = INT_MAX;
-        }
-
-        if (i.value().contains("weight")) {
-            bool ok;
-            punishment.weight = i.value()["weight"].first().toInt(&ok);
-            if (!ok) punishment.weight = 1;
-        }
-
-        if (i.value().contains("group")) {
-            for (const QString &groupVal : i.value()["group"]) {
-                // Handle comma-separated group values
-                punishment.groups.append(groupVal.split(",", Qt::SkipEmptyParts));
+            // Process specific punishment attributes
+            if (i.value().contains("value")) {
+                bool ok;
+                punishment.value = i.value()["value"].first().toDouble(&ok);
+                if (!ok) punishment.value = 1.0;
             }
-        }
 
-        punishment.groupOnly = (i.value().contains("grouponly") && i.value()["grouponly"].contains("1"));
-        punishment.longRunning = (i.value().contains("longrunning") && i.value()["longrunning"].contains("1"));
-        punishment.mustStart = (i.value().contains("muststart") && i.value()["muststart"].contains("1"));
-        punishment.accumulative = (i.value().contains("accumulative") && i.value()["accumulative"].contains("1"));
-
-        if (i.value().contains("respite") || i.value().contains("respit")) {
-            punishment.respite = i.value().value("respite", i.value().value("respit")).first();
-        }
-
-        if (i.value().contains("estimate")) {
-            punishment.estimate = i.value()["estimate"].first();
-        }
-
-        if (i.value().contains("forbid")) {
-            for (const QString &forbidVal : i.value()["forbid"]) {
-                punishment.forbidPermissions.append(forbidVal);
+            if (i.value().contains("valueunit")) {
+                punishment.valueUnit = i.value()["valueunit"].first();
             }
-        }
 
-        // Store the processed punishment
-        punishmentSections[punishment.name] = punishment;
+            if (i.value().contains("max")) {
+                bool ok;
+                punishment.max = i.value()["max"].first().toInt(&ok);
+                if (!ok) punishment.max = 20;
+            }
+
+            if (i.value().contains("min")) {
+                bool ok;
+                punishment.min = i.value()["min"].first().toInt(&ok);
+                if (!ok) punishment.min = 1;
+            }
+
+            if (i.value().contains("minseverity")) {
+                bool ok;
+                punishment.minSeverity = i.value()["minseverity"].first().toInt(&ok);
+                if (!ok) punishment.minSeverity = 0;
+            }
+
+            if (i.value().contains("maxseverity")) {
+                bool ok;
+                punishment.maxSeverity = i.value()["maxseverity"].first().toInt(&ok);
+                if (!ok) punishment.maxSeverity = INT_MAX;
+            }
+
+            if (i.value().contains("weight")) {
+                bool ok;
+                punishment.weight = i.value()["weight"].first().toInt(&ok);
+                if (!ok) punishment.weight = 1;
+            }
+
+            if (i.value().contains("group")) {
+                for (const QString &groupVal : i.value()["group"]) {
+                    // Handle comma-separated group values
+                    punishment.groups.append(groupVal.split(",", Qt::SkipEmptyParts));
+                }
+            }
+
+            punishment.groupOnly = (i.value().contains("grouponly") && i.value()["grouponly"].contains("1"));
+            punishment.longRunning = (i.value().contains("longrunning") && i.value()["longrunning"].contains("1"));
+            punishment.mustStart = (i.value().contains("muststart") && i.value()["muststart"].contains("1"));
+            punishment.accumulative = (i.value().contains("accumulative") && i.value()["accumulative"].contains("1"));
+
+            if (i.value().contains("respite") || i.value().contains("respit")) {
+                punishment.respite = i.value().value("respite", i.value().value("respit")).first();
+            }
+
+            if (i.value().contains("estimate")) {
+                punishment.estimate = i.value()["estimate"].first();
+            }
+
+            if (i.value().contains("forbid")) {
+                for (const QString &forbidVal : i.value()["forbid"]) {
+                    punishment.forbidPermissions.append(forbidVal);
+                }
+            }
+
+            // Store the processed punishment
+            punishmentSections[punishment.name] = punishment;
+            qDebug() << "[DEBUG] Added punishment: " << punishment.name;
+        }
     }
+    
+    qDebug() << "[DEBUG] Punishment Section Keys: " << punishmentSectionKeys.join(", ");
+    qDebug() << "[DEBUG] Processed " << punishmentCount << " punishment sections. Result: " << punishmentSections.size() << " punishment entries";
+    
+    // Debug all raw sections to see what's available
+    QStringList allSections;
+    QMapIterator<QString, QMap<QString, QStringList>> j(rawSections);
+    while (j.hasNext()) {
+        j.next();
+        allSections.append(j.key());
+    }
+    qDebug() << "[DEBUG] All raw sections: " << allSections.join(", ");
+    qDebug() << "[DEBUG] ============ END PROCESSING PUNISHMENT SECTIONS ============\n";
 }
 
 void ScriptParser::processFlagSections() {
@@ -802,45 +923,62 @@ void ScriptParser::processClothingSections() {
 }
 
 void ScriptParser::processClothTypeSections() {
+    qDebug() << "[DEBUG] Processing cloth type sections. Total raw sections: " << rawSections.size();
+    int count = 0;
+    
+    // Create a list to store cloth type section keys for debugging
+    QStringList clothTypeSectionKeys;
+    
     QMapIterator<QString, QMap<QString, QStringList>> i(rawSections);
     while (i.hasNext()) {
         i.next();
-        if (!i.key().toLower().startsWith("clothtype-")) continue;
+        
+        if (i.key().toLower().startsWith("clothtype-")) {
+            QString clothTypeName = i.key().mid(10); // Remove "clothtype-" prefix
+            clothTypeSectionKeys.append(i.key()); // Add to our debug list
+            
+            qDebug() << "[DEBUG] Processing cloth type section: " << i.key() << " -> cloth type name: " << clothTypeName;
+            count++;
 
-        ClothTypeSection clothType;
-        clothType.name = i.key().mid(10); // Remove "clothtype-" prefix
-        clothType.type = "clothtype";
-        clothType.keyValues = i.value();
+            ClothTypeSection clothType;
+            clothType.name = clothTypeName;
+            clothType.type = "clothtype";
+            clothType.keyValues = i.value();
 
-        // Process cloth type attributes and values
-        QString currentAttr;
+            // Process cloth type attributes and values
+            QString currentAttr;
 
-        QMapIterator<QString, QStringList> j(i.value());
-        while (j.hasNext()) {
-            j.next();
+            QMapIterator<QString, QStringList> j(i.value());
+            while (j.hasNext()) {
+                j.next();
 
-            if (j.key().toLower() == "attr") {
-                // This is an attribute definition
-                for (const QString &attrName : j.value()) {
-                    clothType.attributes[attrName] = QStringList();
-                    currentAttr = attrName;
-                }
-            } else if (j.key().toLower() == "value" && !currentAttr.isEmpty()) {
-                // This is a value for the current attribute
-                for (const QString &value : j.value()) {
-                    clothType.attributes[currentAttr].append(value);
-                }
-            } else if (j.key().toLower() == "check") {
-                // This is a check definition
-                for (const QString &checkName : j.value()) {
-                    clothType.checks[currentAttr] = checkName;
+                if (j.key().toLower() == "attr") {
+                    // This is an attribute definition
+                    for (const QString &attrName : j.value()) {
+                        clothType.attributes[attrName] = QStringList();
+                        currentAttr = attrName;
+                    }
+                } else if (j.key().toLower() == "value" && !currentAttr.isEmpty()) {
+                    // This is a value for the current attribute
+                    for (const QString &value : j.value()) {
+                        clothType.attributes[currentAttr].append(value);
+                    }
+                } else if (j.key().toLower() == "check") {
+                    // This is a check definition
+                    for (const QString &checkName : j.value()) {
+                        clothType.checks[currentAttr] = checkName;
+                    }
                 }
             }
-        }
 
-        // Store the processed cloth type
-        clothTypeSections[clothType.name] = clothType;
+            // Store the processed cloth type
+            clothTypeSections[clothType.name] = clothType;
+            qDebug() << "[DEBUG] Added cloth type: " << clothType.name << " with " << clothType.attributes.size() << " attributes";
+        }
     }
+    
+    qDebug() << "[DEBUG] Cloth Type Section Keys: " << clothTypeSectionKeys.join(", ");
+    qDebug() << "[DEBUG] Processed " << count << " cloth type sections. Result: " << clothTypeSections.size() << " cloth type entries";
 }
 
 void ScriptParser::buildStatusGroups() {}
@@ -1095,7 +1233,13 @@ int ScriptParser::getRedMerits() const {
 }
 
 bool ScriptParser::isTestMenuEnabled() const {
-    return generalSection.value("testmenu", "0") == "1";
+    QString testMenuStr = getIniValue("General", "TestMenu", "0");
+
+    bool enabled = (testMenuStr == "1");
+
+    qDebug() << "TestMenu value from INI:" << testMenuStr << ", Enabled:" << enabled;
+
+    return enabled;
 }
 
 QStringList ScriptParser::getStatusesInGroup(const QString &groupName) const {
@@ -1104,4 +1248,12 @@ QStringList ScriptParser::getStatusesInGroup(const QString &groupName) const {
 
 bool ScriptParser::isStatusInGroup(const QString &statusName, const QString &groupName) const {
     return statusGroups.value(groupName, QStringList()).contains(statusName);
+}
+
+QMap<QString, QStringList> ScriptParser::getRawSectionData(const QString &sectionName) const {
+    return rawSections.value(sectionName, QMap<QString, QStringList>());
+}
+
+QStringList ScriptParser::getRawSectionNames() const {
+    return rawSections.keys();
 }

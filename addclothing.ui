@@ -6,292 +6,43 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>719</width>
-    <height>359</height>
+    <width>646</width>
+    <height>401</height>
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Add Clothing</string>
+   <string>Add Clothing Item</string>
   </property>
-  <widget class="QLabel" name="lbl_Add">
-   <property name="geometry">
-    <rect>
-     <x>20</x>
-     <y>30</y>
-     <width>31</width>
-     <height>31</height>
-    </rect>
-   </property>
-   <property name="font">
-    <font>
-     <pointsize>12</pointsize>
-    </font>
-   </property>
-   <property name="text">
-    <string>Add</string>
-   </property>
-  </widget>
-  <widget class="QLabel" name="lbl_SelectedType">
-   <property name="geometry">
-    <rect>
-     <x>60</x>
-     <y>30</y>
-     <width>301</width>
-     <height>31</height>
-    </rect>
-   </property>
-   <property name="font">
-    <font>
-     <pointsize>12</pointsize>
-    </font>
-   </property>
-   <property name="text">
-    <string>TextLabel</string>
-   </property>
-  </widget>
-  <widget class="QLineEdit" name="le_Name">
-   <property name="geometry">
-    <rect>
-     <x>80</x>
-     <y>110</y>
-     <width>113</width>
-     <height>23</height>
-    </rect>
-   </property>
-  </widget>
-  <widget class="QLabel" name="lbl_Name">
-   <property name="geometry">
-    <rect>
-     <x>10</x>
-     <y>110</y>
-     <width>56</width>
-     <height>21</height>
-    </rect>
-   </property>
-   <property name="font">
-    <font>
-     <pointsize>12</pointsize>
-    </font>
-   </property>
-   <property name="text">
-    <string>Name:</string>
-   </property>
-  </widget>
-  <widget class="QLabel" name="lbl_Color">
-   <property name="geometry">
-    <rect>
-     <x>10</x>
-     <y>150</y>
-     <width>56</width>
-     <height>21</height>
-    </rect>
-   </property>
-   <property name="font">
-    <font>
-     <pointsize>12</pointsize>
-    </font>
-   </property>
-   <property name="text">
-    <string>Color:</string>
-   </property>
-  </widget>
-  <widget class="QComboBox" name="cb_Color">
-   <property name="geometry">
-    <rect>
-     <x>80</x>
-     <y>150</y>
-     <width>111</width>
-     <height>24</height>
-    </rect>
-   </property>
-  </widget>
-  <widget class="QLabel" name="lbl_Material">
-   <property name="geometry">
-    <rect>
-     <x>10</x>
-     <y>190</y>
-     <width>71</width>
-     <height>21</height>
-    </rect>
-   </property>
-   <property name="font">
-    <font>
-     <pointsize>12</pointsize>
-    </font>
-   </property>
-   <property name="text">
-    <string>Material:</string>
-   </property>
-  </widget>
-  <widget class="QComboBox" name="cb_Material">
-   <property name="geometry">
-    <rect>
-     <x>80</x>
-     <y>190</y>
-     <width>111</width>
-     <height>24</height>
-    </rect>
-   </property>
-  </widget>
-  <widget class="QLabel" name="lbl_Type">
-   <property name="geometry">
-    <rect>
-     <x>320</x>
-     <y>110</y>
-     <width>56</width>
-     <height>21</height>
-    </rect>
-   </property>
-   <property name="font">
-    <font>
-     <pointsize>12</pointsize>
-    </font>
-   </property>
-   <property name="text">
-    <string>Type:</string>
-   </property>
-  </widget>
-  <widget class="QComboBox" name="cb_Type">
-   <property name="geometry">
-    <rect>
-     <x>380</x>
-     <y>110</y>
-     <width>111</width>
-     <height>24</height>
-    </rect>
-   </property>
-  </widget>
-  <widget class="QLabel" name="lbl_Width">
-   <property name="geometry">
-    <rect>
-     <x>320</x>
-     <y>150</y>
-     <width>56</width>
-     <height>21</height>
-    </rect>
-   </property>
-   <property name="font">
-    <font>
-     <pointsize>12</pointsize>
-    </font>
-   </property>
-   <property name="text">
-    <string>Width:</string>
-   </property>
-  </widget>
-  <widget class="QComboBox" name="cb_Width">
-   <property name="geometry">
-    <rect>
-     <x>380</x>
-     <y>150</y>
-     <width>111</width>
-     <height>24</height>
-    </rect>
-   </property>
-  </widget>
-  <widget class="QLabel" name="lbl_Description">
-   <property name="geometry">
-    <rect>
-     <x>320</x>
-     <y>190</y>
-     <width>91</width>
-     <height>21</height>
-    </rect>
-   </property>
-   <property name="font">
-    <font>
-     <pointsize>12</pointsize>
-    </font>
-   </property>
-   <property name="text">
-    <string>Description:</string>
-   </property>
-  </widget>
-  <widget class="QTextEdit" name="te_Description">
-   <property name="geometry">
-    <rect>
-     <x>420</x>
-     <y>190</y>
-     <width>281</width>
-     <height>131</height>
-    </rect>
-   </property>
-  </widget>
-  <widget class="QDialogButtonBox" name="buttonBox">
-   <property name="geometry">
-    <rect>
-     <x>90</x>
-     <y>310</y>
-     <width>166</width>
-     <height>24</height>
-    </rect>
-   </property>
-   <property name="standardButtons">
-    <set>QDialogButtonBox::StandardButton::Cancel|QDialogButtonBox::StandardButton::Save</set>
-   </property>
-  </widget>
-  <widget class="QLabel" name="lbl_Length">
-   <property name="geometry">
-    <rect>
-     <x>10</x>
-     <y>230</y>
-     <width>61</width>
-     <height>21</height>
-    </rect>
-   </property>
-   <property name="font">
-    <font>
-     <pointsize>12</pointsize>
-    </font>
-   </property>
-   <property name="text">
-    <string>Length:</string>
-   </property>
-  </widget>
-  <widget class="QComboBox" name="cb_Length">
-   <property name="geometry">
-    <rect>
-     <x>80</x>
-     <y>230</y>
-     <width>111</width>
-     <height>24</height>
-    </rect>
-   </property>
-  </widget>
+  <layout class="QVBoxLayout" name="verticalLayout">
+   <item>
+    <widget class="QTableWidget" name="tw_addcloth">
+     <property name="columnCount">
+      <number>2</number>
+     </property>
+     <column>
+      <property name="text">
+       <string>Attributes</string>
+      </property>
+     </column>
+     <column>
+      <property name="text">
+       <string>Values</string>
+      </property>
+     </column>
+    </widget>
+   </item>
+   <item>
+    <widget class="QDialogButtonBox" name="buttonBox">
+     <property name="orientation">
+      <enum>Qt::Orientation::Horizontal</enum>
+     </property>
+     <property name="standardButtons">
+      <set>QDialogButtonBox::StandardButton::Cancel|QDialogButtonBox::StandardButton::Ok</set>
+     </property>
+    </widget>
+   </item>
+  </layout>
  </widget>
  <resources/>
- <connections>
-  <connection>
-   <sender>buttonBox</sender>
-   <signal>rejected()</signal>
-   <receiver>AddClothing</receiver>
-   <slot>reject()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>172</x>
-     <y>321</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>359</x>
-     <y>179</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>buttonBox</sender>
-   <signal>accepted()</signal>
-   <receiver>AddClothing</receiver>
-   <slot>accept()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>172</x>
-     <y>321</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>359</x>
-     <y>179</y>
-    </hint>
-   </hints>
-  </connection>
- </connections>
+ <connections/>
 </ui>

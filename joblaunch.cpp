@@ -28,7 +28,9 @@ void JobLaunch::populateJobDropdown()
     QStringList jobList = mainApp->getAvailableJobs(); // Get jobs from CyberDom
 
     if (jobList.isEmpty()) {
-        qDebug() << "[WARNING] No jobs found in the script.";
+        qDebug() << "[WARNING] No jobs found in the script. Check if the script was loaded correctly.";
+    } else {
+        qDebug() << "[INFO] Found " << jobList.size() << " jobs to populate in dropdown.";
     }
 
     ui->jobComboBox->clear(); // Clear the existing items

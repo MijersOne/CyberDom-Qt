@@ -251,6 +251,12 @@ public:
     QList<InstructionSection> getInstructionSections() const;
     QList<InstructionSection> getClothingSections() const;
     QList<ClothTypeSection> getClothTypeSections() const;
+    
+    // Access raw section data
+    QMap<QString, QStringList> getRawSectionData(const QString &sectionName) const;
+    
+    // Get all section names
+    QStringList getRawSectionNames() const;
 
     // Get specific sections by name
     StatusSection getStatus(const QString &name) const;
