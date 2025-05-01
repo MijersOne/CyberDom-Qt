@@ -182,10 +182,10 @@ void ScriptParser::parseSectionLine(const QString &line, QString &currentSection
         currentSection = "general";
         currentType = "general";
     } else if (normalizedName == "init") {
-        currentSection = "init";
+        currentSection = sectionName;
         currentType = "init";
     } else if (normalizedName == "events") {
-        currentSection = "events";
+        currentSection = sectionName;
         currentType = "events";
     } else if (normalizedName.startsWith("status-")) {
         // This handles the exact format "Status-Normal" from your script
@@ -193,66 +193,66 @@ void ScriptParser::parseSectionLine(const QString &line, QString &currentSection
         currentType = "status";
         qDebug() << "[DEBUG] Found status section: " << sectionName;
     } else if (normalizedName.startsWith("permission-")) {
-        currentSection = "permission";
+        currentSection = sectionName;
         currentType = "permission";
     } else if (normalizedName.startsWith("report-")) {
-        currentSection = "report";
+        currentSection = sectionName;
         currentType = "report";
     } else if (normalizedName.startsWith("confession-")) {
-        currentSection = "confession";
+        currentSection = sectionName;
         currentType = "confession";
     } else if (normalizedName.startsWith("job-")) {
         currentSection = sectionName;
         currentType = "job";
         qDebug() << "[DEBUG] Found job section: " << sectionName;
     } else if (normalizedName.startsWith("punishment-")) {
-        currentSection = "punishment";
+        currentSection = sectionName;
         currentType = "punishment";
     } else if (normalizedName.startsWith("flag-")) {
-        currentSection = "flag";
+        currentSection = sectionName;
         currentType = "flag";
     } else if (normalizedName.startsWith("procedure-")) {
-        currentSection = "procedure";
+        currentSection = sectionName;
         currentType = "procedure";
     } else if (normalizedName.startsWith("popup-")) {
-        currentSection = "popup";
+        currentSection = sectionName;
         currentType = "popup";
     } else if (normalizedName.startsWith("timer-")) {
         currentSection = "timer";
         currentType = "timer";
     } else if (normalizedName.startsWith("instructions-")) {
-        currentSection = "instruction";
+        currentSection = sectionName;
         currentType = "instruction";
     } else if (normalizedName.startsWith("clothing-")) {
-        currentSection = "clothing";
+        currentSection = sectionName;
         currentType = "clothing";
     } else if (normalizedName.startsWith("clothtype-")) {
         currentSection = rawSectionName; // Keep the original section name with prefix
         currentType = "clothtype";
         qDebug() << "[DEBUG] Found cloth type section: " << sectionName;
     } else if (normalizedName.startsWith("set-")) {
-        currentSection = "set";
+        currentSection = sectionName;
         currentType = "set";
     } else if (normalizedName.startsWith("rule-")) {
-        currentSection = "rule";
+        currentSection = sectionName;
         currentType = "rule";
     } else if (normalizedName.startsWith("question-")) {
-        currentSection = "question";
+        currentSection = sectionName;
         currentType = "question";
     } else if (normalizedName.startsWith("popupgroup-")) {
-        currentSection = "popupgroup";
+        currentSection = sectionName;
         currentType = "popupgroup";
     } else if (normalizedName.startsWith("case-")) {
-        currentSection = "case";
+        currentSection = sectionName;
         currentType = "case";
     } else if (normalizedName.startsWith("ftp")) {
-        currentSection = "ftp";
+        currentSection = sectionName;
         currentType = "ftp";
     } else if (normalizedName.startsWith("font")) {
-        currentSection = "font";
+        currentSection = sectionName;
         currentType = "font";
     } else if (normalizedName.startsWith("language")) {
-        currentSection = "language";
+        currentSection = sectionName;
         currentType = "language";
     } else {
         qDebug() << "[Warning] Unknown section type:" << sectionName;
@@ -844,6 +844,35 @@ void ScriptParser::processPopupSections() {
 
         // Store the processed popup
         popupSections[popup.name] = popup;
+    }
+}
+
+void ScriptParser::processQuestionSections() {
+    QMapIterator<QString, QMap<QString, QStringList>> i(rawSections);
+    while (i.hasNext()) {
+        i.next();
+        if (!i.key().toLower().startsWith("question-")) continue;
+
+        QString questionName = i.key().mid(9); // Remove "question-" prefix
+        QuestionSection question;
+        question.name = questionName;
+        question.type = "question";
+        question.keyValues = i.value();
+
+        for (auto it = i.value().begin(); it != i.value().end(); ++it) {
+            QString key = it.key().trimmed();
+            if (key.compare("Phrase", Qt::CaseInsensitive) == 0) {
+                question.phrase = it.value().first();
+            } else if (key.compare("NoInputProcedure", Qt::CaseInsensitive) == 0) {
+                question.noInputProcedure = it.value().first();
+            } else if (key.startsWith("?")) {
+                QString option = key.mid(1).trimmed();
+                question.options[option] = it.value().first().trimmed();
+            }
+        }
+
+        questionSections[question.name] = question;
+        qDebug() << "[DEBUG] Parsed question:" << question.name << "with options:" << question.options.keys();
     }
 }
 

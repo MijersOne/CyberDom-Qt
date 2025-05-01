@@ -183,6 +183,23 @@ private:
 
     QList<ClothingItem> clothingInventory;
 
+    void runProcedure(const QString &procedureName);
+
+    struct TimerInstance {
+        QString name;
+        QTime start;
+        QTime end;
+        QString message;
+        QString sound;
+        QString procedure;
+        bool triggered = false;
+    };
+    QList<TimerInstance> activeTimers;
+
+    QMap<QString, QString> questionAnswers;
+    void loadQuestionAnswers();
+    void saveQuestionAnswers();
+
 private slots:
     void applyTimeToClock(int days, int hours, int minutes, int seconds);
     void openAboutDialog(); // Slot to open the About dialog

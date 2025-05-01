@@ -27,6 +27,9 @@
 #include <QRandomGenerator>
 #include <cstdlib>
 #include <ctime>
+#include <QMediaPlayer>
+#include <QAudioOutput>
+#include <QInputDialog>
 
 CyberDom::CyberDom(QWidget *parent)
     : QMainWindow(parent)
@@ -238,6 +241,31 @@ void CyberDom::updateInternalClock()
         // Save the current date to settings
         QSettings settings(settingsFile, QSettings::IniFormat);
         settings.setValue("System/CurrentDate", internalClock.date().toString("MM-dd-yyyy"));
+    }
+
+    for (TimerInstance &timer : activeTimers) {
+        QTime now = internalClock.time();
+        if (!timer.triggered && now >= timer.start && now <= timer.end) {
+            qDebug() << "[Timer Triggered]:" << timer.name;
+
+            if (!timer.message.isEmpty()) {
+                QMessageBox::information(this, "Timer", replaceVariables(timer.message));
+            }
+
+            if (!timer.sound.isEmpty()) {
+                auto player = new QMediaPlayer(this);
+                auto audioOutput = new QAudioOutput(this);
+                player->setAudioOutput(audioOutput);
+                player->setSource(QUrl::fromLocalFile(timer.sound));
+                player->play();
+            }
+
+            if (!timer.procedure.isEmpty()) {
+                runProcedure(timer.procedure);
+            }
+
+            timer.triggered = true;
+        }
     }
 }
 
@@ -925,6 +953,11 @@ QString CyberDom::replaceVariables(const QString &input) const {
     result.replace("{$zzMaster}", masterVariable);
     result.replace("{$zzSubName}", subNameVariable); // Add other variables as needed
 
+    for (auto it = questionAnswers.begin(); it != questionAnswers.end(); ++it) {
+        QString var = "{$" + it.key() + "}";
+        result.replace(var, it.value());
+    }
+
     return result;
 }
 
@@ -1377,12 +1410,28 @@ int CyberDom::getMeritsFromIni() {
 }
 
 void CyberDom::initializeUiWithIniFile() {
+    bool isFirstRun = false;
+
+    QSettings settings(settingsFile, QSettings::IniFormat);
+    if (!settings.contains("User/Initialized")) {
+        isFirstRun = true;
+        settings.setValue("User/Initialized", true);
+        settings.sync();
+    }
+
     if (iniData.contains("init")) {
         int initialMerits = iniData["init"]["Merits"].toInt();
-        ui->progressBar->setValue(initialMerits);
-        ui->lbl_Merits->setText("Merits: " + QString::number(initialMerits));
-        ui->lbl_Status->setText("Status: " + currentStatus);
-        qDebug() << "Initial Merits:" << initialMerits;
+        currentStatus = iniData["init"]["NewStatus"];
+        updateMerits(initialMerits);
+        updateStatus(currentStatus);
+    }
+
+    if (isFirstRun) {
+        QString firstRunProcedure = getIniValue("events", "FirstRun");
+        if (!firstRunProcedure.isEmpty()) {
+            qDebug() << "[FirstRun] Executing startup procedure:" << firstRunProcedure;
+            runProcedure(firstRunProcedure);
+        }
     }
 
     updateStatusText();
@@ -2007,4 +2056,159 @@ QStringList CyberDom::getClothingOptions(const QString &setName)
 
 void CyberDom::addClothingItem(const ClothingItem& item) {
     clothingInventory.append(item);
+}
+
+void CyberDom::runProcedure(const QString &procedureName) {
+    QString sectionName = "procedure-" + procedureName;
+
+    if (!iniData.contains(sectionName)) {
+        qDebug() << "[WARNING] Procedure section not found:" << sectionName;
+        return;
+    }
+
+    QMap<QString, QString> procedureData = iniData[sectionName];
+
+    for (auto it = procedureData.begin(); it != procedureData.end(); ++it) {
+        QString key = it.key().trimmed();
+        QString value = it.value().trimmed();
+
+        if (key.compare("SetFlag", Qt::CaseInsensitive) == 0) {
+            setFlag(value);
+        } else if (key.compare("RemoveFlag", Qt::CaseInsensitive) == 0) {
+            removeFlag(value);
+        } else if (key.compare("AddMerits", Qt::CaseInsensitive) == 0) {
+            int currentMerits = getMeritsFromIni();
+            int added = value.toInt();
+            updateMerits(currentMerits + added);
+        } else if (key.compare("Procedure", Qt::CaseInsensitive) == 0) {
+            runProcedure(value);
+        } else if (key.compare("Message", Qt::CaseInsensitive) == 0) {
+            QMessageBox::information(this, "Message", replaceVariables(value));
+        } else if (key.compare("Sound", Qt::CaseInsensitive) == 0) {
+            auto player = new QMediaPlayer(this);
+            auto audioOutput = new QAudioOutput(this);
+            player->setAudioOutput(audioOutput);
+            player->setSource(QUrl::fromLocalFile(value));
+            player->play();
+        } else if (key.compare("Input", Qt::CaseInsensitive) == 0) {
+            bool ok;
+            QString response = QInputDialog::getText(this, "Input Required", replaceVariables(value), QLineEdit::Normal, "", &ok);
+            if (ok && !response.isEmpty()) {
+                qDebug() << "[Input Response]:" << response;
+            }
+        } else if (key.compare("Instructions", Qt::CaseInsensitive) == 0) {
+            updateInstructions(value);
+        } else if (key.compare("Clothing", Qt::CaseInsensitive) == 0) {
+            updateClothingInstructions(value);
+        } else if (key.compare("If", Qt::CaseInsensitive) == 0) {
+            QString condition = value;
+            if (condition.startsWith("#")) {
+                QString flag = condition.mid(1).trimmed();
+                if (!isFlagSet(flag)) {
+                    qDebug() << "[Procedure Skipped] Condition not met: " << flag;
+                    return;
+                }
+            }
+        } else if (key.compare("Question", Qt::CaseInsensitive) == 0) {
+            if (!scriptParser) continue;
+            QString questionKey = value.trimmed();
+
+            // Get the Question Section
+            QuestionSection question = scriptParser->getQuestion(questionKey);
+            if (question.phrase.isEmpty()) {
+                qDebug() << "[WARNING] Question section not found or has no phrase:" << questionKey;
+                continue;
+            }
+
+            QString questionText = replaceVariables(question.phrase);
+            QStringList optionLabels = question.options.keys();
+
+            QString selectedOption;
+            if (optionLabels.isEmpty()) {
+                // Yes/No Input (or Single-Line input)
+                bool ok;
+                QString response = QInputDialog::getText(this, "Question", questionText, QLineEdit::Normal, "", &ok);
+                if (ok) {
+                    selectedOption = response.trimmed();
+                } else {
+                    if (!question.noInputProcedure.isEmpty()) {
+                        runProcedure(question.noInputProcedure);
+                    }
+                    continue;
+                }
+            } else {
+                // Multiple-choice input
+                bool ok;
+                selectedOption = QInputDialog::getItem(this, "Question", questionText, optionLabels, 0, false, &ok);
+                if (!ok) {
+                    if (!question.noInputProcedure.isEmpty()) {
+                        runProcedure(question.noInputProcedure);
+                    }
+                    continue;
+                }
+            }
+
+            // Store answer persistently
+            saveQuestionAnswers();
+
+            if (question.options.contains(selectedOption)) {
+                QString followUpProc = question.options[selectedOption];
+                if (!followUpProc.isEmpty()) {
+                    runProcedure(followUpProc);
+                }
+            } else {
+                if (!question.noInputProcedure.isEmpty()) {
+                    runProcedure(question.noInputProcedure);
+                }
+            }
+
+        } else if (key.compare("Timer", Qt::CaseInsensitive) == 0) {
+            QString timerKey = "timer-" + value;
+            if (!iniData.contains(timerKey)) {
+                qDebug() << "[Timer] Timer section not found:" << timerKey;
+                continue;
+            }
+
+            QMap<QString, QString> timerData = iniData[timerKey];
+            QTime startTime = QTime::fromString(timerData.value("Start", "00:00"), "hh:mm");
+            QTime endTime = QTime::fromString(timerData.value("End", "23:59"), "hh:mm");
+            QString message = timerData.value("Message");
+            QString sound = timerData.value("Sound");
+            QString procedure = timerData.value("Procedure");
+
+            TimerInstance timer;
+            timer.name = value;
+            timer.start = startTime;
+            timer.end = endTime;
+            timer.message = message;
+            timer.sound = sound;
+            timer.procedure = procedure;
+            timer.triggered = false;
+
+            activeTimers.append(timer);
+            qDebug() << "[Timer] Registered timer:" << value << " from " << startTime.toString() << " to " << endTime.toString();
+        } else {
+            qDebug() << "[UNHANDLED] Procedure Key:" << key << " -> " << value;
+        }
+    }
+}
+
+void CyberDom::saveQuestionAnswers() {
+    QSettings settings(settingsFile, QSettings::IniFormat);
+    settings.beginGroup("Answers");
+    for (auto it = questionAnswers.begin(); it != questionAnswers.end(); ++it) {
+        settings.setValue(it.key(), it.value());
+    }
+    settings.endGroup();
+    settings.sync();
+}
+
+void CyberDom::loadQuestionAnswers() {
+    QSettings settings(settingsFile, QSettings::IniFormat);
+    settings.beginGroup("Answers");
+    QStringList keys = settings.childKeys();
+    for (const QString &key : keys) {
+        questionAnswers[key] = settings.value(key).toString();
+    }
+    settings.endGroup();
 }

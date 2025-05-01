@@ -228,6 +228,13 @@ struct ClothTypeSection : public ScriptSection {
     QMap<QString, QString> checks;
 };
 
+// Structure for Questions
+struct QuestionSection : public ScriptSection {
+    QString phrase;
+    QMap<QString, QString> options; // ?Answer = Procedure
+    QString noInputProcedure;
+};
+
 // Class to parse and provide access to the script
 class ScriptParser {
 
@@ -255,6 +262,7 @@ public:
     QList<InstructionSection> getClothingSections() const;
     QList<ClothTypeSection> getClothTypeSections() const;
     QMap<QString, ClothTypeSection> getClothTypeSectionMap() const { return clothTypeSections; }
+    QList<QuestionSection> getQuestionSections() const { return questionSections.values(); }
     
     // Access raw section data
     QMap<QString, QStringList> getRawSectionData(const QString &sectionName) const;
@@ -276,6 +284,7 @@ public:
     InstructionSection getInstruction(const QString &name) const;
     InstructionSection getClothing(const QString &name) const;
     ClothTypeSection getClothType(const QString &name) const;
+    QuestionSection getQuestion(const QString &name) const { return questionSections.value(name); }
 
     // Get general script info
     QString getMaster() const;
@@ -311,6 +320,7 @@ private:
     QMap<QString, InstructionSection> instructionSections;
     QMap<QString, InstructionSection> clothingSections;
     QMap<QString, ClothTypeSection> clothTypeSections;
+    QMap<QString, QuestionSection> questionSections;
 
     // General script info
     QMap<QString, QString> generalSection;
@@ -338,6 +348,7 @@ private:
     void processClothingSections();
     void processClothTypeSections();
     void buildStatusGroups();
+    void processQuestionSections();
 
     // Variable expansion
     QString expandVariables(const QString &text);
