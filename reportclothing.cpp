@@ -328,6 +328,16 @@ void ReportClothing::loadClothingItems()
         clothingByType[item.getType()].append(item);
     }
     settings.endArray();
+
+    // Load wearing items
+    int wearingCount = settings.beginReadArray("wearing");
+    for (int i = 0; i < wearingCount; ++i) {
+        settings.setArrayIndex(i);
+        QString serializedItem = settings.value("data").toString();
+        ClothingItem item = ClothingItem::fromString(serializedItem);
+        wearingItems.append(item);
+    }
+    settings.endArray();
     
     // Update the available items based on the currently selected type
     if (ui->cb_Type->count() > 0) {
@@ -359,6 +369,15 @@ void ReportClothing::saveClothingItems()
         settings.setValue("data", allItems[i].toString());
     }
     settings.endArray();
+
+    // Save wearing items
+    settings.beginWriteArray("wearing", wearingItems.size());
+    for (int i = 0; i < wearingItems.size(); ++i) {
+        settings.setArrayIndex(i);
+        settings.setValue("data", wearingItems[i].toString());
+    }
+    settings.endArray();
+
     settings.sync();
 }
 
