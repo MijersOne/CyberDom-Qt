@@ -97,6 +97,9 @@ public:
     void storeClothingReport(const QString &reportText);
     QStringList getClothingSets(const QString &setPrefix);
     QStringList getClothingOptions(const QString &setName);
+    ScriptParser* getScriptParser() const { return scriptParser; }
+    const QList<ClothingItem>& getClothingInventory() const { return clothingInventory; }
+    void addClothingItem(const ClothingItem& item);
 
 signals:
     void jobListUpdated();
@@ -177,6 +180,8 @@ private:
     bool isPunishment = false;
 
     QTimer *flagTimer;
+
+    QList<ClothingItem> clothingInventory;
 
 private slots:
     void applyTimeToClock(int days, int hours, int minutes, int seconds);

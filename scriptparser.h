@@ -230,6 +230,9 @@ struct ClothTypeSection : public ScriptSection {
 
 // Class to parse and provide access to the script
 class ScriptParser {
+
+    QMap<QString, QStringList> rawClothTypeLines;
+
 public:
     ScriptParser(CyberDom *parent);
     ~ScriptParser();
@@ -251,6 +254,7 @@ public:
     QList<InstructionSection> getInstructionSections() const;
     QList<InstructionSection> getClothingSections() const;
     QList<ClothTypeSection> getClothTypeSections() const;
+    QMap<QString, ClothTypeSection> getClothTypeSectionMap() const { return clothTypeSections; }
     
     // Access raw section data
     QMap<QString, QStringList> getRawSectionData(const QString &sectionName) const;
@@ -287,6 +291,8 @@ public:
     bool isStatusInGroup(const QString &statusName, const QString &groupName) const;
 
     QString getIniValue(const QString &section, const QString &key, const QString &defaultValue = "") const;
+
+    QStringList clothTypes;
 
 private:
     CyberDom *mainApp;

@@ -34,9 +34,6 @@ CyberDom::CyberDom(QWidget *parent)
 {
     ui->setupUi(this);
 
-    // Make sure the demo script exists
-    checkDemoScriptExists();
-
     // Connect the menuAssignments action to the slot function
     connect(ui->actionAssignments, &QAction::triggered, this, &CyberDom::openAssignmentsWindow);
 
@@ -642,82 +639,6 @@ void CyberDom::initializeIniFile() {
         // If this is a fresh start, force selection of a new file
         if (freshStart) {
             iniFilePath = promptForIniFile();
-            if (iniFilePath.isEmpty()) {
-                QMessageBox::StandardButton reply = QMessageBox::question(this, 
-                    "No Script File Selected", 
-                    "You didn't select a script file. Would you like to create a sample script file?",
-                    QMessageBox::Yes | QMessageBox::No);
-                    
-                if (reply == QMessageBox::Yes) {
-                    createSampleScriptFile();
-                    return; // createSampleScriptFile will handle loading if user confirms
-                } else {
-                    // As a last resort, use demo script
-                    QString demoPath = QDir::currentPath() + "/scripts/demo-female.ini";
-                    if (QFile::exists(demoPath)) {
-                        iniFilePath = demoPath;
-                        saveIniFilePath(iniFilePath);
-                        qDebug() << "[INFO] Using demo script as fallback after cancellation: " << iniFilePath;
-                    } else {
-                        qDebug() << "[ERROR] No INI file selected and no demo script available, exiting application";
-                        qApp->exit(); // Exit if no file is selected
-                        return;
-                    }
-                }
-            } else {
-                saveIniFilePath(iniFilePath);
-                qDebug() << "[DEBUG] User selected new INI file after reset: " << iniFilePath;
-            }
-        }
-        // Normal startup with no saved path
-        else if (iniFilePath.isEmpty()) {
-            QString demoPath = QDir::currentPath() + "/scripts/demo-female.ini";
-            if (QFile::exists(demoPath)) {
-                iniFilePath = demoPath;
-                saveIniFilePath(iniFilePath);
-                qDebug() << "[INFO] Using demo script as default: " << iniFilePath;
-            } else {
-                iniFilePath = promptForIniFile();
-                if (iniFilePath.isEmpty()) {
-                    QMessageBox::StandardButton reply = QMessageBox::question(this, 
-                        "No Script File Selected", 
-                        "You didn't select a script file. Would you like to create a sample script file?",
-                        QMessageBox::Yes | QMessageBox::No);
-                        
-                    if (reply == QMessageBox::Yes) {
-                        createSampleScriptFile();
-                        return; // createSampleScriptFile will handle loading if user confirms
-                    } else {
-                        qDebug() << "[ERROR] No INI file selected, exiting application";
-                        qApp->exit(); // Exit if no file is selected
-                        return;
-                    }
-                }
-                saveIniFilePath(iniFilePath);
-                qDebug() << "[DEBUG] User selected new INI file: " << iniFilePath;
-            }
-        }
-    }
-
-    // Continue with existing code to check if the file exists and is readable
-    QFileInfo fileInfo(iniFilePath);
-    if (!fileInfo.exists()) {
-        qDebug() << "[ERROR] INI file does not exist: " << iniFilePath;
-        QMessageBox::StandardButton reply = QMessageBox::question(this, 
-            "Error", 
-            "The script file does not exist: " + iniFilePath + "\n\nWould you like to create a sample script file?",
-            QMessageBox::Yes | QMessageBox::No);
-            
-        if (reply == QMessageBox::Yes) {
-            createSampleScriptFile();
-            return; // createSampleScriptFile will handle loading if user confirms
-        } else {
-            iniFilePath = promptForIniFile();
-            if (iniFilePath.isEmpty()) {
-                qApp->exit();
-                return;
-            }
-            saveIniFilePath(iniFilePath);
         }
     }
 
@@ -768,16 +689,6 @@ void CyberDom::initializeIniFile() {
                     iniFilePath = demoPath;
                     saveIniFilePath(iniFilePath);
                     qDebug() << "[INFO] Switching to demo script: " << iniFilePath;
-                }
-            } else {
-                QMessageBox::StandardButton reply = QMessageBox::question(this, 
-                    "No Status Sections Found", 
-                    "The script file has no status sections. Would you like to create a sample script file instead?",
-                    QMessageBox::Yes | QMessageBox::No);
-                    
-                if (reply == QMessageBox::Yes) {
-                    createSampleScriptFile();
-                    return; // createSampleScriptFile will handle loading if user confirms
                 }
             }
         }
@@ -1998,244 +1909,6 @@ bool CyberDom::isFlagSet(const QString &flagName) const {
     return flags.contains(flagName);
 }
 
-void CyberDom::createSampleScriptFile() {
-    QString sampleFileName = QDir::currentPath() + "/sample_cyberdom.ini";
-    QFile file(sampleFileName);
-    
-    if (file.exists()) {
-        qDebug() << "[DEBUG] Sample script file already exists, not overwriting: " << sampleFileName;
-        return;
-    }
-    
-    if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        QTextStream out(&file);
-        
-        out << "[General]\n";
-        out << "Master=Master\n";
-        out << "SubName=slave\n";
-        out << "MinMerits=0\n";
-        out << "MaxMerits=1000\n";
-        out << "Yellow=800\n";
-        out << "Red=400\n";
-        out << "TopText=Welcome to CyberDom\n";
-        out << "BottomText=Have fun!\n";
-        out << "Version=1.0\n";
-        out << "TestMenu=1\n\n";
-        
-        out << "[Init]\n";
-        out << "NewStatus=Normal\n";
-        out << "Merits=500\n\n";
-        
-        out << "[Status-Normal]\n";
-        out << "Text=This is the normal status. You are allowed to do most activities.\n";
-        out << "Group=Regular\n\n";
-        
-        out << "[Status-Busy]\n";
-        out << "Text=You are busy. Some activities may be restricted.\n";
-        out << "Group=Regular\n";
-        out << "Permissions=0\n\n";
-        
-        out << "[Status-Away]\n";
-        out << "Text=You are away. Most activities are restricted.\n";
-        out << "Group=Away\n";
-        out << "Permissions=0\n";
-        out << "Assignments=0\n";
-        out << "Confessions=0\n\n";
-        
-        out << "[Status-Punished]\n";
-        out << "Text=You are being punished. Many activities are restricted.\n";
-        out << "Group=Punishment\n";
-        out << "Permissions=0\n";
-        out << "Confessions=0\n";
-        out << "ReportsOnly=1\n\n";
-        
-        file.close();
-        
-        qDebug() << "[INFO] Created sample script file: " << sampleFileName;
-        
-        // Offer to use this sample file
-        QMessageBox::StandardButton reply = QMessageBox::question(this, 
-            "Sample Script Created", 
-            "A sample script file has been created. Would you like to use it?",
-            QMessageBox::Yes | QMessageBox::No);
-            
-        if (reply == QMessageBox::Yes) {
-            saveIniFilePath(sampleFileName);
-            loadAndParseScript(sampleFileName);
-        }
-    } else {
-        qDebug() << "[ERROR] Failed to create sample script file: " << file.errorString();
-    }
-}
-
-void CyberDom::checkDemoScriptExists() {
-    // The location where we expect the demo script to be
-    QString targetPath = QDir::currentPath() + "/scripts/demo-female.ini";
-    QFile targetFile(targetPath);
-
-    // If the target file already exists, we're good
-    if (targetFile.exists()) {
-        qDebug() << "[INFO] Demo script already exists at: " << targetPath;
-        return;
-    }
-
-    // Make sure the scripts directory exists
-    QDir scriptsDir(QDir::currentPath() + "/scripts");
-    if (!scriptsDir.exists()) {
-        scriptsDir.mkpath(".");
-        qDebug() << "[INFO] Created scripts directory";
-    }
-
-    // Create the demo script in the proper location
-    if (targetFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        QTextStream out(&targetFile);
-        
-        out << "[General]\n";
-        out << "   MinVersion=3.4\n";
-        out << "   Version=2016-10-23\n";
-        out << "   Master=Master\n";
-        out << "   SubName=slave\n";
-        out << "   AskPunishment=25,75\n";
-        out << "   ForgetPenalty=40\n";
-        out << "   IgnorePenalty=75\n";
-        out << "   alarm=alarm.wav\n\n";
-        
-        out << "   ; The Test Menu helps testing the script. Requires Restrict=0.\n";
-        out << "   TestMenu=1\n\n";
-        
-        out << "   ; Change to Restrict=0 to test changes to the script\n";
-        out << "   ; Delete the status file to make the change effective.\n";
-        out << "   Restrict=0\n\n";
-        
-        out << "   ; Set the limits of the merits\n";
-        out << "   MinMerits=0\n";
-        out << "   MaxMerits=1000\n";
-        out << "   Yellow=800\n";
-        out << "   Red=400\n\n";
-        
-        out << ";*******************************************************************\n";
-        out << ";* First start of the program\n";
-        out << ";*******************************************************************\n";
-        out << "[init]\n";
-        out << "   NewStatus=Normal\n";
-        out << "   Merits=1000\n\n";
-        
-        out << ";*******************************************************************\n";
-        out << ";* Normal\n";
-        out << ";*******************************************************************\n";
-        out << "[Status-Normal]\n";
-        out << "   group=home\n";
-        out << "   popupgroup=normal\n";
-        out << "   ; The text in the window.\n";
-        out << "   text=You are now controlled by {$zzMaster}.\n";
-        out << "   text=\n";
-        out << "   text=You must come immediately when called.\n";
-        out << "   text=You must sign in (click the reset button) before the counter in the lower right corner becomes zero or be punished.\n";
-        out << "   ; The sub must sign in every 30 minutes\n";
-        out << "   SignInInterval=00:30\n";
-        out << "   ; If the sub is late signing in, it costs a punishment of 50\n";
-        out << "   ; severity points + 2 points for every minute late.\n";
-        out << "   SigninPenalty1=50\n";
-        out << "   SigninPenalty2=2\n\n";
-        
-        out << "[Status-Sleeping]\n";
-        out << "   group=home\n";
-        out << "   Text=Go to sleep. You must be up again at 7.\n";
-        out << "   Text=\n";
-        out << "   Text=You must wear:\n";
-        out << "   Text=%clothing\n";
-        out << "   Text=\n";
-        out << "   Text=%instructions\n";
-        out << "   Text=\n";
-        out << "   Text=Report when up.\n\n";
-        
-        out << "[Status-On_job]\n";
-        out << "   text=Go to work now.\n";
-        out << "   text=Report immediately when you are back.\n";
-        out << "   text=Be back no later than 5 PM.\n\n";
-        
-        out << "[Status-Out]\n";
-        out << "   text=Report immediately when you are back.\n\n";
-        
-        out << "[Status-Guests]\n";
-        out << "   group=home\n";
-        out << "   text=Report immediately when your guests have left\n\n";
-        
-        out << "[Status-Eating]\n";
-        out << "   group=home\n";
-        out << "   text=Eat your meal now.\n";
-        out << "   text=%Instructions\n";
-        out << "   text=\n";
-        out << "   text=Report when finished.\n\n";
-        
-        out << "[Status-Hot_bath]\n";
-        out << "   text=Take your bath/shower now.\n";
-        out << "   text=You have 15 minutes, everything included.\n";
-        out << "   text=Report when finished.\n";
-        out << "   MaxTime=00:15\n";
-        out << "   SlowPenalty1=50\n";
-        out << "   SlowPenalty2=5\n\n";
-        
-        out << "[Status-TV]\n";
-        out << "   group=home\n";
-        out << "   text=You may now watch TV for up to 3 hours.\n";
-        out << "   text=Report when you have finished and turned the TV off.\n";
-        out << "   text=Remember to sign in every half hour.\n";
-        out << "   ; Max 3 hours allowed\n";
-        out << "   MaxTime=03:00\n";
-        out << "   SlowPenalty1=50\n";
-        out << "   SlowPenalty2=5\n";
-        out << "   ; The sub must sign in every 30 minutes to show she is present\n";
-        out << "   SigninInterval=00:30\n";
-        out << "   ; If the sub is late signing in, it costs a punishment of 50\n";
-        out << "   ; severity points + 0.2 points for every minute late.\n";
-        out << "   SigninPenalty1=50\n";
-        out << "   SigninPenalty2=2\n\n";
-        
-        out << "[Status-Masturbating]\n";
-        out << "   text=You may now masturbate.\n";
-        out << "   text=You must finish in 15 minutes.\n";
-        out << "   text=Report back as soon as you have finished.\n";
-        out << "   MaxTime=00:15\n";
-        out << "   SlowPenalty1=50\n";
-        out << "   SlowPenalty2=5\n\n";
-        
-        out << "[Status-Talking on the phone]\n";
-        out << "   substatus=1\n";
-        out << "   text=Make your phone call.\n";
-        out << "   text=Report when finished.\n";
-        out << "   MaxTime=00:30\n";
-        out << "   SlowPenalty1=50\n";
-        out << "   SlowPenalty2=5\n\n";
-        
-        out << "[Status-Punishment]\n\n";
-        
-        out << "[Status-Writing lines]\n\n";
-        
-        out << "[Status-Kneeling]\n";
-        out << "   SubStatus=1\n\n";
-        
-        out << "[Status-House_work]\n";
-        out << "   group=home\n";
-        out << "   Text=Do your housework, report when finished.\n";
-        out << "   PopupInterval=00:10,00:30\n\n";
-        
-        targetFile.close();
-        
-        qDebug() << "[INFO] Created demo script file at: " << targetPath;
-        
-        // Set this as the default script if no script is already selected
-        if (loadIniFilePath().isEmpty()) {
-            saveIniFilePath(targetPath);
-            QMessageBox::information(this, "Demo Script Created", 
-                                    "A demo script file has been created and will be used as the default script.\n\n"
-                                    "Location: " + targetPath);
-        }
-    } else {
-        qDebug() << "[ERROR] Failed to create demo script file: " << targetFile.errorString();
-    }
-}
-
 QString CyberDom::getClothingReportPrompt() const
 {
     // Get the clothing report prompt from the current status or script
@@ -2330,4 +2003,8 @@ QStringList CyberDom::getClothingOptions(const QString &setName)
     }
     
     return result;
+}
+
+void CyberDom::addClothingItem(const ClothingItem& item) {
+    clothingInventory.append(item);
 }

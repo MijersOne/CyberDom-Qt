@@ -69,6 +69,18 @@ bool ScriptParser::parseScript(const QString &filePath) {
             continue;
         }
 
+        if (line.startsWith("[clothtype-", Qt::CaseInsensitive)) {
+            int start = line.indexOf('-') + 1;
+            int end = line.indexOf(']');
+            if (start > 0 && end > start) {
+                QString typeName = line.mid(start, end - start).trimmed();
+                if (!typeName.isEmpty() && !clothTypes.contains(typeName)) {
+                    clothTypes.append(typeName);
+                    qDebug() << "[DEBUG] Parsed cloth type:" << typeName;
+                }
+            }
+        }
+
         // Check for section header
         if (line.startsWith("[") && line.endsWith("]")) {
             QString sectionHeader = line.mid(1, line.length() - 2);
@@ -255,20 +267,22 @@ void ScriptParser::parseSectionLine(const QString &line, QString &currentSection
 }
 
 void ScriptParser::parseKeyValueLine(const QString &line, const QString &currentSection, const QString &currentType) {
-    Q_UNUSED(currentType);
-
-    // Extract key and value
     int equalsPos = line.indexOf('=');
-    if (equalsPos <= 0) return; // Invalid line
+    if (equalsPos <= 0) return;
 
     QString key = line.left(equalsPos).trimmed();
-    QString value = line.mid(equalsPos + 1).trimmed();
+    QString value = line.mid(equalsPos + 1) .trimmed();
 
-    // Store in raw sections map (allowing multiple values for the same key)
+    // Store normally
     if (!rawSections[currentSection].contains(key)) {
         rawSections[currentSection][key] = QStringList();
     }
     rawSections[currentSection][key].append(value);
+
+    // --- New: store line as-is for cloth types ---
+    if (currentType == "clothtype") {
+        rawClothTypeLines[currentSection].append(line);
+    }
 }
 
 void ScriptParser::processGeneralSection() {
@@ -923,62 +937,42 @@ void ScriptParser::processClothingSections() {
 }
 
 void ScriptParser::processClothTypeSections() {
-    qDebug() << "[DEBUG] Processing cloth type sections. Total raw sections: " << rawSections.size();
+    qDebug() << "[DEBUG] Robust cloth type parsing...";
     int count = 0;
-    
-    // Create a list to store cloth type section keys for debugging
-    QStringList clothTypeSectionKeys;
-    
-    QMapIterator<QString, QMap<QString, QStringList>> i(rawSections);
-    while (i.hasNext()) {
-        i.next();
-        
-        if (i.key().toLower().startsWith("clothtype-")) {
-            QString clothTypeName = i.key().mid(10); // Remove "clothtype-" prefix
-            clothTypeSectionKeys.append(i.key()); // Add to our debug list
-            
-            qDebug() << "[DEBUG] Processing cloth type section: " << i.key() << " -> cloth type name: " << clothTypeName;
-            count++;
 
-            ClothTypeSection clothType;
-            clothType.name = clothTypeName;
-            clothType.type = "clothtype";
-            clothType.keyValues = i.value();
+    for (const QString& section : rawClothTypeLines.keys()) {
+        if (!section.toLower().startsWith("clothtype-")) continue;
 
-            // Process cloth type attributes and values
-            QString currentAttr;
+        QString clothTypeName = section.mid(10); // remove 'clothtype-'
+        ClothTypeSection clothType;
+        clothType.name = clothTypeName;
+        clothType.type = "clothtype";
 
-            QMapIterator<QString, QStringList> j(i.value());
-            while (j.hasNext()) {
-                j.next();
-
-                if (j.key().toLower() == "attr") {
-                    // This is an attribute definition
-                    for (const QString &attrName : j.value()) {
-                        clothType.attributes[attrName] = QStringList();
-                        currentAttr = attrName;
-                    }
-                } else if (j.key().toLower() == "value" && !currentAttr.isEmpty()) {
-                    // This is a value for the current attribute
-                    for (const QString &value : j.value()) {
-                        clothType.attributes[currentAttr].append(value);
-                    }
-                } else if (j.key().toLower() == "check") {
-                    // This is a check definition
-                    for (const QString &checkName : j.value()) {
-                        clothType.checks[currentAttr] = checkName;
-                    }
+        QString currentAttr;
+        const QStringList& lines = rawClothTypeLines[section];
+        for (const QString& rawLine : lines) {
+            QString line = rawLine.trimmed();
+            if (line.startsWith("attr=", Qt::CaseInsensitive)) {
+                currentAttr = line.mid(5).trimmed();
+                clothType.attributes[currentAttr] = QStringList();
+                qDebug() << "[ATTR]" << currentAttr;
+            } else if (line.startsWith("value=", Qt::CaseInsensitive)) {
+                if (!currentAttr.isEmpty()) {
+                    QString val = line.mid(6).trimmed();
+                    clothType.attributes[currentAttr].append(val);
+                    qDebug() << "    [VAL]" << val;
                 }
+            } else if (line.startsWith("check=", Qt::CaseInsensitive)) {
+                clothType.checks["check"] = line.mid(6).trimmed();
             }
-
-            // Store the processed cloth type
-            clothTypeSections[clothType.name] = clothType;
-            qDebug() << "[DEBUG] Added cloth type: " << clothType.name << " with " << clothType.attributes.size() << " attributes";
         }
+
+        clothTypeSections[clothType.name] = clothType;
+        qDebug() << "[DEBUG] Loaded cloth type:" << clothType.name << "with" << clothType.attributes.size() << "attributes";
+        count++;
     }
-    
-    qDebug() << "[DEBUG] Cloth Type Section Keys: " << clothTypeSectionKeys.join(", ");
-    qDebug() << "[DEBUG] Processed " << count << " cloth type sections. Result: " << clothTypeSections.size() << " cloth type entries";
+
+    qDebug() << "[DEBUG] Fully parsed" << count << "cloth type sections.";
 }
 
 void ScriptParser::buildStatusGroups() {}

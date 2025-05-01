@@ -1,6 +1,7 @@
 #include "addclothing.h"
 #include "ui_addclothing.h"
 #include "cyberdom.h"
+#include "scriptparser.h"
 #include <QMessageBox>
 #include <QComboBox>
 #include <QLineEdit>
@@ -114,198 +115,140 @@ void AddClothing::initializeUI()
 
 void AddClothing::loadAttributes()
 {
-    // Add "Name" attribute directly at the start
     ui->tw_addcloth->setRowCount(1);
     QTableWidgetItem *nameItem = new QTableWidgetItem("Name");
     nameItem->setFlags(nameItem->flags() & ~Qt::ItemIsEditable);
     ui->tw_addcloth->setItem(0, 0, nameItem);
-    
+
     QTableWidgetItem *nameValueItem = new QTableWidgetItem(nameEdit->text());
     ui->tw_addcloth->setItem(0, 1, nameValueItem);
-    
-    // Update Name field when the table item changes
+
     connect(ui->tw_addcloth, &QTableWidget::cellChanged, this, [this](int row, int column) {
-        if (row == 0 && column == 1) {
+        if (row == 0 && column ==1) {
             QString newName = ui->tw_addcloth->item(row, column)->text();
             nameEdit->setText(newName);
         }
     });
-    
-    QStringList attributes;
-    
-    // Use provided attributes if available
-    if (hasProvidedAttributes && !providedAttributes.isEmpty()) {
-        qDebug() << "Using provided attributes:" << providedAttributes.join(", ");
-        attributes = providedAttributes;
-        
-        // Make sure "Type" is included, as it's essential
-        if (!attributes.contains("Type", Qt::CaseInsensitive)) {
-            attributes.prepend("Type");
+
+    CyberDom *mainWindow = qobject_cast<CyberDom*>(parent());
+    if (!mainWindow && parent() && parent()->parent()) {
+        mainWindow = qobject_cast<CyberDom*>(parent()->parent());
+    }
+
+    QMap<QString, QStringList> attributesMap;
+    if (mainWindow) {
+        ScriptParser* parser = mainWindow->getScriptParser();
+        if (parser) {
+            QMap<QString, ClothTypeSection> clothMap = parser->getClothTypeSectionMap();
+            if (clothMap.contains(clothingType)) {
+                attributesMap = clothMap[clothingType].attributes;
+            }
         }
-    } else {
-        // If no provided attributes, try to get from iniData
-        // Get the main window to access script data
-        CyberDom *mainWindow = qobject_cast<CyberDom*>(parent());
-        if (!mainWindow && parent() && parent()->parent()) {
-            mainWindow = qobject_cast<CyberDom*>(parent()->parent());
-        }
-        
-        if (!mainWindow) {
-            qWarning("[ERROR] Failed to get main window - cannot load attributes");
-            
-            // Add default attributes
-            attributes = QStringList() << "Type" << "Colour" << "Style" << "Description";
+    }
+
+    if (attributesMap.isEmpty()) {
+        qWarning() << "[WARNING] No attributes found for clothing type: " << clothingType;
+    }
+
+    attributesMap.insert("Type", QStringList());
+
+    int attributeCount = attributesMap.size();
+    ui->tw_addcloth->setRowCount(attributeCount + 1);
+
+    int currentRow = 1;
+    for (auto it = attributesMap.constBegin(); it != attributesMap.constEnd(); ++it) {
+        QString attrName = it.key();
+        QStringList values = it.value();
+
+        QTableWidgetItem *attrItem = new QTableWidgetItem(attrName);
+        attrItem->setFlags(attrItem->flags() & ~Qt::ItemIsEditable);
+        ui->tw_addcloth->setItem(currentRow, 0, attrItem);
+
+        if (!values.isEmpty()) {
+            QComboBox *comboBox = new QComboBox(ui->tw_addcloth);
+            comboBox->addItems(values);
+            comboBox->setEditable(true);
+            ui->tw_addcloth->setCellWidget(currentRow, 1, comboBox);
+
+            if (isEditMode) {
+                QString existingValue = existingItem.getAttribute(attrName);
+                if (!existingValue.isEmpty()) {
+                    comboBox->setCurrentText(existingValue);
+                }
+            }
+
+            if (attrName.compare("Type", Qt::CaseInsensitive) == 0) {
+                comboBox->setCurrentText(clothingType);
+                comboBox->setEnabled(false);
+            }
         } else {
-            // Get ini data from main window
-            const QMap<QString, QMap<QString, QString>> iniData = mainWindow->getIniData();
-            
-            // Find the section for this clothing type
-            QString sectionName = "clothtype-" + clothingType.toLower();
-            qDebug() << "Looking for attributes in section:" << sectionName;
-            
-            if (iniData.contains(sectionName)) {
-                // Extract attributes from the section
-                QMap<QString, QString> sectionData = iniData[sectionName];
-                
-                qDebug() << "Section data contains" << sectionData.size() << "entries";
-                for (auto it = sectionData.begin(); it != sectionData.end(); ++it) {
-                    qDebug() << "Key:" << it.key() << "Value:" << it.value();
-                    
-                    // Look for keys that match the pattern "attr=X" (case insensitive)
-                    QString key = it.key();
-                    if (key.startsWith("attr=", Qt::CaseInsensitive)) {
-                        QString attrName = it.key().mid(5);  // Remove "attr=" prefix
-                        if (!attributes.contains(attrName, Qt::CaseInsensitive)) {
-                            attributes.append(attrName);
-                            qDebug() << "Found attribute:" << attrName;
-                        }
-                    }
+            QLineEdit *lineEdit = new QLineEdit(ui->tw_addcloth);
+
+            if (attrName.compare("Type", Qt::CaseInsensitive) == 0) {
+                lineEdit->setText(clothingType);
+                lineEdit->setReadOnly(true);
+            } else if (isEditMode) {
+                QString existingValue = existingItem.getAttribute(attrName);
+                if (!existingValue.isEmpty()) {
+                    lineEdit->setText(existingValue);
                 }
-                
-                // If we still don't have attributes, try alternative format
-                if (attributes.isEmpty()) {
-                    for (auto it = sectionData.begin(); it != sectionData.end(); ++it) {
-                        QString key = it.key().toLower();
-                        QString value = it.value();
-                        
-                        if (key == "attr") {
-                            if (!attributes.contains(value, Qt::CaseInsensitive)) {
-                                attributes.append(value);
-                                qDebug() << "Found attribute (alt format):" << value;
-                            }
-                        }
-                    }
-                }
-            } else {
-                // Section not found, use default attributes
-                qWarning() << "[ERROR] Clothing type section not found:" << sectionName;
-                attributes = QStringList() << "Type" << "Colour" << "Style" << "Description";
             }
+
+            ui->tw_addcloth->setCellWidget(currentRow, 1, lineEdit);
         }
+
+        currentRow++;
     }
-    
-    // If still empty after all attempts, use default attributes
-    if (attributes.isEmpty()) {
-        attributes = QStringList() << "Type" << "Colour" << "Style" << "Description";
-    }
-    
-    // Ensure Type is always first in the list (after Name)
-    if (attributes.contains("Type", Qt::CaseInsensitive)) {
-        attributes.removeAll("Type");
-        attributes.prepend("Type");
-    } else {
-        attributes.prepend("Type");
-    }
-    
-    // Populate the table widget with attributes (first row is already Name)
-    ui->tw_addcloth->setRowCount(attributes.size() + 1);
-    
-    // Add attributes to table
-    for (int i = 0; i < attributes.size(); i++) {
-        int row = i + 1; // Start at row 1 (after Name)
-        
-        // Create attribute name item
-        QTableWidgetItem *attrItem = new QTableWidgetItem(attributes[i]);
-        attrItem->setFlags(attrItem->flags() & ~Qt::ItemIsEditable); // Make it read-only
-        ui->tw_addcloth->setItem(row, 0, attrItem);
-        
-        // Create value widget as line edit
-        QLineEdit *lineEdit = new QLineEdit(ui->tw_addcloth);
-        ui->tw_addcloth->setCellWidget(row, 1, lineEdit);
-        
-        // Set Type to the current clothing type and make it read-only
-        if (attributes[i].compare("Type", Qt::CaseInsensitive) == 0) {
-            lineEdit->setText(clothingType);
-            lineEdit->setReadOnly(true);
-        }
-        
-        // Set existing values for editing mode
-        if (isEditMode) {
-            QString existingValue = existingItem.getAttribute(attributes[i]);
-            if (!existingValue.isEmpty()) {
-                lineEdit->setText(existingValue);
-            }
-        }
-    }
-    
-    // Resize the table columns to fit the content
+
     ui->tw_addcloth->resizeColumnsToContents();
     ui->tw_addcloth->horizontalHeader()->setStretchLastSection(true);
 }
 
 void AddClothing::on_buttonBox_accepted()
 {
-    // Get item name from the table (row 0, column 1)
     QString itemName;
     if (ui->tw_addcloth->item(0, 1)) {
         itemName = ui->tw_addcloth->item(0, 1)->text().trimmed();
     } else {
         itemName = nameEdit->text().trimmed();
     }
-    
+
     if (itemName.isEmpty()) {
         QMessageBox::warning(this, "Missing Information", "Please enter a name for the clothing item.");
         return;
     }
-    
-    // Create or update the clothing item
+
     ClothingItem item;
     if (isEditMode) {
         item = existingItem;
     } else {
         item = ClothingItem(itemName, clothingType);
     }
-    
+
     item.setName(itemName);
-    
-    // Collect attribute values from the table (starting from row 1, as row 0 is name)
+
     for (int row = 1; row < ui->tw_addcloth->rowCount(); ++row) {
         QString attrName = ui->tw_addcloth->item(row, 0)->text();
         QString attrValue;
-        
         QWidget *widget = ui->tw_addcloth->cellWidget(row, 1);
         if (QComboBox *comboBox = qobject_cast<QComboBox*>(widget)) {
             attrValue = comboBox->currentText();
         } else if (QLineEdit *lineEdit = qobject_cast<QLineEdit*>(widget)) {
             attrValue = lineEdit->text();
         } else if (ui->tw_addcloth->item(row, 1)) {
-            // Direct table widget item
             attrValue = ui->tw_addcloth->item(row, 1)->text();
         }
-        
         if (!attrValue.isEmpty()) {
             item.addAttribute(attrName, attrValue);
         }
     }
-    
+
     if (isEditMode) {
         emit clothingItemEdited(item);
     } else {
-        emit clothingItemAddedItem(item);
-        // Also emit the legacy signal for backward compatibility
-        emit clothingItemAddedName(itemName);
+        emit clothingItemAdded(item); // <-- Now using correct signal for ReportClothing
     }
-    
+
     accept();
 }
 

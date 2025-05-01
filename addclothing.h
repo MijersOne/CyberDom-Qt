@@ -33,6 +33,7 @@ signals:
     void clothingItemAddedItem(const ClothingItem &item); // New signal with unique name
     void clothingItemEdited(const ClothingItem &item); // Signal to emit when an item is edited
     void clothingItemAddedName(const QString &itemName); // Renamed for uniqueness
+    void clothingItemAdded(const ClothingItem &item);
 
 private slots:
     void on_buttonBox_accepted(); // Handle OK button

@@ -7,6 +7,7 @@
 #include <QString>
 #include <QListWidgetItem>
 #include "clothingitem.h"
+#include "scriptparser.h"
 
 namespace Ui {
 class ReportClothing;
@@ -17,7 +18,7 @@ class ReportClothing : public QDialog
     Q_OBJECT
 
 public:
-    explicit ReportClothing(QWidget *parent = nullptr);
+    explicit ReportClothing(QWidget *parent = nullptr, ScriptParser* parser = nullptr);
     ~ReportClothing();
 
     QString getSelectedType() const; // Method to get the selected item
@@ -40,6 +41,13 @@ private:
     void parseClothTypeSection(const QString &section, const QString &content);
     QStringList getClothTypeAttributes(const QString &typeName);
 
+    ScriptParser* parser;
+
+    void populateClothTypes();
+
+    void addClothingItemToList(const QString &itemName);
+    void addClothingItemToList(const ClothingItem &item);
+
 private slots:
     void onTypeSelected(const QString &type); // When type is selected in dropdown
     void onAvailableItemSelected(); // When item is selected from available list
@@ -56,10 +64,6 @@ private slots:
     void openAddClothTypeDialog(); // Slot to open the AddClothType dialog
     void addClothTypeToComboBox(const QString &clothType); // Slot to update the combo box
     void openAddClothingDialog(); // Slot to open the AddClothing dialog
-    
-    // Slots to update the listbox
-    void addClothingItemToList(const QString &itemName);
-    void addClothingItemToList(const ClothingItem &item);
     
     // Dedicated slot for AddClothing dialog
     void onClothingItemAddedFromDialog(const ClothingItem &item);

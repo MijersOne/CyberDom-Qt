@@ -3,6 +3,7 @@
 #include "addclothtype.h"
 #include "addclothing.h"
 #include "cyberdom.h"
+#include "scriptparser.h"
 
 #include <QMessageBox>
 #include <QRegularExpression>
@@ -14,12 +15,15 @@
 #include <QStringListModel>
 #include <QDebug>
 
-ReportClothing::ReportClothing(QWidget *parent)
+ReportClothing::ReportClothing(QWidget *parent, ScriptParser* parser)
     : QDialog(parent)
     , ui(new Ui::ReportClothing)
+    , parser(parser)
 {
     ui->setupUi(this);
     setWindowTitle("Report Clothing");
+
+    populateClothTypes();
 
     // Connect signals and slots for buttons
     connect(ui->btn_AddType, &QPushButton::clicked, this, &ReportClothing::openAddClothTypeDialog);
@@ -53,6 +57,8 @@ ReportClothing::ReportClothing(QWidget *parent)
     loadClothingTypes();
     loadClothingItems();
     updateWearingItems();
+
+    onTypeSelected(ui->cb_Type->currentText());
     
     // If combobox is still empty after loading, use debug items
     if (ui->cb_Type->count() == 0) {
@@ -543,18 +549,13 @@ void ReportClothing::openAddClothingDialog()
         QMessageBox::warning(this, "No Selection", "Please select a clothing type.");
         return;
     }
-    
-    // Get attributes for the selected type
+
     QStringList attributes = clothTypeAttributes.value(selectedType.toLower(), QStringList());
-    
-    // Create the dialog with type and attributes
     AddClothing addClothingDialog(this, selectedType, attributes);
-    if (addClothingDialog.exec() == QDialog::Accepted) {
-        // Since we can't get the signal directly, we need to get the data some other way
-        // For now, we can just repopulate our list
-        loadClothingItems();
-        updateAvailableItems();
-    }
+
+    connect(&addClothingDialog, &AddClothing::clothingItemAdded, this, static_cast<void (ReportClothing::*)(const ClothingItem &)>(&ReportClothing::addClothingItemToList));
+
+    addClothingDialog.exec();
 }
 
 // Dedicated slot for handling clothing item addition from dialog
@@ -566,37 +567,32 @@ void ReportClothing::onClothingItemAddedFromDialog(const ClothingItem &item)
 
 void ReportClothing::addClothingItemToList(const ClothingItem &item)
 {
-    if (item.getName().isEmpty() || item.getType().isEmpty()) {
+    if (item.getName().trimmed().isEmpty() || item.getType().trimmed().isEmpty()) {
+        QMessageBox::warning(this, "Invalid Input", "Clothing name and type must not be empty.");
         return;
     }
-    
-    // Add to the map
-    clothingByType[item.getType()].append(item);
-    
-    // Save all clothing items
-    saveClothingItems();
-    
-    // Update the available items list
-    updateAvailableItems();
-}
 
-void ReportClothing::addClothingItemToList(const QString &itemName)
-{
-    QString selectedType = ui->cb_Type->currentText();
-    if (selectedType.isEmpty() || itemName.isEmpty()) {
-        return;
+    QList<ClothingItem> &items = clothingByType[item.getType()];
+
+    // Prevent duplicates by checking name+type
+    for (const ClothingItem &existing : items) {
+        if (existing.getName().compare(item.getName(), Qt::CaseInsensitive) == 0 &&
+            existing.getType().compare(item.getType(), Qt::CaseInsensitive) == 0) {
+
+            qDebug() << "[DEBUG] Duplicate item not added: " << item.getName() << " (" << item.getType() << ")";
+
+            QMessageBox::warning(this, "Duplicate Item",
+                                 QString("An item named '%1' already exists in '%2'. Please choose a different name.")
+                                     .arg(item.getName(), item.getType()));
+            return;
+        }
     }
-    
-    // Create a new clothing item
-    ClothingItem newItem(itemName, selectedType);
-    
+
     // Add to the map
-    clothingByType[selectedType].append(newItem);
-    
-    // Save all clothing items
+    items.append(item);
+
+    // Save and refresh
     saveClothingItems();
-    
-    // Update the available items list
     updateAvailableItems();
 }
 
@@ -623,17 +619,30 @@ void ReportClothing::editSelectedItem()
             AddClothing editDialog(this, selectedType, clothingByType[selectedType][i], attributes);
             
             // Connect the edited signal
-            connect(&editDialog, &AddClothing::clothingItemEdited, this, 
-                [this, i, selectedType](const ClothingItem &editedItem) {
-                    // Update the item in the list
-                    clothingByType[selectedType][i] = editedItem;
-                    
-                    // Save changes
-                    saveClothingItems();
-                    
-                    // Update the available items list
-                    updateAvailableItems();
-                });
+            connect(&editDialog, &AddClothing::clothingItemEdited, this, [this, i, selectedType](const ClothingItem &editedItem) {
+                const QString editedName = editedItem.getName();
+                const QString editedType = editedItem.getType();
+
+                // Check if edited name would result in duplicate (excluding the item being edited)
+                for (int j = 0; j < clothingByType[editedType].size(); ++j) {
+                    if (j == i) continue; // Skip the item being edited
+
+                    const ClothingItem &existing = clothingByType[editedType][j];
+                    if (existing.getName().compare(editedName, Qt::CaseInsensitive) == 0 &&
+                        existing.getType().compare(editedType, Qt::CaseInsensitive) == 0) {
+
+                        QMessageBox::warning(this, "Duplicate Name", QString("An item named '%1' already exists in '%2'. Please choose a different name.").arg(editedName, editedType));
+                        return;
+                    }
+                }
+
+                // Safe to apply the edit
+                clothingByType[editedType][i] = editedItem;
+
+                // Save changes and update UI
+                saveClothingItems();
+                updateAvailableItems();
+            });
             
             editDialog.exec();
             break;
@@ -689,6 +698,17 @@ bool ReportClothing::isNaked() const
 QString ReportClothing::getSelectedType() const
 {
     return ui->cb_Type->currentText();
+}
+
+void ReportClothing::populateClothTypes()
+{
+    if (parser) {
+        for (const QString &clothType : parser->clothTypes) {
+            ui->cb_Type->addItem(clothType);
+        }
+    } else {
+        qDebug() << "[ERROR] ScriptParser pointer is null!";
+    }
 }
 
 ReportClothing::~ReportClothing()
