@@ -18,6 +18,7 @@
 #include "deleteassignments.h" // Include the header for the DeleteAssignments UI
 #include "askpunishment.h"
 #include "clothingitem.h"
+#include "questiondialog.h"
 
 #include <QFileDialog>
 #include <QMessageBox>
@@ -35,6 +36,7 @@ CyberDom::CyberDom(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::CyberDom)
 {
+
     ui->setupUi(this);
 
     // Connect the menuAssignments action to the slot function
@@ -96,6 +98,11 @@ CyberDom::CyberDom(QWidget *parent)
     // Load the INI file and set minMerits and maxMerits
     loadIniFile();
 
+    // Load saved variables from .cds file
+    QString cdsPath = currentIniFile;
+    cdsPath.replace(".ini", ".cds");
+    scriptParser->loadFromCDS(cdsPath);
+
     // Initialize the internal clock with the current system time
     QSettings settings(settingsFile, QSettings::IniFormat);
     QString savedDate = settings.value("System/CurrentDate", "").toString();
@@ -140,10 +147,21 @@ CyberDom::CyberDom(QWidget *parent)
     qDebug() << "CyberDom initialized with Min Merits:" << minMerits << "Max Merits:" << maxMerits;
     qDebug() << "Final ProgressBar Min:" << ui->progressBar->minimum();
     qDebug() << "Final ProgressBar Max:" << ui->progressBar->maximum();
+
+    QString settingsPath = QCoreApplication::applicationDirPath() + "/cyberdom_settings.ini";
+    QSettings::setDefaultFormat(QSettings::IniFormat);
+    QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, QCoreApplication::applicationDirPath());
 }
 
 CyberDom::~CyberDom()
 {
+    // Save variables to .cds on exit
+    if (scriptParser) {
+        QString cdsPath = currentIniFile;
+        cdsPath.replace(".ini", ".cds");
+        scriptParser->saveToCDS(cdsPath);
+    }
+
     delete ui;
     delete scriptParser;
 }
@@ -623,12 +641,12 @@ QString CyberDom::promptForIniFile() {
 }
 
 void CyberDom::saveIniFilePath(const QString &filePath) {
-    QSettings settings("Desire_Games", "CyberDom"); // Replace with you app/company name
+    QSettings settings(QCoreApplication::applicationDirPath() + "/cyberdom_settings.ini", QSettings::IniFormat);
     settings.setValue("SelectedIniFile", filePath);
 }
 
 QString CyberDom::loadIniFilePath() {
-    QSettings settings("Desire_Games", "CyberDom");
+    QSettings settings(QCoreApplication::applicationDirPath() + "/cyberdom_settings.ini", QSettings::IniFormat);
     return settings.value("SelectedIniFile", "").toString();
 }
 
@@ -2061,134 +2079,183 @@ void CyberDom::addClothingItem(const ClothingItem& item) {
 void CyberDom::runProcedure(const QString &procedureName) {
     QString sectionName = "procedure-" + procedureName;
 
-    if (!iniData.contains(sectionName)) {
-        qDebug() << "[WARNING] Procedure section not found:" << sectionName;
+    if (!scriptParser) {
+        qDebug() << "[ERROR] ScriptParser not initialized.";
         return;
     }
 
-    QMap<QString, QString> procedureData = iniData[sectionName];
+    QMap<QString, QStringList> procedureData = scriptParser->getRawSectionData(sectionName);
+
+    if (procedureData.isEmpty()) {
+        qDebug() << "[WARNING] Procedure section not found or empty:" << sectionName;
+        return;
+    }
+
+    qDebug() << "\n[DEBUG] Running procedure:" << procedureName;
 
     for (auto it = procedureData.begin(); it != procedureData.end(); ++it) {
         QString key = it.key().trimmed();
-        QString value = it.value().trimmed();
+        QStringList values = it.value();
 
-        if (key.compare("SetFlag", Qt::CaseInsensitive) == 0) {
-            setFlag(value);
-        } else if (key.compare("RemoveFlag", Qt::CaseInsensitive) == 0) {
-            removeFlag(value);
-        } else if (key.compare("AddMerits", Qt::CaseInsensitive) == 0) {
-            int currentMerits = getMeritsFromIni();
-            int added = value.toInt();
-            updateMerits(currentMerits + added);
-        } else if (key.compare("Procedure", Qt::CaseInsensitive) == 0) {
-            runProcedure(value);
-        } else if (key.compare("Message", Qt::CaseInsensitive) == 0) {
-            QMessageBox::information(this, "Message", replaceVariables(value));
-        } else if (key.compare("Sound", Qt::CaseInsensitive) == 0) {
-            auto player = new QMediaPlayer(this);
-            auto audioOutput = new QAudioOutput(this);
-            player->setAudioOutput(audioOutput);
-            player->setSource(QUrl::fromLocalFile(value));
-            player->play();
-        } else if (key.compare("Input", Qt::CaseInsensitive) == 0) {
-            bool ok;
-            QString response = QInputDialog::getText(this, "Input Required", replaceVariables(value), QLineEdit::Normal, "", &ok);
-            if (ok && !response.isEmpty()) {
-                qDebug() << "[Input Response]:" << response;
-            }
-        } else if (key.compare("Instructions", Qt::CaseInsensitive) == 0) {
-            updateInstructions(value);
-        } else if (key.compare("Clothing", Qt::CaseInsensitive) == 0) {
-            updateClothingInstructions(value);
-        } else if (key.compare("If", Qt::CaseInsensitive) == 0) {
-            QString condition = value;
-            if (condition.startsWith("#")) {
-                QString flag = condition.mid(1).trimmed();
-                if (!isFlagSet(flag)) {
-                    qDebug() << "[Procedure Skipped] Condition not met: " << flag;
-                    return;
-                }
-            }
-        } else if (key.compare("Question", Qt::CaseInsensitive) == 0) {
-            if (!scriptParser) continue;
-            QString questionKey = value.trimmed();
+        for (const QString &rawValue : values) {
+            QString value = rawValue.trimmed();
+            qDebug() << "[DEBUG] Processing key:" << key << "with value:" << value;
 
-            // Get the Question Section
-            QuestionSection question = scriptParser->getQuestion(questionKey);
-            if (question.phrase.isEmpty()) {
-                qDebug() << "[WARNING] Question section not found or has no phrase:" << questionKey;
-                continue;
-            }
+            if (key.compare("SetFlag", Qt::CaseInsensitive) == 0) {
+                setFlag(value);
 
-            QString questionText = replaceVariables(question.phrase);
-            QStringList optionLabels = question.options.keys();
+            } else if (key.compare("RemoveFlag", Qt::CaseInsensitive) == 0) {
+                removeFlag(value);
 
-            QString selectedOption;
-            if (optionLabels.isEmpty()) {
-                // Yes/No Input (or Single-Line input)
+            } else if (key.compare("AddMerits", Qt::CaseInsensitive) == 0) {
+                int currentMerits = getMeritsFromIni();
+                int added = value.toInt();
+                updateMerits(currentMerits + added);
+
+            } else if (key.compare("Procedure", Qt::CaseInsensitive) == 0) {
+                runProcedure(value);
+
+            } else if (key.compare("Message", Qt::CaseInsensitive) == 0) {
+                QMessageBox::information(this, "Message", replaceVariables(value));
+
+            } else if (key.compare("Sound", Qt::CaseInsensitive) == 0) {
+                auto player = new QMediaPlayer(this);
+                auto audioOutput = new QAudioOutput(this);
+                player->setAudioOutput(audioOutput);
+                player->setSource(QUrl::fromLocalFile(value));
+                player->play();
+
+            } else if (key.compare("Input", Qt::CaseInsensitive) == 0) {
                 bool ok;
-                QString response = QInputDialog::getText(this, "Question", questionText, QLineEdit::Normal, "", &ok);
-                if (ok) {
-                    selectedOption = response.trimmed();
+                QString response = QInputDialog::getText(this, "Input Required",
+                                                         replaceVariables(value),
+                                                         QLineEdit::Normal, "", &ok);
+                if (ok && !response.isEmpty()) {
+                    qDebug() << "[Input Response]:" << response;
+                }
+
+            } else if (key.compare("Instructions", Qt::CaseInsensitive) == 0) {
+                updateInstructions(value);
+
+            } else if (key.compare("Clothing", Qt::CaseInsensitive) == 0) {
+                updateClothingInstructions(value);
+
+            } else if (key.compare("ShowPicture", Qt::CaseInsensitive) == 0) {
+                // Placeholder — implement if desired
+                qDebug() << "[Picture] Show:" << value;
+
+            } else if (key.compare("RemovePicture", Qt::CaseInsensitive) == 0) {
+                // Placeholder — implement if desired
+                qDebug() << "[Picture] Remove:" << value;
+
+            } else if (key.compare("If", Qt::CaseInsensitive) == 0) {
+                QString condition = value;
+                if (condition.startsWith("#")) {
+                    QString flag = condition.mid(1).trimmed();
+                    if (!isFlagSet(flag)) {
+                        qDebug() << "[Procedure Skipped] Condition not met: " << flag;
+                        continue;
+                    }
+                }
+
+            } else if (key.compare("Question", Qt::CaseInsensitive) == 0) {
+                // Get the question name from the value
+                QString questionKey = value.trimmed();
+                qDebug() << "[DEBUG] Found Question key: " << questionKey;
+
+                // Retrieve the question data from the script parser
+                QuestionSection questionData = scriptParser->getQuestion(questionKey);
+
+                // Check if we found a valid question
+                if (questionData.name.isEmpty() || questionData.phrase.isEmpty()) {
+                    qDebug() << "[ERROR] Could not find question data for:" << questionKey;
+                    continue;
+                }
+
+                // Apply variable replacement to question text
+                questionData.phrase = replaceVariables(questionData.phrase);
+
+                // Create and show the question dialog
+                QuestionDialog dialog(questionData, this);
+                dialog.setWindowTitle("Question");
+
+                // Show the dialog and get result
+                if (dialog.exec() == QDialog::Accepted) {
+                    // Get the selected answer
+                    QString selectedAnswer = dialog.getSelectedAnswer();
+                    qDebug() << "[DEBUG] Question answered:" << selectedAnswer;
+
+                    // Save the answer for later reference
+                    questionAnswers[questionKey] = selectedAnswer;
+                    saveQuestionAnswers();
+
+                    // Check if the selected answer has an associated procedure
+                    if (questionData.options.contains(selectedAnswer)) {
+                        QString procedureName = questionData.options[selectedAnswer];
+
+                        // Check if this is an inline procedure
+                        if (procedureName == "*") {
+                            qDebug() << "[DEBUG] Inline procedure selected - continuing";
+                            // Continue - the procedure is inline with the question
+                        } else {
+                            // Call the associated procedure
+                            qDebug() << "[DEBUG] Running selected procedure:" << procedureName;
+                            runProcedure(procedureName);
+                        }
+                    }
                 } else {
-                    if (!question.noInputProcedure.isEmpty()) {
-                        runProcedure(question.noInputProcedure);
+                    // User canceled - check if we have a NoInputProcedure
+                    if (!questionData.noInputProcedure.isEmpty()) {
+                        qDebug() << "[DEBUG] Running NoInputProcedure:" << questionData.noInputProcedure;
+                        runProcedure(questionData.noInputProcedure);
                     }
+                }
+
+            } else if (key.startsWith("set#", Qt::CaseInsensitive)) {
+                QString setValue = value.trimmed();
+                QStringList parts = setValue.split(",", Qt::SkipEmptyParts);
+                if (parts.size() == 2) {
+                    QString varName = parts[0].trimmed();
+                    QString varValue = parts[1].trimmed();
+                    if (varName.startsWith("#")) {
+                        varName = varName.mid(1);
+                    }
+                    scriptParser->setVariable(varName, varValue);
+                    qDebug() << "[DEBUG] Variable set from procedure:" << varName << "=" << varValue;
+                } else {
+                    qDebug() << "[WARN] Malformed set# directive in procedure:" << value;
+            }
+
+            } else if (key.compare("Timer", Qt::CaseInsensitive) == 0) {
+                QString timerKey = "timer-" + value;
+                if (!iniData.contains(timerKey)) {
+                    qDebug() << "[Timer] Timer section not found:" << timerKey;
                     continue;
                 }
+
+                QMap<QString, QString> timerData = iniData[timerKey];
+                QTime startTime = QTime::fromString(timerData.value("Start", "00:00"), "hh:mm");
+                QTime endTime = QTime::fromString(timerData.value("End", "23:59"), "hh:mm");
+                QString message = timerData.value("Message");
+                QString sound = timerData.value("Sound");
+                QString procedure = timerData.value("Procedure");
+
+                TimerInstance timer;
+                timer.name = value;
+                timer.start = startTime;
+                timer.end = endTime;
+                timer.message = message;
+                timer.sound = sound;
+                timer.procedure = procedure;
+                timer.triggered = false;
+
+                activeTimers.append(timer);
+                qDebug() << "[Timer] Registered timer:" << value << " from "
+                         << startTime.toString() << " to " << endTime.toString();
+
             } else {
-                // Multiple-choice input
-                bool ok;
-                selectedOption = QInputDialog::getItem(this, "Question", questionText, optionLabels, 0, false, &ok);
-                if (!ok) {
-                    if (!question.noInputProcedure.isEmpty()) {
-                        runProcedure(question.noInputProcedure);
-                    }
-                    continue;
-                }
+                qDebug() << "[UNHANDLED] Procedure key:" << key << " -> " << value;
             }
-
-            // Store answer persistently
-            saveQuestionAnswers();
-
-            if (question.options.contains(selectedOption)) {
-                QString followUpProc = question.options[selectedOption];
-                if (!followUpProc.isEmpty()) {
-                    runProcedure(followUpProc);
-                }
-            } else {
-                if (!question.noInputProcedure.isEmpty()) {
-                    runProcedure(question.noInputProcedure);
-                }
-            }
-
-        } else if (key.compare("Timer", Qt::CaseInsensitive) == 0) {
-            QString timerKey = "timer-" + value;
-            if (!iniData.contains(timerKey)) {
-                qDebug() << "[Timer] Timer section not found:" << timerKey;
-                continue;
-            }
-
-            QMap<QString, QString> timerData = iniData[timerKey];
-            QTime startTime = QTime::fromString(timerData.value("Start", "00:00"), "hh:mm");
-            QTime endTime = QTime::fromString(timerData.value("End", "23:59"), "hh:mm");
-            QString message = timerData.value("Message");
-            QString sound = timerData.value("Sound");
-            QString procedure = timerData.value("Procedure");
-
-            TimerInstance timer;
-            timer.name = value;
-            timer.start = startTime;
-            timer.end = endTime;
-            timer.message = message;
-            timer.sound = sound;
-            timer.procedure = procedure;
-            timer.triggered = false;
-
-            activeTimers.append(timer);
-            qDebug() << "[Timer] Registered timer:" << value << " from " << startTime.toString() << " to " << endTime.toString();
-        } else {
-            qDebug() << "[UNHANDLED] Procedure Key:" << key << " -> " << value;
         }
     }
 }

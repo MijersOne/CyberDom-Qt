@@ -1,4 +1,4 @@
-QT       += core gui
+QT       += core gui multimedia
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
@@ -10,6 +10,7 @@ CONFIG += console
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 SOURCES += \
+    ScriptUtils.cpp \
     about.cpp \
     addclothing.cpp \
     addclothtype.cpp \
@@ -20,6 +21,7 @@ SOURCES += \
     deleteassignments.cpp \
     main.cpp \
     cyberdom.cpp \
+    questiondialog.cpp \
     reportclothing.cpp \
     rules.cpp \
     scriptparser.cpp \
@@ -34,6 +36,8 @@ SOURCES += \
     askpunishment.cpp
 
 HEADERS += \
+    ScriptData.h \
+    ScriptUtils.h \
     about.h \
     addclothing.h \
     addclothtype.h \
@@ -42,6 +46,7 @@ HEADERS += \
     assignments.h \
     clothingitem.h \
     cyberdom.h \
+    questiondialog.h \
     reportclothing.h \
     rules.h \
     scriptparser.h \
@@ -64,6 +69,7 @@ FORMS += \
     askinstructions.ui \
     assignments.ui \
     cyberdom.ui \
+    questiondialog.ui \
     reportclothing.ui \
     rules.ui \
     timeadd.ui \
