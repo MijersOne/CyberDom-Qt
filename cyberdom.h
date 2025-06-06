@@ -2,7 +2,6 @@
 #define CYBERDOM_H
 
 #include <QMainWindow>
-//#include "ui_assignments.h"
 #include <QTimer>
 #include <QDateTime>
 #include <QMap>
@@ -49,8 +48,6 @@ public:
     QSet<QString> getActiveJobs() { return activeAssignments; }
 
     QStringList getAvailableJobs();
-    QMap<QString, QMap<QString, QString>> iniData;
-    QMap<QString, QMap<QString, QString>> getIniData() const { return iniData; }
     QMap<QString, QDateTime> getJobDeadlines() const { return jobDeadlines; }
     QSet<QString> activeAssignments;
 
@@ -83,10 +80,10 @@ public:
 
     QString getSettingsFilePath() const { return settingsFile; }
     void removeJobDeadline(const QString &jobName) { jobDeadlines.remove(jobName); }
-    
+
     // Creates a sample script file for testing
     void createSampleScriptFile();
-    
+
     // Checks if the demo script exists and creates it if needed
     void checkDemoScriptExists();
 
@@ -105,84 +102,75 @@ signals:
     void jobListUpdated();
 
 public slots:
-    void openAssignmentsWindow(); // Slot function to open the Assignments Window
-    void openTimeAddDialog(); // Slot function to open the TimeAdd Dialog
-    void updateInternalClock(); // Slot to update the internal clock display
-    void updateStatus(const QString &newStatus); // Slot function to update the Status
+    void openAssignmentsWindow();
+    void openTimeAddDialog();
+    void updateInternalClock();
+    void updateStatus(const QString &newStatus);
 
 private:
+    // File management
     QString promptForIniFile();
     void saveIniFilePath(const QString &filePath);
     QString loadIniFilePath();
-    void initializeIniFile(); // Add this declaration
-    void processIniValue(const QString &key);
+    void initializeIniFile();
 
-    // New Methods for enhanced script parsing
+    // Script initialization
     void loadAndParseScript(const QString &filePath);
     void applyScriptSettings();
     void setupInitialStatus();
 
-    // void parseIniFile(); // Parses and stores the .ini file sections and keys
-    void parseIncludeFiles(const QString &filePath); // Parses and stores the .inc files
-    void loadIncludeFile(const QString &fileName); // Load the .inc files
+    // UI initialization and updates
     void initializeUiWithIniFile();
     void initializeProgressBarRange();
     void updateProgressBarValue();
     void loadIniFile();
-    void parseAskPunishment();
-    QString settingsFile; // Path to the separate user settings file
-    QString currentStatus; // Store the current status
 
-    QMap<QString, QDateTime> jobDeadlines;
-
-    Ui::CyberDom *ui;
-    Assignments *assignmentsWindow = nullptr;
-    ScriptParser *scriptParser = nullptr; // New script parser
-    QTimer *clockTimer; // Timer to manage internal clock updates
-    QDateTime internalClock; // Holds the current value of the internal clock
-    QString currentIniFile; // Stores the path to the current loaded .ini file
-
-    Rules *rulesDialog; // Pointer to hold the Rules dialog instance
-
+    // Get values from parsed script data
     QString getIniValue(const QString &section, const QString &key, const QString &defaultValue = "") const;
-    QString masterVariable; // Stores the value of "Master" from the .ini file
-    QString subNameVariable; // Stores the value of "subName" from the .ini file
-
-    int askPunishmentMin; // Minimum punishment value
-    int askPunishmentMax; // Maximum punishment value
     int getMeritsFromIni();
-    int minMerits;
-    int maxMerits;
-    int minPunishment;
-    int maxPunishment;
     int getAskPunishmentMin() const;
     int getAskPunishmentMax() const;
 
-    QString lastInstructions; // Stores the last given instructions
-    QString lastClothingInstructions; // Stores the last given clothing instructions
-    QMap<QString, FlagData> flags; // Stores currently active flags
+    // Member variables
+    Ui::CyberDom *ui;
+    Assignments *assignmentsWindow = nullptr;
+    ScriptParser *scriptParser = nullptr;
+    QTimer *clockTimer;
+    QDateTime internalClock;
+    QString currentIniFile;
+    QString settingsFile;
+    QString currentStatus;
 
-    // Status tracking for substatus
-    QStack<QString> statusHistory; // For tracking status history for substatus
-    QMap<QString, QStringList> statusGroups; // For mapping status groups to status names
+    Rules *rulesDialog;
 
-    // New Methods
-    void updateStatusText();
-    void updateInstructions(const QString &instructions);
-    void updateClothingInstructions(const QString &instructions);
-    void updateAvailableActions(); // Updates UI based on the current status permissions
-    void executeStatusEntryProcedures(const QString &statusName); // Run any procedures triggered by status change
-    void updateStatusDisplay(); // Update status-related UI elements
+    QString masterVariable;
+    QString subNameVariable;
 
+    int askPunishmentMin;
+    int askPunishmentMax;
+    int minMerits;
+    int maxMerits;
+
+    QString lastInstructions;
+    QString lastClothingInstructions;
+
+    QMap<QString, FlagData> flags;
+    QMap<QString, QDateTime> jobDeadlines;
+
+    // Status tracking
+    QStack<QString> statusHistory;
+    QMap<QString, QStringList> statusGroups;
+
+    // Timers
     QTimer *punishmentTimer;
-
-    bool testMenuEnabled = false; // Tracks if the Test Menu should be shown
-    bool isPunishment = false;
-
     QTimer *flagTimer;
+
+    bool testMenuEnabled = false;
+    bool isPunishment = false;
 
     QList<ClothingItem> clothingInventory;
 
+    // Procedure handling
     void runProcedure(const QString &procedureName);
 
     struct TimerInstance {
@@ -200,23 +188,31 @@ private:
     void loadQuestionAnswers();
     void saveQuestionAnswers();
 
+    // UI update methods
+    void updateStatusText();
+    void updateInstructions(const QString &instructions);
+    void updateClothingInstructions(const QString &instructions);
+    void updateAvailableActions();
+    void executeStatusEntryProcedures(const QString &statusName);
+    void updateStatusDisplay();
+
 private slots:
     void applyTimeToClock(int days, int hours, int minutes, int seconds);
-    void openAboutDialog(); // Slot to open the About dialog
-    void openAskClothingDialog(); // Slot to open the AskClothing dialog
-    void openAskInstructionsDialog(); // Slot to open the AskInstructions dialog
-    void openReportClothingDialog(); // Slot to open the ReportClothing dialog
-    void setupMenuConnections(); // Slot to open the Rules dialog
-    void openAskPunishmentDialog(); // Slot to open the AskPunishment dialog
-    void openChangeMeritsDialog(); // Slot to open the ChangeMerits dialog
-    void openChangeStatusDialog(); // Slot to open the ChangeStatus dialog
-    void openLaunchJobDialog(); // Slot to open the SelectJob dialog
-    void openSelectPunishmentDialog(); // Slot to open the SelectPunishment dialog
-    void openSelectPopupDialog(); // Slot to open the SelectPopup dialog
-    void openListFlagsDialog(); // Slot to open the ListFlags dialog
-    void openSetFlagsDialog(); // Slot to open the SetFlags dialog
-    void openDeleteAssignmentsDialog(); // Slot to open the DeleteAssignments dialog
-    void resetApplication(); // Slot to clear stored settings, notify the user of the reset, and exit the application so it can restart fresh
+    void openAboutDialog();
+    void openAskClothingDialog();
+    void openAskInstructionsDialog();
+    void openReportClothingDialog();
+    void setupMenuConnections();
+    void openAskPunishmentDialog();
+    void openChangeMeritsDialog();
+    void openChangeStatusDialog();
+    void openLaunchJobDialog();
+    void openSelectPunishmentDialog();
+    void openSelectPopupDialog();
+    void openListFlagsDialog();
+    void openSetFlagsDialog();
+    void openDeleteAssignmentsDialog();
+    void resetApplication();
     void updateMerits(int newMerits);
     void checkPunishments();
     void checkFlagExpiry();

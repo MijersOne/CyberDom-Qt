@@ -1,8 +1,10 @@
-#include "ScriptParser.h"
+#include "scriptparser.h"
 #include <QSettings>
 #include <QFile>
 #include <QTextStream>
 #include <QDebug>
+#include <QFileInfo>
+#include <QDir>
 
 QMap<QString, QMap<QString, QStringList>> ScriptParser::parseIniFile(const QString& path)
 {
@@ -15,21 +17,46 @@ QMap<QString, QMap<QString, QStringList>> ScriptParser::parseIniFile(const QStri
     }
 
     QTextStream in(&file);
-    QString currentSection;
+    QStringList lines;
+
+    QString basePath = QFileInfo(path).absolutePath();
+
     while (!in.atEnd()) {
         QString line = in.readLine().trimmed();
 
-        // Ignore comments and empty lines
+        if (line.startsWith("%include=", Qt::CaseInsensitive)) {
+            QString includedFile = resolveIncludePath(path, line);
+            QMap<QString, QMap<QString, QStringList>> includedSections = parseIniFile(includedFile);
+
+            // Merge includedSections into sections
+            for (auto it = includedSections.begin(); it != includedSections.end(); ++it) {
+                QString section = it.key();
+                QMap<QString, QStringList> values = it.value();
+
+                for (auto innerIt = values.begin(); innerIt != values.end(); ++innerIt) {
+                    sections[section][innerIt.key()] += innerIt.value();
+                }
+            }
+
+            continue;
+        }
+
+        lines << line;
+    }
+
+    file.close();
+
+    // Now parse the combined lines
+    QString currentSection;
+    for (const QString& line : lines) {
         if (line.isEmpty() || line.startsWith("#") || line.startsWith(";"))
             continue;
 
-        // Section header
         if (line.startsWith("[") && line.endsWith("]")) {
             currentSection = line.mid(1, line.length() - 2).trimmed().toLower();
             continue;
         }
 
-        // Key=Value
         int equalsIndex = line.indexOf('=');
         if (equalsIndex != -1 && !currentSection.isEmpty()) {
             QString key = line.left(equalsIndex).trimmed();
@@ -38,7 +65,6 @@ QMap<QString, QMap<QString, QStringList>> ScriptParser::parseIniFile(const QStri
         }
     }
 
-    file.close();
     return sections;
 }
 
@@ -51,7 +77,7 @@ bool ScriptParser::parseScript(const QString& path) {
     }
 
     if (sections.contains("General"))
-        parseGeneralSection(sections["General"]);
+        parseGeneralSection("General", sections["General"]);
     if (sections.contains("init"))
         parseInitSection(sections["init"]);
 
@@ -79,189 +105,217 @@ bool ScriptParser::parseScript(const QString& path) {
     if (sections.contains("font"))
         parseFontSection(sections["font"]);
 
-    if (key.startsWith("flag-", Qt::CaseInsensitive))
-        parseFlagSection(key.mid(5), sections[key]);
+    for (auto it = sections.begin(); it != sections.end(); ++it) {
+        QString key = it.key();
+        if (key.startsWith("flag-", Qt::CaseInsensitive)) {
+            parseFlagSection(key.mid(5), it.value());
+        }
+    }
 
     return true;
 }
 
-void ScriptParser::parseGeneralSection(const QMap<QString, QStringList>& section) {
+void ScriptParser::parseGeneralSection(const QString &sectionName, const QMap<QString, QStringList>& section) {
     auto& g = scriptData.general;
 
-    if (section.contains("Master"))
-        g.masterName = section["Master"].value(0);
-    if (section.contains("SubName"))
-        g.subNames = section["SubName"];
-    if (section.contains("MinVersion"))
-        g.minVersion = section["MinVersion"].value(0);
-    if (section.contains("Version"))
-        g.version = section["Version"].value(0);
-    if (section.contains("ReportTimeFormat")) {
-        QString val = section["ReportTimeFormat"].value(0).trimmed();
-        if (val == "12") g.reportTimeFormat = 12;
-        else g.reportTimeFormat = 24;
-    }
-    if (section.contains("ForgetConfession"))
-        g.forgetConfessionEnabled = section["ForgetConfession"].value(0).trimmed() != "0";
-    if (section.contains("IgnoreConfession"))
-        g.ignoreConfessionEnabled = section["IgnoreConfession"].value(0).trimmed() != "0";
-    if (section.contains("ForgetPenalty")) {
-        QStringList range = section["ForgetPenalty"].value(0).split(',', Qt::SkipEmptyParts);
-        if (range.size() == 2) {
-            g.forgetPenaltyMin = range[0].toInt();
-            g.forgetPenaltyMax = range[1].toInt();
-        } else if (range.size() == 1) {
-            g.forgetPenaltyMin = g.forgetPenaltyMax = range[0].toInt();
+    for (auto it = section.begin(); it != section.end(); ++it) {
+        const QString &key = it.key().trimmed();
+        const QStringList &values = it.value();
+
+        if (key.compare("ValidateAll", Qt::CaseInsensitive) == 0) {
+            if (!values.isEmpty())
+                validateAll = (values.first().trimmed() == "1");
+        } else if (key.compare("MinVersion", Qt::CaseInsensitive) == 0) {
+            if (!values.isEmpty()) {
+                bool ok;
+                float version = values.first().toFloat(&ok);
+                if (ok) minVersion = version;
+            }
+        }
+
+        if (section.contains("Master"))
+            g.masterName = section["Master"].value(0);
+        if (section.contains("SubName"))
+            g.subNames = section["SubName"];
+        if (section.contains("MinVersion"))
+            g.minVersion = section["MinVersion"].value(0);
+        if (section.contains("Version"))
+            g.version = section["Version"].value(0);
+        if (section.contains("ReportTimeFormat")) {
+            QString val = section["ReportTimeFormat"].value(0).trimmed();
+            if (val == "12") g.reportTimeFormat = 12;
+            else g.reportTimeFormat = 24;
+        }
+        if (section.contains("ForgetConfession"))
+            g.forgetConfessionEnabled = section["ForgetConfession"].value(0).trimmed() != "0";
+        if (section.contains("IgnoreConfession"))
+            g.ignoreConfessionEnabled = section["IgnoreConfession"].value(0).trimmed() != "0";
+        if (section.contains("ForgetPenalty")) {
+            QStringList range = section["ForgetPenalty"].value(0).split(',', Qt::SkipEmptyParts);
+            if (range.size() == 2) {
+                g.forgetPenaltyMin = range[0].toInt();
+                g.forgetPenaltyMax = range[1].toInt();
+            } else if (range.size() == 1) {
+                g.forgetPenaltyMin = g.forgetPenaltyMax = range[0].toInt();
+            }
+        }
+
+        if (section.contains("IgnorePenalty")) {
+            QStringList range = section["IgnorePenalty"].value(0).split(',', Qt::SkipEmptyParts);
+            if (range.size() == 2) {
+                g.ignorePenaltyMin = range[0].toInt();
+                g.ignorePenaltyMax = range[1].toInt();
+            } else if (range.size() == 1) {
+                g.ignorePenaltyMin = g.ignorePenaltyMax = range[0].toInt();
+            }
+        }
+
+        if (section.contains("ForgetPenaltyGroup"))
+            g.forgetPenaltyGroup = section["ForgetPenaltyGroup"].value(0);
+        if (section.contains("IgnorePenaltyGroup"))
+            g.ignorePenaltyGroup = section["IgnorePenaltyGroup"].value(0);
+
+        if (section.contains("InterruptStatus")) {
+            for (const QString& val : section["InterruptStatus"])
+                g.interruptStatuses += val.split(',', Qt::SkipEmptyParts);
+        }
+
+        if (section.contains("MinMerits"))
+            g.minMerits = section["MinMerits"].value(0).toInt();
+
+        if (section.contains("MaxMerits"))
+            g.maxMerits = section["MaxMerits"].value(0).toInt();
+
+        if (section.contains("Yellow"))
+            g.yellowMerits = section["Yellow"].value(0).toInt();
+
+        if (section.contains("Red"))
+            g.redMerits = section["Red"].value(0).toInt();
+
+        if (section.contains("DayMerits"))
+            g.dayMerits = section["DayMerits"].value(0).toInt();
+
+        if (section.contains("HideMerits"))
+            g.hideMerits = section["HideMerits"].value(0).trimmed() == "1";
+
+        if (section.contains("ReportPassword"))
+            g.reportPassword = section["ReportPassword"].value(0);
+
+        if (section.contains("Restrict"))
+            g.restrictMode = section["Restrict"].value(0).trimmed() == "1";
+
+        if (section.contains("AutoEncrypt"))
+            g.autoEncrypt = section["AutoEncrypt"].value(0).trimmed() == "1";
+
+        if (section.contains("CenterRandom"))
+            g.centerRandom = section["CenterRandom"].value(0).trimmed() == "1";
+
+        if (section.contains("ClothExport"))
+            g.allowClothExport = section["ClothExport"].value(0).trimmed() == "1";
+
+        if (section.contains("ClothReport"))
+            g.allowClothReport = section["ClothReport"].value(0).trimmed() != "0";
+
+        if (section.contains("Alarm"))
+            g.popupAlarm = section["Alarm"].value(0);
+
+        if (section.contains("TopText"))
+            g.topText += section["TopText"];
+
+        if (section.contains("BottomText"))
+            g.bottomText += section["BottomText"];
+
+        if (section.contains("PopupMessage"))
+            g.popupMessage = section["PopupMessage"].value(0);
+
+        if (section.contains("SigninPenalty1"))
+            g.signinPenalty1 = section["SigninPenalty1"].value(0).toInt();
+
+        if (section.contains("SigninPenalty2"))
+            g.signinPenalty2 = section["SigninPenalty2"].value(0).toInt();
+
+        if (section.contains("SigninPenaltyGroup"))
+            g.signinPenaltyGroup = section["SigninPenaltyGroup"].value(0);
+
+        if (section.contains("AutoClothFlags"))
+            g.autoClothFlags = section["AutoClothFlags"].value(0).trimmed() == "1";
+
+        if (section.contains("smtp")) g.smtpServer = section["smtp"].value(0);
+
+        if (section.contains("smtpUser")) g.smtpUser = section["smtpUser"].value(0);
+
+        if (section.contains("smtpPassword")) g.smtpPassword = section["smtpPassword"].value(0);
+
+        if (section.contains("senderEmail")) g.senderEmail = section["senderEmail"].value(0);
+
+        if (section.contains("subEmail")) g.subEmail = section["subEmail"].value(0);
+
+        if (section.contains("masterEmail")) g.masterEmail = section["masterEmail"].value(0);
+
+        if (section.contains("masterEmail2")) g.masterEmail2 = section["masterEmail2"].value(0);
+
+        if (section.contains("smtpPort")) g.smtpPort = section["smtpPort"].value(0).toInt();
+
+        if (section.contains("tslPort")) g.tlsPort = section["tlsPort"].value(0).toInt();
+
+        if (section.contains("AutoMailReport")) g.autoMailReport = section["AutoMailReport"].value(0).toInt() == 1;
+
+        if (section.contains("ShowMailWindow")) g.showMailWindow = section["ShowMailWindow"].value(0).toInt() != 0;
+
+        if (section.contains("TestMail")) g.testMail = section["TestMail"].value(0).toInt() == 1;
+
+        if (section.contains("MailLog")) g.mailLog = section["MailLog"].value(0).toInt() == 1;
+
+        if (section.contains("MaxLineBreak"))
+            g.maxLineBreak = section["MaxLineBreak"].value(0);
+
+        if (section.contains("DirectShow"))
+            g.directShow = section["DirectShow"].value(0).toInt() == 1;
+
+        if (section.contains("CameraFolder"))
+            g.cameraFolder = section["CameraFolder"].value(0);
+
+        if (section.contains("SavePictures"))
+            g.savePictures = section["SavePictures"].value(0).trimmed();
+
+        if (section.contains("OpenPassword"))
+            g.openPassword = section["OpenPassword"].value(0);
+
+        if (section.contains("UseIcon"))
+            g.useIcon = section["UseIcon"].value(0).toInt() == 1;
+
+        if (section.contains("StartMinimized"))
+            g.startMinimized = section["StartMinimized"].value(0).toInt() == 1;
+
+        if (section.contains("MinimizePopup"))
+            g.minimizePopup = section["MinimizePopup"].value(0).trimmed();
+
+        if (section.contains("Rules"))
+            g.rulesEnabled = section["Rules"].value(0).toInt() != 0;
+
+        if (section.contains("QuickReport"))
+            g.quickReport = section["QuickReport"].value(0).trimmed();
+
+        if (section.contains("QuickLabel"))
+            g.quickLabel = section["QuickLabel"].value(0).trimmed();
+
+        if (section.contains("AutoMailReport"))
+            g.autoMailReport = section["AutoMailReport"].value(0).toInt() == 1;
+
+        if (section.contains("FlagOnText"))
+            g.flagOnText = section["FlagOnText"].value(0);
+
+        if (section.contains("FlagOffText"))
+            g.flagOffText = section["FlagOffText"].value(0);
+
+        if (section.contains("HideTime")) {
+            g.hideTimeGlobal = !section["HideTime"].isEmpty() && section["HideTime"].first().trimmed() == "1";
+        }
+
+        if (!section.contains("ValidateAll")) {
+            validateAll = (minVersion >= 3.4f);
         }
     }
-
-    if (section.contains("IgnorePenalty")) {
-        QStringList range = section["IgnorePenalty"].value(0).split(',', Qt::SkipEmptyParts);
-        if (range.size() == 2) {
-            g.ignorePenaltyMin = range[0].toInt();
-            g.ignorePenaltyMax = range[1].toInt();
-        } else if (range.size() == 1) {
-            g.ignorePenaltyMin = g.ignorePenaltyMax = range[0].toInt();
-        }
-    }
-
-    if (section.contains("ForgetPenaltyGroup"))
-        g.forgetPenaltyGroup = section["ForgetPenaltyGroup"].value(0);
-    if (section.contains("IgnorePenaltyGroup"))
-        g.ignorePenaltyGroup = section["IgnorePenaltyGroup"].value(0);
-
-    if (section.contains("InterruptStatus")) {
-        for (const QString& val : section["InterruptStatus"])
-            g.interruptStatuses += val.split(',', Qt::SkipEmptyParts);
-    }
-
-    if (section.contains("MinMerits"))
-        g.minMerits = section["MinMerits"].value(0).toInt();
-
-    if (section.contains("MaxMerits"))
-        g.maxMerits = section["MaxMerits"].value(0).toInt();
-
-    if (section.contains("Yellow"))
-        g.yellowMerits = section["Yellow"].value(0).toInt();
-
-    if (section.contains("Red"))
-        g.redMerits = section["Red"].value(0).toInt();
-
-    if (section.contains("DayMerits"))
-        g.dayMerits = section["DayMerits"].value(0).toInt();
-
-    if (section.contains("HidMerits"))
-        g.hideMerits = section["HideMerits"].value(0).trimmed() == "1";
-
-    if (section.contains("ReportPassword"))
-        g.reportPassword = section["ReportPassword"].value(0);
-
-    if (section.contains("Restrict"))
-        g.restrictMode = section["Restrict"].value(0).trimmed() == "1";
-
-    if (section.contains("AutoEncrypt"))
-        g.autoEncrypt = section["AutoEncrypt"].value(0).trimmed() == "1";
-
-    if (section.contains("CenterRandom"))
-        g.centerRandom = section["CenterRandom"].value(0).trimmed() == "1";
-
-    if (section.contains("ClothExport"))
-        g.allowClothExport = section["ClothExport"].value(0).trimmed() == "1";
-
-    if (section.contains("ClothReport"))
-        g.allowClothReport = section["ClothReport"].value(0).trimmed() != "0";
-
-    if (section.contains("Alarm"))
-        g.popupAlarm = section["Alarm"].value(0);
-
-    if (section.contains("TopText"))
-        g.topText += section["TopText"];
-
-    if (section.contains("BottomText"))
-        g.bottomText += section["BottomText"];
-
-    if (section.contains("PopupMessage"))
-        g.popupMessage = section["PopupMessage"].value(0);
-
-    if (section.contains("SigninPenalty1"))
-        g.signinPenalty1 = section["SigninPenalty1"].value(0).toInt();
-
-    if (section.contains("SigninPenalty2"))
-        g.signinPenalty2 = section["SigninPenalty2"].value(0).toInt();
-
-    if (section.contains("SigninPenaltyGroup"))
-        g.signinPenaltyGroup = section["SigninPenaltyGroup"].value(0);
-
-    if (section.contains("AutoClothFlags"))
-        g.autoClothFlags = section["AutoClothFlags"].value(0).trimmed() == "1";
-
-    if (section.contains("smtp")) g.smtpServer = section["smtp"].value(0);
-
-    if (section.contains("smtpUser")) g.smtpUser = section["smtpUser"].value(0);
-
-    if (section.contains("smtpPassword")) g.smtpPassword = section["smtpPassword"].value(0);
-
-    if (section.contains("senderEmail")) g.senderEmail = section["senderEmail"].value(0);
-
-    if (section.contains("subEmail")) g.subEmail = section["subEmail"].value(0);
-
-    if (section.contains("masterEmail")) g.masterEmail = section["masterEmail"].value(0);
-
-    if (section.contains("masterEmail2")) g.masterEmail2 = section["masterEmail2"].value(0);
-
-    if (section.contains("smtpPort")) g.smtpPort = section["smtpPort"].value(0).toInt();
-
-    if (section.contains("tslPort")) g.tlsPort = section["tlsPort"].value(0).toInt();
-
-    if (section.contains("AutoMailReport")) g.autoMailReport = section["AutoMailReport"].value(0).toInt() == 1;
-
-    if (section.contains("ShowMailWindow")) g.showMailWindow = section["ShowMailWindow"].value(0).toInt() != 0;
-
-    if (section.contains("TestMail")) g.testMail = section["TestMail"].value(0).toInt() == 1;
-
-    if (section.contains("MailLog")) g.mailLog = section["MailLog"].value(0).toInt() == 1;
-
-    if (section.contains("MaxLineBreak"))
-        g.maxLineBreak = section["MaxLineBreak"].value(0);
-
-    if (section.contains("DirectShow"))
-        g.directShow = section["DirectShow"].value(0).toInt() == 1;
-
-    if (section.contains("CameraFolder"))
-        g.cameraFolder = section["CameraFolder"].value(0);
-
-    if (section.contains("SavePictures"))
-        g.savePictures = section["SavePictures"].value(0).trimmed();
-
-    if (section.contains("OpenPassword"))
-        g.openPassword = section["OpenPassword"].value(0);
-
-    if (section.contains("UseIcon"))
-        g.useIcon = section["UseIcon"].value(0).toInt() == 1;
-
-    if (section.contains("StartMinimized"))
-        g.startMinimized = section["StartMinimized"].value(0).toInt() == 1;
-
-    if (section.contains("MinimizePopup"))
-        g.minimizePopup = section["MinimizePopup"].value(0).trimmed();
-
-    if (section.contains("Rules"))
-        g.rulesEnabled = section["Rules"].value(0).toInt() != 0;
-
-    if (section.contains("QuickReport"))
-        g.quickReport = section["QuickReport"].value(0).trimmed();
-
-    if (section.contains("QuickLabel"))
-        g.quickLabel = section["QuickLabel"].value(0).trimmed();
-
-    if (section.contains("AutoMailReport"))
-        g.autoMailReport = section["AutoMailReport"].value(0).toInt() == 1;
-
-    if (section.contains("FlagOnText"))
-        g.flagOnText = section["FlagOnText"].value(0);
-
-    if (section.contains("FlagOffText"))
-        g.flagOffText = section["FlagOffText"].value(0);
 }
 
 void ScriptParser::parseInitSection(const QMap<QString, QStringList>& section) {
@@ -418,7 +472,7 @@ void ScriptParser::parseStatusSections(const QMap<QString, QMap<QString, QString
             QString val = entries["Statistics"].value(0).trimmed();
             if (val == "1") {
                 status.trackStatistics = true;
-                status.staticsticsLabel = sectionName;
+                status.statisticsLabel = sectionName;
             } else {
                 status.trackStatistics = true;
                 status.statisticsLabel = val;
@@ -570,10 +624,15 @@ void ScriptParser::parseStatusSections(const QMap<QString, QMap<QString, QString
             status.convertFromCounter += entries["Minutes!"];
         if (entries.contains("Seconds!"))
             status.convertFromCounter += entries["Seconds!"];
+        if (entries.contains("HideTime")) {
+            status.hideTime = (entries["HideTime"].first().trimmed() == "1");
+        }
 
         parseDurationControl(entries, status.duration);
 
         scriptData.statuses.insert(statusName, status);
+
+        scriptData.statuses[statusName] = status;
     }
 }
 
@@ -828,6 +887,48 @@ void ScriptParser::parseReportSections(const QMap<QString, QMap<QString, QString
             report.convertFromCounter += entries["Minutes!"];
         if (entries.contains("Seconds!"))
             report.convertFromCounter += entries["Seconds!"];
+        if (entries.contains("Set*"))
+            report.listSets = entries["Set*"];
+        if (entries.contains("SetSplit*"))
+            report.listSetSplits = entries["SetSplit*"];
+        if (entries.contains("Add*"))
+            report.listAdds = entries["Add*"];
+        if (entries.contains("AddNoDub*"))
+            report.listAddNoDubs = entries["AddNoDub*"];
+        if (entries.contains("AddSplit*"))
+            report.listAddSplits = entries["AddSplit*"];
+        if (entries.contains("Push*"))
+            report.listPushes = entries["Push*"];
+        if (entries.contains("Remove*"))
+            report.listRemoves = entries["Remove*"];
+        if (entries.contains("RemoveAll*"))
+            report.listRemoveAlls = entries["RemoveAll*"];
+        if (entries.contains("Pull*"))
+            report.listPulls = entries["Pull*"];
+        if (entries.contains("Intersect*"))
+            report.listIntersects = entries["Intersect*"];
+        if (entries.contains("Clear*"))
+            report.listClears = entries["Clear*"];
+        if (entries.contains("Drop*"))
+            report.listDrops = entries["Drop*"];
+        if (entries.contains("Sort*"))
+            report.listSorts = entries["Sort*"];
+
+        QStringList lines;
+        for (auto keyIt = entries.begin(); keyIt != entries.end(); ++keyIt) {
+            for (const QString &val : keyIt.value())
+                lines.append(val);
+        }
+
+        int index = 0;
+        while (index < lines.size()) {
+            if (lines[index].startsWith("Case=", Qt::CaseInsensitive)) {
+                CaseBlock block = parseCaseBlock(lines, index);
+                report.cases.append(block);
+            } else {
+                ++index;
+            }
+        }
 
         parseTimeWindowControl(entries, report.timeWindow);
         parseTimeRestrictions(entries, report.notBeforeTimes, report.notAfterTimes, report.notBetweenTimes);
@@ -1005,6 +1106,14 @@ void ScriptParser::parseConfessionSections(const QMap<QString, QMap<QString, QSt
             confession.convertFromCounter += entries["Minutes!"];
         if (entries.contains("Seconds!"))
             confession.convertFromCounter += entries["Seconds!"];
+        if (entries.contains("If"))
+            confession.ifConditions = entries["If"];
+        if (entries.contains("NotIf"))
+            confession.notIfConditions = entries["NotIf"];
+        if (entries.contains("DenyIf"))
+            confession.denyIfConditions = entries["DenyIf"];
+        if (entries.contains("PermitIf"))
+            confession.permitIfConditions = entries["PermitIf"];
 
         parseTimeWindowControl(entries, confession.timeWindow);
         parseTimeRestrictions(entries, confession.notBeforeTimes, confession.notAfterTimes, confession.notBetweenTimes);
@@ -1352,6 +1461,14 @@ void ScriptParser::parsePermissionSections(const QMap<QString, QMap<QString, QSt
             permission.convertFromCounter += entries["Minutes!"];
         if (entries.contains("Seconds!"))
             permission.convertFromCounter += entries["Seconds!"];
+        if (entries.contains("If"))
+            permission.ifConditions = entries["If"];
+        if (entries.contains("NotIf"))
+            permission.notIfConditions = entries["NotIf"];
+        if (entries.contains("DenyIf"))
+            permission.denyIfConditions = entries["DenyIf"];
+        if (entries.contains("PermitIf"))
+            permission.permitIfConditions = entries["PermitIf"];
 
         parseTimeWindowControl(entries, permission.timeWindow);
         parseTimeRestrictions(entries, permission.notBeforeTimes, permission.notAfterTimes, permission.notBetweenTimes);
@@ -1661,6 +1778,14 @@ void ScriptParser::parsePunishmentSections(const QMap<QString, QMap<QString, QSt
             p.convertFromCounter += entries["Minutes!"];
         if (entries.contains("Seconds!"))
             p.convertFromCounter += entries["Seconds!"];
+        if (entries.contains("If"))
+            p.ifConditions = entries["If"];
+        if (entries.contains("NotIf"))
+            p.notIfConditions = entries["NotIf"];
+        if (entries.contains("DenyIf"))
+            p.denyIfConditions = entries["DenyIf"];
+        if (entries.contains("PermitIf"))
+            p.permitIfConditions = entries["PermitIf"];
 
         parseDurationControl(entries, p.duration);
 
@@ -1860,8 +1985,8 @@ void ScriptParser::parseJobSections(const QMap<QString, QMap<QString, QStringLis
         if (entries.contains("PoseCamera"))
             job.poseCameraText = entries["PoseCamera"].value(0);
 
-        if (entries.contains("PointCamera"))
-            job.pointCameraText = entries["PointCamera"];
+        if (!entries["PointCamera"].isEmpty())
+            job.pointCameraText = entries["PointCamera"].first();
 
         if (entries.contains("SetFlag"))
             job.setFlags = entries["SetFlag"];
@@ -1987,6 +2112,40 @@ void ScriptParser::parseJobSections(const QMap<QString, QMap<QString, QStringLis
             job.convertFromCounter += entries["Minutes!"];
         if (entries.contains("Seconds!"))
             job.convertFromCounter += entries["Seconds!"];
+        if (entries.contains("If"))
+            job.ifConditions = entries["If"];
+        if (entries.contains("NotIf"))
+            job.notIfConditions = entries["NotIf"];
+        if (entries.contains("DenyIf"))
+            job.denyIfConditions = entries["DenyIf"];
+        if (entries.contains("PermitIf"))
+            job.permitIfConditions = entries["PermitIf"];
+        if (entries.contains("Set*"))
+            job.listSets = entries["Set*"];
+        if (entries.contains("SetSplit*"))
+            job.listSetSplits = entries["SetSplit*"];
+        if (entries.contains("Add*"))
+            job.listAdds = entries["Add*"];
+        if (entries.contains("AddNoDub*"))
+            job.listAddNoDubs = entries["AddNoDub*"];
+        if (entries.contains("AddSplit*"))
+            job.listAddSplits = entries["AddSplit*"];
+        if (entries.contains("Push*"))
+            job.listPushes = entries["Push*"];
+        if (entries.contains("Remove*"))
+            job.listRemoves = entries["Remove*"];
+        if (entries.contains("RemoveAll*"))
+            job.listRemoveAlls = entries["RemoveAll*"];
+        if (entries.contains("Pull*"))
+            job.listPulls = entries["Pull*"];
+        if (entries.contains("Intersect*"))
+            job.listIntersects = entries["Intersect*"];
+        if (entries.contains("Clear*"))
+            job.listClears = entries["Clear*"];
+        if (entries.contains("Drop*"))
+            job.listDrops = entries["Drop*"];
+        if (entries.contains("Sort*"))
+            job.listSorts = entries["Sort*"];
 
 
         parseDurationControl(entries, job.duration);
@@ -2212,6 +2371,22 @@ void ScriptParser::parseInstructionSections(const QMap<QString, QMap<QString, QS
 
         if (entries.contains("ClearCheck"))
             instr.clearClothingCheck = entries["ClearCheck"].value(0).trimmed() == "1";
+
+        QStringList lines;
+        for (auto keyIt = entries.begin(); keyIt != entries.end(); ++keyIt) {
+            for (const QString &val : keyIt.value())
+                lines.append(val);
+        }
+
+        int index = 0;
+        while (index < lines.size()) {
+            if (lines[index].startsWith("Case=", Qt::CaseInsensitive)) {
+                CaseBlock block = parseCaseBlock(lines, index);
+                instr.cases.append(block);
+            } else {
+                ++index;
+            }
+        }
 
         scriptData.instructions.insert(instr.name, instr);
     }
@@ -2641,6 +2816,22 @@ void ScriptParser::parseProcedureSections(const QMap<QString, QMap<QString, QStr
         if (entries.contains("Seconds!"))
             proc.convertFromCounter += entries["Seconds!"];
 
+        QStringList lines;
+        for (auto keyIt = entries.begin(); keyIt != entries.end(); ++keyIt) {
+            for (const QString &val : keyIt.value())
+                lines.append(val);
+        }
+
+        int index = 0;
+        while (index < lines.size()) {
+            if (lines[index].startsWith("Case=", Qt::CaseInsensitive)) {
+                CaseBlock block = parseCaseBlock(lines, index);
+                proc.cases.append(block);
+            } else {
+                ++index;
+            }
+        }
+
         parseTimeRestrictions(entries, proc.notBeforeTimes, proc.notAfterTimes, proc.notBetweenTimes);
 
         scriptData.procedures.insert(proc.name, proc);
@@ -2703,6 +2894,22 @@ void ScriptParser::parsePopupSections(const QMap<QString, QMap<QString, QStringL
         if (entries.contains("SubMail")) {
             for (const QString& line : entries["SubMail"])
                 p.subMailLines.append(line.trimmed());
+        }
+
+        QStringList lines;
+        for (auto keyIt = entries.begin(); keyIt != entries.end(); ++keyIt) {
+            for (const QString &val : keyIt.value())
+                lines.append(val);
+        }
+
+        int index = 0;
+        while (index < lines.size()) {
+            if (lines[index].startsWith("Case=", Qt::CaseInsensitive)) {
+                CaseBlock block = parseCaseBlock(lines, index);
+                p.cases.append(block);
+            } else {
+                ++index;
+            }
         }
 
         parseTimeRestrictions(entries, p.notBeforeTimes, p.notAfterTimes, p.notBetweenTimes);
@@ -2817,6 +3024,22 @@ void ScriptParser::parseTimerSections(const QMap<QString, QMap<QString, QStringL
         if (entries.contains("SubMail")) {
             for (const QString& line : entries["SubMail"])
                 t.subMailLines.append(line.trimmed());
+        }
+
+        QStringList lines;
+        for (auto keyIt = entries.begin(); keyIt != entries.end(); ++keyIt) {
+            for (const QString &val : keyIt.value())
+                lines.append(val);
+        }
+
+        int index = 0;
+        while (index < lines.size()) {
+            if (lines[index].startsWith("Case=", Qt::CaseInsensitive)) {
+                CaseBlock block = parseCaseBlock(lines, index);
+                t.cases.append(block);
+            } else {
+                ++index;
+            }
         }
 
         parseDurationControl(entries, t.duration);
@@ -3084,4 +3307,277 @@ void ScriptParser::parseFlagSection(const QString& name, const QMap<QString, QSt
         flag.reportFlag = entries["ReportFlag"].value(0).toInt() != 0;
 
     scriptData.flagDefinitions[name] = flag;
+}
+
+void ScriptParser::processListCommands(const QStringList &commands) {
+    for (const QString &cmd : commands) {
+        QString trimmed = cmd.trimmed();
+        if (trimmed.startsWith("Set*=")) {
+            auto parts = trimmed.section('=', 1).split(',', Qt::SkipEmptyParts);
+            QString listName = parts.takeFirst().trimmed();
+            QStringList items;
+            for (QString &val : parts) {
+                val = val.trimmed();
+                if (val.startsWith("*")) {
+                    items += scriptData.lists.value(val);
+                } else {
+                    items << val;
+                }
+            }
+            scriptData.lists[listName] = items;
+        } else if (trimmed.startsWith("Add*=")) {
+            auto parts = trimmed.section('=', 1).split(',', Qt::SkipEmptyParts);
+            QString listName = parts.takeFirst().trimmed();
+            for (QString &val : parts) {
+                val = val.trimmed();
+                if (val.startsWith("*")) {
+                    scriptData.lists[listName] += scriptData.lists.value(val);
+                } else {
+                    scriptData.lists[listName] << val;
+                }
+            }
+        } else if (trimmed.startsWith("AddNoDub*=")) {
+            auto parts = trimmed.section('=', 1).split(',', Qt::SkipEmptyParts);
+            QString listName = parts.takeFirst().trimmed();
+            for (QString &val : parts) {
+                val = val.trimmed();
+                if (val.startsWith("*")) {
+                    scriptData.lists[listName] += scriptData.lists.value(val);
+                } else {
+                    scriptData.lists[listName] << val;
+                }
+            }
+        } else if (trimmed.startsWith("Push*=")) {
+            auto parts = trimmed.section('=', 1).split(',', Qt::SkipEmptyParts);
+            QString listName = parts.takeFirst().trimmed();
+            for (QString &val : parts) {
+                val = val.trimmed();
+                if (val.startsWith("*")) {
+                    scriptData.lists[listName] += scriptData.lists.value(val);
+                } else {
+                    scriptData.lists[listName] << val;
+                }
+            }
+        } else if (trimmed.startsWith("Pull*=")) {
+            auto parts = trimmed.section('=', 1).split(',', Qt::SkipEmptyParts);
+            QString listName = parts.takeFirst().trimmed();
+            for (QString &val : parts) {
+                val = val.trimmed();
+                if (val.startsWith("*")) {
+                    scriptData.lists[listName] += scriptData.lists.value(val);
+                } else {
+                    scriptData.lists[listName] << val;
+                }
+            }
+        } else if (trimmed.startsWith("Intersect*=")) {
+            auto parts = trimmed.section('=', 1).split(',', Qt::SkipEmptyParts);
+            QString listName = parts.takeFirst().trimmed();
+            for (QString &val : parts) {
+                val = val.trimmed();
+                if (val.startsWith("*")) {
+                    scriptData.lists[listName] += scriptData.lists.value(val);
+                } else {
+                    scriptData.lists[listName] << val;
+                }
+            }
+        } else if (trimmed.startsWith("Sort*=")) {
+            auto parts = trimmed.section('=', 1).split(',', Qt::SkipEmptyParts);
+            QString listName = parts.takeFirst().trimmed();
+            for (QString &val : parts) {
+                val = val.trimmed();
+                if (val.startsWith("*")) {
+                    scriptData.lists[listName] += scriptData.lists.value(val);
+                } else {
+                    scriptData.lists[listName] << val;
+                }
+            }
+        } else if (trimmed.startsWith("Remove*=")) {
+            auto parts = trimmed.section('=', 1).split(',', Qt::SkipEmptyParts);
+            QString listName = parts.takeFirst().trimmed();
+            for (QString &val : parts) {
+                val = val.trimmed();
+                if (val.startsWith("*")) {
+                    scriptData.lists[listName] += scriptData.lists.value(val);
+                } else {
+                    scriptData.lists[listName] << val;
+                }
+            }
+        } else if (trimmed.startsWith("SetSplit*=")) {
+            auto parts = trimmed.section('=', 1).split(',', Qt::SkipEmptyParts);
+            QString listName = parts.takeFirst().trimmed();
+            for (QString &val : parts) {
+                val = val.trimmed();
+                if (val.startsWith("*")) {
+                    scriptData.lists[listName] += scriptData.lists.value(val);
+                } else {
+                    scriptData.lists[listName] << val;
+                }
+            }
+        } else if (trimmed.startsWith("AddSplit*=")) {
+            auto parts = trimmed.section('=', 1).split(',', Qt::SkipEmptyParts);
+            QString listName = parts.takeFirst().trimmed();
+            for (QString &val : parts) {
+                val = val.trimmed();
+                if (val.startsWith("*")) {
+                    scriptData.lists[listName] += scriptData.lists.value(val);
+                } else {
+                    scriptData.lists[listName] << val;
+                }
+            }
+        } else if (trimmed.startsWith("RemoveAll*=")) {
+            auto parts = trimmed.section('=', 1).split(',', Qt::SkipEmptyParts);
+            QString listName = parts.takeFirst().trimmed();
+            for (QString &val : parts) {
+                val = val.trimmed();
+                if (val.startsWith("*")) {
+                    scriptData.lists[listName] += scriptData.lists.value(val);
+                } else {
+                    scriptData.lists[listName] << val;
+                }
+            }
+        } else if (trimmed.startsWith("Clear*=")) {
+            auto parts = trimmed.section('=', 1).split(',', Qt::SkipEmptyParts);
+            QString listName = parts.takeFirst().trimmed();
+            for (QString &val : parts) {
+                val = val.trimmed();
+                if (val.startsWith("*")) {
+                    scriptData.lists[listName] += scriptData.lists.value(val);
+                } else {
+                    scriptData.lists[listName] << val;
+                }
+            }
+        } else if (trimmed.startsWith("Drop*=")) {
+            auto parts = trimmed.section('=', 1).split(',', Qt::SkipEmptyParts);
+            QString listName = parts.takeFirst().trimmed();
+            for (QString &val : parts) {
+                val = val.trimmed();
+                if (val.startsWith("*")) {
+                    scriptData.lists[listName] += scriptData.lists.value(val);
+                } else {
+                    scriptData.lists[listName] << val;
+                }
+            }
+        }
+    }
+}
+
+bool ScriptParser::shouldHideClock(const QString &currentStatus) const {
+    if (scriptData.statuses.contains(currentStatus)) {
+        return scriptData.statuses.value(currentStatus).hideTime;
+    }
+    return scriptData.generalSettings.value("HideTime") == "1";
+}
+
+QString ScriptParser::resolveIncludePath(const QString& basePath, const QString& includeLine)
+{
+    QString fileName = includeLine.mid(QStringLiteral("%include=").length()).trimmed();
+    QFileInfo fileInfo(fileName);
+    if (fileInfo.isAbsolute()) {
+        return fileName;
+    } else {
+        QDir baseDir = QFileInfo(basePath).absoluteDir();
+        return baseDir.absoluteFilePath(fileName);
+    }
+}
+
+CaseBlock ScriptParser::parseCaseBlock(const QStringList &lines, int &index) {
+    CaseBlock block;
+    block.mode = CaseMode::All;
+
+    // Parse opening Case line
+    QString header = lines[index++].trimmed();
+    if (header.contains("First", Qt::CaseInsensitive))
+        block.mode = CaseMode::First;
+    else if (header.contains("Random", Qt::CaseInsensitive))
+        block.mode = CaseMode::Random;
+
+    while (index < lines.size()) {
+        QString line = lines[index++].trimmed();
+        if (line.compare("Case=End", Qt::CaseInsensitive) == 0)
+            break;
+
+        if (line.startsWith("When", Qt::CaseInsensitive)) {
+            CaseBranch branch;
+
+            if (line.startsWith("When=Random", Qt::CaseInsensitive)) {
+                branch.type = WhenType::WhenRandom;
+            } else if (line.startsWith("When=All", Qt::CaseInsensitive)) {
+                branch.type = WhenType::WhenAll;
+            } else if (line.startsWith("When=NotAll", Qt::CaseInsensitive)) {
+                branch.type = WhenType::WhenNotAll;
+            } else if (line.startsWith("When=Any", Qt::CaseInsensitive)) {
+                branch.type = WhenType::WhenAny;
+            } else if (line.startsWith("When=None", Qt::CaseInsensitive)) {
+                branch.type = WhenType::WhenNone;
+            } else if (line.startsWith("WhenNot=", Qt::CaseInsensitive)) {
+                branch.type = WhenType::WhenNot;
+                branch.condition = line.section('=', 1).trimmed();
+            } else if (line.startsWith("When=", Qt::CaseInsensitive)) {
+                branch.type = WhenType::When;
+                branch.condition = line.section('=', 1).trimmed();
+            }
+
+            // Gather statements until next When or Case=End
+            while (index < lines.size()) {
+                QString nextLine = lines[index].trimmed();
+                if (nextLine.startsWith("When", Qt::CaseInsensitive) || nextLine.startsWith("Case=End", Qt::CaseInsensitive))
+                    break;
+                branch.statements.append(nextLine);
+                ++index;
+            }
+
+            block.branches.append(branch);
+        }
+    }
+
+    return block;
+}
+
+#include <QFile>
+#include <QTextStream>
+#include <QDebug>    // if you want to emit qWarning()/qDebug()
+
+bool ScriptParser::loadFromCDS(const QString &cdsPath)
+{
+    // 1) If there is no .cds file, return false (nothing to load).
+    QFile file(cdsPath);
+    if (!file.exists()) {
+        return false;
+    }
+
+    // 2) Open for text‐read. If fail, warn and return false.
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        qWarning() << "[ScriptParser] Failed to open .cds:" << cdsPath
+                   << "–" << file.errorString();
+        return false;
+    }
+
+    // 3) Read line by line. Assume each line is “variableName=value”.
+    QTextStream in(&file);
+    while (!in.atEnd()) {
+        QString line = in.readLine().trimmed();
+        // Skip blank lines or comments ("#"/";").
+        if (line.isEmpty() || line.startsWith('#') || line.startsWith(';'))
+            continue;
+
+        // Split on the first '='.
+        QStringList parts = line.split('=', Qt::KeepEmptyParts);
+        if (parts.size() < 2)
+            continue;
+
+        QString varName  = parts[0].trimmed();
+        // Re‐join anything after the first '=' (in case the value contains '=').
+        QString varValue = parts.mid(1).join('=').trimmed();
+
+        // 4) Store into your ScriptData. Adjust to match your ScriptData API.
+        //    For example, if ScriptData has a QMap<QString,QString> called savedVariables:
+        //        scriptData.savedVariables[varName] = varValue;
+        //    Or if you have a setter:
+        //        scriptData.setSavedVariable(varName, varValue);
+
+        scriptData.setSavedVariable(varName, varValue);
+    }
+
+    file.close();
+    return true;
 }

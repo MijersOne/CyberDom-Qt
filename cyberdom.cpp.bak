@@ -1,0 +1,484 @@
+// cyberdom.cpp
+#include "cyberdom.h"
+#include "ui_cyberdom.h"
+
+// Dialog includes
+#include "about.h"
+#include "addclothing.h"
+#include "addclothtype.h"
+#include "askclothing.h"
+#include "askinstructions.h"
+#include "askpunishment.h"
+#include "assignments.h"
+#include "changemerits.h"
+#include "changestatus.h"
+#include "deleteassignments.h"
+#include "joblaunch.h"
+#include "listflags.h"
+#include "questiondialog.h"
+#include "reportclothing.h"
+#include "rules.h"
+#include "selectpopup.h"
+#include "selectpunishment.h"
+#include "setflags.h"
+#include "timeadd.h"
+
+// Core includes
+#include "scriptparser.h"
+#include "ScriptUtils.h"
+#include "clothingitem.h"
+
+#include <QMessageBox>
+#include <QFileDialog>
+#include <QSettings>
+#include <QCloseEvent>
+#include <QTimer>
+#include <QDebug>
+#include <QStandardPaths>
+#include <QDir>
+#include <QCoreApplication>
+
+// Constants
+namespace {
+constexpr const char* ORGANIZATION_NAME = "CyberDom";
+constexpr const char* APPLICATION_NAME = "CyberDom";
+constexpr const char* SETTINGS_FILE_VERSION = "1.0";
+constexpr int AUTO_SAVE_INTERVAL_MS = 300000; // 5 minutes
+}
+
+CyberDom::CyberDom(QWidget *parent)
+    : QMainWindow(parent)
+    , ui(new Ui::CyberDom)
+    , m_scriptParser(new ScriptParser(this))
+    , m_settings(new QSettings(ORGANIZATION_NAME, APPLICATION_NAME, this))
+    , m_autoSaveTimer(new QTimer(this))
+    , m_isModified(false)
+    , m_currentMode(ApplicationMode::Normal)
+{
+    ui->setupUi(this);
+
+    // Initialize application
+    initializeApplication();
+
+    // Setup UI
+    setupUI();
+
+    // Connect signals
+    connectSignals();
+
+    // Load settings
+    loadSettings();
+
+    // Setup auto-save
+    setupAutoSave();
+
+    // Post-initialization
+    QTimer::singleShot(0, this, &CyberDom::postInitialization);
+}
+
+CyberDom::~CyberDom()
+{
+    // Save settings before destruction
+    saveSettings();
+
+    // Clean up UI
+    delete ui;
+}
+
+void CyberDom::initializeApplication()
+{
+    // Set application metadata
+    QCoreApplication::setOrganizationName(ORGANIZATION_NAME);
+    QCoreApplication::setApplicationName(APPLICATION_NAME);
+
+    // Initialize data directories
+    initializeDataDirectories();
+
+    // Initialize script parser
+    initializeScriptParser();
+
+    // Initialize application state
+    m_applicationState.reset(new ApplicationState);
+    m_applicationState->isActive = true;
+    m_applicationState->currentUser = QString();
+}
+
+void CyberDom::initializeDataDirectories()
+{
+    // Get standard paths for different data types
+    QStringList dataPaths = {
+        QStandardPaths::writableLocation(QStandardPaths::AppDataLocation),
+        QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/scripts",
+        QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/data",
+        QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/logs",
+        QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/temp"
+    };
+
+    // Create directories if they don't exist
+    for (const QString& path : dataPaths) {
+        QDir dir(path);
+        if (!dir.exists()) {
+            if (!dir.mkpath(".")) {
+                qWarning() << "Failed to create directory:" << path;
+            }
+        }
+    }
+}
+
+void CyberDom::initializeScriptParser()
+{
+    // Connect script parser signals
+    connect(m_scriptParser, &ScriptParser::scriptLoaded,
+            this, &CyberDom::onScriptLoaded);
+    connect(m_scriptParser, &ScriptParser::errorOccurred,
+            this, &CyberDom::onScriptError);
+
+    // Set default script directory
+    QString scriptDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/scripts";
+    m_scriptParser->setScriptDirectory(scriptDir);
+}
+
+void CyberDom::setupUI()
+{
+    // Set window properties
+    setWindowTitle(tr("CyberDom - Desktop Application"));
+
+    // Configure status bar
+    m_statusLabel = new QLabel(tr("Ready"), this);
+    ui->statusbar->addWidget(m_statusLabel);
+
+    m_modeLabel = new QLabel(tr("Mode: Normal"), this);
+    ui->statusbar->addPermanentWidget(m_modeLabel);
+
+    // Set initial UI state
+    updateUIState();
+
+    // Configure menus (if you have menu bar in your UI file)
+    setupMenus();
+
+    // Configure toolbars (if you have toolbars in your UI file)
+    setupToolbars();
+}
+
+void CyberDom::setupMenus()
+{
+    // This assumes you have menu actions in your UI file
+    // Customize based on your actual UI design
+
+    // File menu
+    if (ui->actionOpen) {
+        ui->actionOpen->setShortcut(QKeySequence::Open);
+    }
+    if (ui->actionSave) {
+        ui->actionSave->setShortcut(QKeySequence::Save);
+    }
+    if (ui->actionExit) {
+        ui->actionExit->setShortcut(QKeySequence::Quit);
+    }
+}
+
+void CyberDom::setupToolbars()
+{
+    // Setup toolbar actions if you have toolbars
+    // This is a placeholder - customize based on your UI
+}
+
+void CyberDom::connectSignals()
+{
+    // Connect menu actions (customize based on your actual UI)
+    // Example connections - modify based on your UI file
+
+    // File menu connections
+    // connect(ui->actionOpen, &QAction::triggered, this, &CyberDom::onFileOpen);
+    // connect(ui->actionSave, &QAction::triggered, this, &CyberDom::onFileSave);
+    // connect(ui->actionExit, &QAction::triggered, this, &CyberDom::close);
+
+    // Dialog connections
+    // These will be connected when dialogs are opened
+}
+
+void CyberDom::loadSettings()
+{
+    // Window geometry
+    if (m_settings->contains("geometry")) {
+        restoreGeometry(m_settings->value("geometry").toByteArray());
+    }
+    if (m_settings->contains("windowState")) {
+        restoreState(m_settings->value("windowState").toByteArray());
+    }
+
+    // Application settings
+    m_currentScriptPath = m_settings->value("lastScriptPath", QString()).toString();
+
+    // User preferences
+    loadUserPreferences();
+}
+
+void CyberDom::saveSettings()
+{
+    // Window geometry
+    m_settings->setValue("geometry", saveGeometry());
+    m_settings->setValue("windowState", saveState());
+
+    // Application settings
+    m_settings->setValue("lastScriptPath", m_currentScriptPath);
+    m_settings->setValue("settingsVersion", SETTINGS_FILE_VERSION);
+
+    // User preferences
+    saveUserPreferences();
+
+    // Ensure settings are written
+    m_settings->sync();
+}
+
+void CyberDom::loadUserPreferences()
+{
+    m_settings->beginGroup("UserPreferences");
+    // Add user preference loading here
+    m_settings->endGroup();
+}
+
+void CyberDom::saveUserPreferences()
+{
+    m_settings->beginGroup("UserPreferences");
+    // Add user preference saving here
+    m_settings->endGroup();
+}
+
+void CyberDom::setupAutoSave()
+{
+    m_autoSaveTimer->setInterval(AUTO_SAVE_INTERVAL_MS);
+    connect(m_autoSaveTimer, &QTimer::timeout, this, &CyberDom::autoSave);
+    m_autoSaveTimer->start();
+}
+
+void CyberDom::postInitialization()
+{
+    // Perform any initialization that needs to happen after the window is shown
+
+    // Load last opened script if available
+    if (!m_currentScriptPath.isEmpty() && QFile::exists(m_currentScriptPath)) {
+        loadScript(m_currentScriptPath);
+    }
+
+    // Check for updates (if implemented)
+    // checkForUpdates();
+}
+
+void CyberDom::updateUIState()
+{
+    // Update UI based on current application state
+    bool hasScript = !m_currentScriptPath.isEmpty();
+
+    // Enable/disable actions based on state
+    // Example: ui->actionSave->setEnabled(hasScript && m_isModified);
+
+    // Update mode indicator
+    QString modeText;
+    switch (m_currentMode) {
+    case ApplicationMode::Normal:
+        modeText = tr("Mode: Normal");
+        break;
+    case ApplicationMode::Training:
+        modeText = tr("Mode: Training");
+        break;
+    case ApplicationMode::Advanced:
+        modeText = tr("Mode: Advanced");
+        break;
+    }
+    m_modeLabel->setText(modeText);
+}
+
+void CyberDom::setModified(bool modified)
+{
+    if (m_isModified != modified) {
+        m_isModified = modified;
+        updateUIState();
+
+        // Update window title to show modified state
+        QString title = tr("CyberDom - Desktop Application");
+        if (modified) {
+            title += " *";
+        }
+        setWindowTitle(title);
+    }
+}
+
+// Dialog management methods
+void CyberDom::showAboutDialog()
+{
+    About dialog(this);
+    dialog.exec();
+}
+
+void CyberDom::showAddClothingDialog()
+{
+    AddClothing dialog(this);
+    if (dialog.exec() == QDialog::Accepted) {
+        // Handle the result
+        setModified(true);
+    }
+}
+
+void CyberDom::showAssignmentsDialog()
+{
+    Assignments dialog(this);
+    if (dialog.exec() == QDialog::Accepted) {
+        // Handle the result
+        setModified(true);
+    }
+}
+
+void CyberDom::showRulesDialog()
+{
+    Rules dialog(this);
+    dialog.exec();
+}
+
+// Script handling methods
+bool CyberDom::loadScript(const QString& filePath)
+{
+    if (!QFile::exists(filePath)) {
+        QMessageBox::warning(this, tr("Warning"),
+                             tr("Script file does not exist: %1").arg(filePath));
+        return false;
+    }
+
+    // Use the script parser to load the script
+    if (m_scriptParser->loadScript(filePath)) {
+        m_currentScriptPath = filePath;
+        m_statusLabel->setText(tr("Script loaded: %1").arg(QFileInfo(filePath).fileName()));
+        updateUIState();
+        return true;
+    }
+
+    return false;
+}
+
+bool CyberDom::saveScript()
+{
+    if (m_currentScriptPath.isEmpty()) {
+        return saveScriptAs();
+    }
+
+    // Implement actual save logic here
+    setModified(false);
+    m_statusLabel->setText(tr("Script saved"));
+    return true;
+}
+
+bool CyberDom::saveScriptAs()
+{
+    QString filePath = QFileDialog::getSaveFileName(this,
+                                                    tr("Save Script"),
+                                                    QString(),
+                                                    tr("Script Files (*.ini);;All Files (*)"));
+
+    if (filePath.isEmpty()) {
+        return false;
+    }
+
+    m_currentScriptPath = filePath;
+    return saveScript();
+}
+
+void CyberDom::autoSave()
+{
+    if (m_isModified && !m_currentScriptPath.isEmpty()) {
+        // Create auto-save file
+        QString autoSavePath = m_currentScriptPath + ".autosave";
+        // Implement auto-save logic here
+        qDebug() << "Auto-saving to:" << autoSavePath;
+    }
+}
+
+// Event handlers
+void CyberDom::closeEvent(QCloseEvent* event)
+{
+    if (m_isModified) {
+        QMessageBox::StandardButton reply = QMessageBox::question(this,
+                                                                  tr("Unsaved Changes"),
+                                                                  tr("You have unsaved changes. Do you want to save before closing?"),
+                                                                  QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel);
+
+        if (reply == QMessageBox::Save) {
+            if (!saveScript()) {
+                event->ignore();
+                return;
+            }
+        } else if (reply == QMessageBox::Cancel) {
+            event->ignore();
+            return;
+        }
+    }
+
+    // Save settings before closing
+    saveSettings();
+    event->accept();
+}
+
+// Slot implementations
+void CyberDom::onScriptLoaded()
+{
+    qDebug() << "Script loaded successfully";
+    updateUIState();
+}
+
+void CyberDom::onScriptError(const QString& error)
+{
+    QMessageBox::critical(this, tr("Script Error"), error);
+    m_statusLabel->setText(tr("Script error: %1").arg(error));
+}
+
+void CyberDom::onFileOpen()
+{
+    QString filePath = QFileDialog::getOpenFileName(this,
+                                                    tr("Open Script"),
+                                                    QString(),
+                                                    tr("Script Files (*.ini);;All Files (*)"));
+
+    if (!filePath.isEmpty()) {
+        loadScript(filePath);
+    }
+}
+
+void CyberDom::onFileSave()
+{
+    saveScript();
+}
+
+void CyberDom::onFileSaveAs()
+{
+    saveScriptAs();
+}
+
+void CyberDom::onFileExit()
+{
+    close();
+}
+
+// Application mode management
+void CyberDom::setApplicationMode(ApplicationMode mode)
+{
+    if (m_currentMode != mode) {
+        m_currentMode = mode;
+        updateUIState();
+        emit applicationModeChanged(mode);
+    }
+}
+
+// Utility methods
+QString CyberDom::getDataPath() const
+{
+    return QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+}
+
+QString CyberDom::getScriptsPath() const
+{
+    return getDataPath() + "/scripts";
+}
+
+QString CyberDom::getLogsPath() const
+{
+    return getDataPath() + "/logs";
+}

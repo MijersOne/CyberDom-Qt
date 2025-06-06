@@ -1,34 +1,82 @@
 #include "questiondialog.h"
 #include "ui_questiondialog.h"
 
-QuestionDialog::QuestionDialog(const QuestionSection &q, QWidget *parent)
-    : QDialog(parent), ui(new Ui::QuestionDialog), question(q)
+#include <QPushButton>
+#include <QMessageBox>
+#include <QRadioButton>
+
+QuestionDialog::QuestionDialog(const QList<QuestionDefinition>& questions, QWidget *parent)
+    : QDialog(parent)
+    , ui(new Ui::QuestionDialog)
+    , questions(questions)
+    , currentIndex(0)
 {
     ui->setupUi(this);
 
-    // Set the question text
-    ui->labelQuestionText->setText(q.phrase);
+    connect(ui->nextButton, &QPushButton::clicked, this, &QuestionDialog::onNextClicked);
+    showNextQuestion();
+}
 
-    // Populate the options
-    for (const QString &option : question.options.keys()) {
-        ui->listOptions->addItem(option);
+QuestionDialog::~QuestionDialog()
+{
+    delete ui;
+}
+
+void QuestionDialog::showNextQuestion()
+{
+    if (currentIndex >= questions.size()) {
+        accept();  // Closes the dialog
+        return;
     }
 
-    // Connect OK/Cancel buttons
-    connect(ui->btnOk, &QPushButton::clicked, this, [=]() {
-        QListWidgetItem *item = ui->listOptions->currentItem();
-        if (item)
-            selectedAnswer = item->text();
-        accept();
-    });
+    const QuestionDefinition& question = questions[currentIndex];
 
-    connect(ui->btnCancel, &QPushButton::clicked, this, &QDialog::reject);
+    // Set the window title
+    this->setWindowTitle(question.name);
+
+    // Set the question text
+    ui->questionLabel->setText(question.phrase);
+
+    // Clear existing radio buttons
+    QLayoutItem *item;
+    while ((item = ui->answersLayout->takeAt(0)) != nullptr) {
+        delete item->widget();
+        delete item;
+    }
+    buttonGroup = new QButtonGroup(this);
+
+    // Add each answer as a radio button
+    for (int i = 0; i < question.answers.size(); ++i) {
+        const QuestionAnswerBlock& answer = question.answers[i];
+        QRadioButton* radio = new QRadioButton(answer.answerText);
+        ui->answersLayout->addWidget(radio);
+        buttonGroup->addButton(radio, i);
+    }
 }
 
-QString QuestionDialog::getSelectedAnswer() const {
-    return selectedAnswer;
+void QuestionDialog::onNextClicked()
+{
+    if (!buttonGroup)
+        return;
+
+    QAbstractButton* selected = buttonGroup->checkedButton();
+    if (!selected) {
+        QMessageBox::warning(this, "No Answer Selected", "Please select an answer before continuing.");
+        return;
+    }
+
+    int id = buttonGroup->id(selected);
+    const QuestionDefinition& question = questions[currentIndex];
+    const QuestionAnswerBlock& selectedAnswer = question.answers[id];
+
+    // Store the selected value into the result map
+    answers.insert(question.variable, selectedAnswer.variableValue);
+
+    ++currentIndex;
+    showNextQuestion();
 }
 
-QuestionDialog::~QuestionDialog() {
-    delete ui;
+QMap<QString, QString> QuestionDialog::getAnswers() const
+{
+    return answers;
 }

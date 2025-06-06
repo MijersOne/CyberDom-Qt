@@ -1,4 +1,5 @@
 #include "cyberdom.h"
+#include "scriptparser.h"
 #include "askpunishment.h" // Include the header for the AskPunishments UI
 #include "changemerits.h" // Include the header for the ChangeMerits UI
 #include "changestatus.h" // Include the header for the ChangeStatus UI
@@ -31,6 +32,7 @@
 #include <QMediaPlayer>
 #include <QAudioOutput>
 #include <QInputDialog>
+#include <QRegularExpression>
 
 CyberDom::CyberDom(QWidget *parent)
     : QMainWindow(parent)
@@ -95,13 +97,17 @@ CyberDom::CyberDom(QWidget *parent)
     // Initialize the .ini file
     initializeIniFile();
 
-    // Load the INI file and set minMerits and maxMerits
+    // Load .ini file and set minMerits and maxMerits;
     loadIniFile();
 
     // Load saved variables from .cds file
     QString cdsPath = currentIniFile;
-    cdsPath.replace(".ini", ".cds");
-    scriptParser->loadFromCDS(cdsPath);
+    QRegularExpression rx("\\.ini$", QRegularExpression::CaseInsensitiveOption);
+    cdsPath.replace(rx, ".cds");
+    if (scriptParser->loadFromCDS(cdsPath)) {
+        qDebug() << "[INFO] Loaded saved variables from" << cdsPath;
+    } else {
+        qDebug() << "[INFO] No .cds found (or failed to load) at" << cdsPath;
 
     // Initialize the internal clock with the current system time
     QSettings settings(settingsFile, QSettings::IniFormat);
@@ -1349,62 +1355,6 @@ void CyberDom::executeStatusEntryProcedures(const QString &statusName) {
     // This would execute any procedures that should run when entering a status
     // For now, this is a placeholder that will be implemented later
     qDebug() << "Executing entry procedures for status: " << statusName;
-}
-
-void CyberDom::parseIncludeFiles(const QString &filePath) {
-    QFile file(filePath);
-    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        qDebug() << "Error: Unable to open file" << filePath;
-        return;
-    }
-
-    QTextStream in(&file);
-    QStringList includeFiles; // List to store included file names
-
-    while (!in.atEnd()) {
-        QString line = in.readLine().trimmed();
-        if (line.startsWith("%include=")) {
-            QString includedFile = line.section('=', 1).trimmed(); // Extract the file name
-            includeFiles.append(includedFile);
-        }
-    }
-
-    file.close();
-
-    // Debug: List all included files
-    for (const QString &includeFile : includeFiles) {
-        qDebug() << "Including file:" << includeFile;
-        loadIncludeFile(includeFile); // Load each included file
-    }
-}
-
-void CyberDom::loadIncludeFile(const QString &fileName) {
-    QString filePath = QFileInfo(currentIniFile).absolutePath() + "/" + fileName; // Build full path
-
-    QFile file(filePath);
-    if (!file.exists()) {
-        qDebug() << "Error: Include file not found:" << filePath;
-        return;
-    }
-
-    QSettings settings(filePath, QSettings::IniFormat);
-
-    // Parse the file and add its contents to iniData
-    QStringList groups = settings.childGroups();
-    for (const QString &group : groups) {
-        settings.beginGroup(group);
-        QStringList keys = settings.childKeys();
-
-        QMap<QString, QString> keyValues;
-        for (const QString &key : keys) {
-            QString value = settings.value(key).toString();
-            keyValues.insert(key, value);
-        }
-        iniData.insert(group, keyValues);
-        settings.endGroup();
-    }
-
-    qDebug() << "Loaded include file:" << filePath;
 }
 
 QString CyberDom::getIniValue(const QString &section, const QString &key, const QString &defaultValue) const {

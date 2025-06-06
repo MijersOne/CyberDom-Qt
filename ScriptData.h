@@ -5,6 +5,40 @@
 #include <QStringList>
 #include <QMap>
 #include <QDateTime>
+#include <QStack>
+
+enum class CaseMode {
+    All,
+    First,
+    Random
+};
+
+enum class WhenType {
+    When,
+    WhenNot,
+    WhenRandom,
+    WhenAll,
+    WhenNotAll,
+    WhenAny,
+    WhenNone
+};
+
+struct CaseBranch {
+    WhenType type;
+    QString condition;
+    QStringList statements;
+};
+
+struct CaseBlock {
+    CaseMode mode;
+    QList<CaseBranch> branches;
+};
+
+struct ListLoopContext {
+    QString listName;
+    int currentIndex = 0;
+    bool shouldLeave = false;
+};
 
 struct VariableState {
     QSet<QString> flags;
@@ -157,6 +191,8 @@ struct TimerDefinition {
     QString masterMailSubject;
     QStringList masterAttachments;
     QStringList subMailLines;
+
+    QList<CaseBlock> cases;
 };
 
 enum class MessageSelectMode {
@@ -263,12 +299,20 @@ struct ProcedureDefinition {
     QStringList subtractDaysVars;
     QStringList extractToCounter; // e.g. Days#=#counter,!timevar
     QStringList convertFromCounter; // e.g. Days!=!timevar,#counter
+
+    QStringList ifConditions;
+    QStringList notIfConditions;
+    QStringList denyIfConditions;
+    QStringList permitIfConditions;
+
+    QList<CaseBlock> cases;
 };
 
 struct QuestionAnswerBlock {
     QString answerText;
     QString procedureName;
     bool hasInlineActions = false;
+    QString variableValue;
 
     // Inline actions
     QList<MessageGroup> messages;
@@ -281,6 +325,8 @@ struct QuestionDefinition {
     QString name;
     QString phrase;
     QList<QuestionAnswerBlock> answers;
+    QString variable;
+    QString text;
 };
 
 struct AssignmentBehavior {
@@ -402,6 +448,8 @@ struct GeneralSettings {
     // Flags
     QString flagOnText;
     QString flagOffText;
+
+    bool hideTimeGlobal = false;
 };
 
 struct InitSettings {
@@ -509,6 +557,16 @@ struct StatusDefinition {
     QStringList subtractDaysVars;
     QStringList extractToCounter; // e.g. Days#=#counter,!timevar
     QStringList convertFromCounter; // e.g. Days!=!timevar,#counter
+
+    QStringList ifConditions;
+    QStringList notIfConditions;
+    QStringList denyIfConditions;
+    QStringList permitIfConditions;
+
+    QString poseCameraText;
+
+    bool hideTime = false;
+    bool hasHideTime = false;
 };
 
 struct ReportDefinition {
@@ -607,6 +665,25 @@ struct ReportDefinition {
     QStringList subtractDaysVars;
     QStringList extractToCounter; // e.g. Days#=#counter,!timevar
     QStringList convertFromCounter; // e.g. Days!=!timevar,#counter
+
+    QMap<QString, QStringList> lists;
+    QMultiMap<QString, QStringList> listCommands;
+
+    QList<CaseBlock> cases;
+
+    QStringList listSets;
+    QStringList listSetSplits;
+    QStringList listAdds;
+    QStringList listAddNoDubs;
+    QStringList listAddSplits;
+    QStringList listPushes;
+    QStringList listRemoves;
+    QStringList listRemoveAlls;
+    QStringList listPulls;
+    QStringList listIntersects;
+    QStringList listClears;
+    QStringList listDrops;
+    QStringList listSorts;
 };
 
 struct ConfessionDefinition {
@@ -673,6 +750,11 @@ struct ConfessionDefinition {
     QStringList subtractDaysVars;
     QStringList extractToCounter; // e.g. Days#=#counter,!timevar
     QStringList convertFromCounter; // e.g. Days!=!timevar,#counter
+
+    QStringList ifConditions;
+    QStringList notIfConditions;
+    QStringList denyIfConditions;
+    QStringList permitIfConditions;
 };
 
 struct TimeRange {
@@ -798,6 +880,14 @@ struct PermissionDefinition {
     QStringList subtractDaysVars;
     QStringList extractToCounter; // e.g. Days#=#counter,!timevar
     QStringList convertFromCounter; // e.g. Days!=!timevar,#counter
+
+    QStringList ifConditions;
+    QStringList notIfConditions;
+    QStringList denyIfConditions;
+    QStringList permitIfConditions;
+
+    QMap<QString, QStringList> lists;
+    QMultiMap<QString, QStringList> listCommands;
 };
 
 struct PunishmentDefinition : public AssignmentBehavior {
@@ -901,6 +991,11 @@ struct PunishmentDefinition : public AssignmentBehavior {
     QStringList subtractDaysVars;
     QStringList extractToCounter; // e.g. Days#=#counter,!timevar
     QStringList convertFromCounter; // e.g. Days!=!timevar,#counter
+
+    QStringList ifConditions;
+    QStringList notIfConditions;
+    QStringList denyIfConditions;
+    QStringList permitIfConditions;
 };
 
 struct JobDefinition : public AssignmentBehavior {
@@ -1016,6 +1111,25 @@ struct JobDefinition : public AssignmentBehavior {
     QStringList subtractDaysVars;
     QStringList extractToCounter; // e.g. Days#=#counter,!timevar
     QStringList convertFromCounter; // e.g. Days!=!timevar,#counter
+
+    QStringList ifConditions;
+    QStringList notIfConditions;
+    QStringList denyIfConditions;
+    QStringList permitIfConditions;
+
+    QStringList listSets;
+    QStringList listSetSplits;
+    QStringList listAdds;
+    QStringList listAddNoDubs;
+    QStringList listAddSplits;
+    QStringList listPushes;
+    QStringList listRemoves;
+    QStringList listRemoveAlls;
+    QStringList listPulls;
+    QStringList listIntersects;
+    QStringList listClears;
+    QStringList listDrops;
+    QStringList listSorts;
 };
 
 struct AssignmentAction {
@@ -1082,6 +1196,8 @@ struct InstructionDefinition {
 
     QString clothingInstruction;
     bool clearClothingCheck = false;
+
+    QList<CaseBlock> cases;
 };
 
 struct ClothingAttribute {
@@ -1123,6 +1239,8 @@ struct PopupDefinition {
     QString masterMailSubject;
     QStringList masterAttachments;
     QStringList subMailLines;
+
+    QList<CaseBlock> cases;
 };
 
 struct PopupGroupDefinition {
@@ -1154,6 +1272,7 @@ struct PopupGroupDefinition {
 
 struct ScriptData {
     GeneralSettings general;
+    QMap<QString, QString> generalSettings;
     InitSettings init;
     EventSettings events;
     QMap<QString, StatusDefinition> statuses;
@@ -1177,6 +1296,12 @@ struct ScriptData {
     QMap<QString, FlagDefinition> flagDefinitions;
     QMap<QString, QString> stringVariables;
     QMap<QString, QDateTime> timeVariables;
+    QStringList ifConditions;
+    QStringList notIfConditions;
+    QStringList denyIfConditions;
+    QStringList permitIfConditions;
+    QStack<ListLoopContext> activeLoops;
+    QMap<QString, QStringList> lists;
 };
 
 #endif // SCRIPTDATA_H
