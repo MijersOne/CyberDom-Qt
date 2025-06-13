@@ -6,13 +6,11 @@
 #include "scriptparser.h"
 
 #include <QMessageBox>
-#include <QRegularExpression>
 #include <QSettings>
 #include <QDir>
 #include <QFileInfo>
 #include <QListWidget>
 #include <QTextBrowser>
-#include <QStringListModel>
 #include <QDebug>
 
 ReportClothing::ReportClothing(QWidget *parent, ScriptParser* parser)
@@ -42,16 +40,8 @@ ReportClothing::ReportClothing(QWidget *parent, ScriptParser* parser)
     connect(ui->chk_Naked, &QCheckBox::toggled, this, &ReportClothing::onNakedCheckboxToggled);
     
     // Connect list widgets for selection
-    connect(ui->lst_Wearing, &QListView::clicked, this, &ReportClothing::onWearingItemSelected);
+    connect(ui->lst_Wearing, &QListWidget::itemSelectionChanged, this, &ReportClothing::onWearingItemSelected);
     connect(ui->lst_Available, &QListWidget::clicked, this, &ReportClothing::onAvailableItemSelected);
-    
-    // Debug: Add default clothing type for testing
-    qDebug() << "[DEBUG] Adding default Top clothing type to combobox";
-    ui->cb_Type->addItem("Top");
-    ui->cb_Type->addItem("Bottom");
-    ui->cb_Type->addItem("Underwear");
-    ui->cb_Type->addItem("Shoes");
-    ui->cb_Type->addItem("Accessories");
     
     // Initialize data from script if available
     loadClothingTypes();
@@ -60,14 +50,9 @@ ReportClothing::ReportClothing(QWidget *parent, ScriptParser* parser)
 
     onTypeSelected(ui->cb_Type->currentText());
     
-    // If combobox is still empty after loading, use debug items
+    // If no types loaded, add some defaults for testing
     if (ui->cb_Type->count() == 0) {
-        qDebug() << "[DEBUG] No clothing types loaded from script, using defaults";
-        ui->cb_Type->addItem("Top");
-        ui->cb_Type->addItem("Bottom");
-        ui->cb_Type->addItem("Underwear");
-        ui->cb_Type->addItem("Shoes");
-        ui->cb_Type->addItem("Accessories");
+        ui->cb_Type->addItems({"Top", "Bottom", "Underwear", "Shoes", "Accessories"});
         ui->cb_Type->setCurrentIndex(0);
     }
 }
@@ -75,233 +60,37 @@ ReportClothing::ReportClothing(QWidget *parent, ScriptParser* parser)
 void ReportClothing::loadClothingTypes()
 {
     ui->cb_Type->clear();
-    
-    // Get main window to access script data
-    qDebug() << "\n[DEBUG] ========== LOADING CLOTH TYPES ==========";
-    qDebug() << "[DEBUG] Parent class name: " << (parent() ? parent()->metaObject()->className() : "NULL");
-    qDebug() << "[DEBUG] Parent's parent: " << (parent() && parent()->parent() ? parent()->parent()->metaObject()->className() : "NULL");
-    
-    CyberDom *mainWindow = nullptr;
-    
-    // First try direct parent
-    mainWindow = qobject_cast<CyberDom*>(parent());
-    if (!mainWindow) {
-        // Try parent of parent
-        if (parent() && parent()->parent()) {
-            mainWindow = qobject_cast<CyberDom*>(parent()->parent());
-        }
-    }
-    
-    if (!mainWindow) {
-        qWarning("[ERROR] Failed to get main window - parent cast to CyberDom failed");
-        return;
-    }
-    
-    // Get ini data from main window
-    const QMap<QString, QMap<QString, QString>> iniData = mainWindow->getIniData();
-    
-    qDebug() << "[DEBUG] Total ini sections: " << iniData.size();
-    
-    // Debug: List all section names
-    QStringList allSections = iniData.keys();
-    qDebug() << "[DEBUG] All section names: " << allSections.join(", ");
-    
-    // Count clothtype sections
-    int clothtypeSectionCount = 0;
-    for (const QString &section : allSections) {
-        if (section.toLower().startsWith("clothtype-")) {
-            clothtypeSectionCount++;
-            qDebug() << "[DEBUG] Found clothtype section: " << section;
-        }
-    }
-    qDebug() << "[DEBUG] Total clothtype sections found: " << clothtypeSectionCount;
-    
-    // If no clothtype sections found, try to see if we can directly access ClothTypeSection objects from scriptParser
-    if (clothtypeSectionCount == 0) {
-        qDebug() << "[DEBUG] No clothtype sections found in iniData, checking if we can directly access scriptParser";
-        
-        // Manually add some default types if no clothtype sections found
-        qDebug() << "[DEBUG] Adding fallback clothing types";
-        
-        // These types will remain if no clothtype sections are found
-        if (ui->cb_Type->count() == 0) {
-            ui->cb_Type->addItem("Top");
-            ui->cb_Type->addItem("Bottom");
-            ui->cb_Type->addItem("Underwear");
-            ui->cb_Type->addItem("Shoes");
-            ui->cb_Type->addItem("Accessories");
-        }
-        
-        return;
-    }
-    
-    // Initialize our attribute map before processing clothtypes
     clothTypeAttributes.clear();
-    
-    // Find all clothtype sections
-    QRegularExpression clothTypeRegex("^clothtype-(.+)$");
+
+    if (!parser) {
+        qWarning() << "[ERROR] ScriptParser pointer is null!";
+        return;
+    }
+
+    const auto &types = parser->getScriptData().clothingTypes;
     QStringList typeNames;
-    
-    for (auto it = iniData.constBegin(); it != iniData.constEnd(); ++it) {
-        QRegularExpressionMatch match = clothTypeRegex.match(it.key());
-        if (match.hasMatch()) {
-            QString typeName = match.captured(1);
-            qDebug() << "[DEBUG] Found cloth type: " << typeName << " from section: " << it.key();
-            
-            // Capitalize the first letter of the type name
-            if (!typeName.isEmpty()) {
-                typeName[0] = typeName[0].toUpper();
-            }
-            
-            // Add to our list if not already present
-            if (!typeNames.contains(typeName)) {
-                typeNames.append(typeName);
-            }
-            
-            // Parse the attributes for this type
-            parseClothTypeSection(it.key(), mainWindow->replaceVariables(it.key()));
-        }
+
+    for (auto it = types.constBegin(); it != types.constEnd(); ++it) {
+        QString name = it.key();
+        QString display = name;
+        if (!display.isEmpty())
+            display[0] = display[0].toUpper();
+        typeNames.append(display);
+
+        QStringList attrs;
+        for (const ClothingAttribute &attr : it.value().attributes)
+            attrs.append(attr.name);
+        clothTypeAttributes[display.toLower()] = attrs;
     }
-    
-    qDebug() << "[DEBUG] Found " << typeNames.size() << " cloth types";
-    
-    // Sort the type names alphabetically
+
     typeNames.sort();
-    
-    // Add all types to the combobox
-    for (const QString &typeName : typeNames) {
-        qDebug() << "[DEBUG] Adding to dropdown: " << typeName;
-        ui->cb_Type->addItem(typeName);
-    }
-    
-    // If there are items, select the first one
-    if (ui->cb_Type->count() > 0) {
+    for (const QString &t : typeNames)
+        ui->cb_Type->addItem(t);
+
+    if (ui->cb_Type->count() > 0)
         ui->cb_Type->setCurrentIndex(0);
-        onTypeSelected(ui->cb_Type->currentText());
-        qDebug() << "[DEBUG] Selected first type: " << ui->cb_Type->currentText();
-    } else {
-        qDebug() << "[DEBUG] No types found to select!";
-    }
-    
-    qDebug() << "[DEBUG] ========== FINISHED LOADING CLOTH TYPES ==========\n";
 }
 
-void ReportClothing::parseClothTypeSection(const QString &section, const QString &content)
-{
-    QRegularExpression clothTypeRegex("^clothtype-(.+)$");
-    QRegularExpressionMatch match = clothTypeRegex.match(section);
-    if (!match.hasMatch()) return;
-    
-    QString typeName = match.captured(1);
-    
-    // Get main window to access script data
-    CyberDom *mainWindow = nullptr;
-    
-    // First try direct parent
-    mainWindow = qobject_cast<CyberDom*>(parent());
-    if (!mainWindow) {
-        // Try parent of parent
-        if (parent() && parent()->parent()) {
-            mainWindow = qobject_cast<CyberDom*>(parent()->parent());
-        }
-    }
-    
-    if (!mainWindow) {
-        qWarning("[ERROR] Failed to get main window - parent cast to CyberDom failed");
-        return;
-    }
-    
-    // Get ini data from main window
-    const QMap<QString, QMap<QString, QString>> iniData = mainWindow->getIniData();
-    
-    if (!iniData.contains(section)) {
-        qDebug() << "[DEBUG] Section not found in iniData:" << section;
-        return;
-    }
-    
-    // Get the section data
-    const QMap<QString, QString> sectionData = iniData[section];
-    
-    // Extract attributes
-    QStringList attributes;
-    
-    // Debug output
-    qDebug() << "[DEBUG] Parsing cloth type section:" << section;
-    qDebug() << "[DEBUG] Section data keys:";
-    for (auto it = sectionData.constBegin(); it != sectionData.constEnd(); ++it) {
-        qDebug() << "[DEBUG]   " << it.key() << " = " << it.value();
-    }
-    
-    // Look for keys that match the pattern "attr=X"
-    for (auto it = sectionData.constBegin(); it != sectionData.constEnd(); ++it) {
-        // The key from the INI file might be in various formats due to case sensitivity
-        // We need to check if it's an attribute key in a case-insensitive way
-        QString keyStr = it.key();
-        
-        // Try different common formats for attr= entries
-        if (keyStr.startsWith("attr=", Qt::CaseInsensitive)) {
-            QString attrName = keyStr.mid(5); // Remove "attr=" prefix
-            attributes.append(attrName);
-            qDebug() << "[DEBUG] Found attribute in section" << section << ":" << attrName;
-        }
-    }
-    
-    // If we couldn't find any attributes using the above method, try alternative approaches
-    if (attributes.isEmpty()) {
-        qDebug() << "[DEBUG] No attributes found with standard format, trying alternative parsing";
-        
-        // Many INI files use exact format "attr" (without =)
-        for (auto it = sectionData.constBegin(); it != sectionData.constEnd(); ++it) {
-            QString keyStr = it.key();
-            QString valueStr = it.value();
-            
-            if (keyStr.toLower() == "attr") {
-                // In this case, the value contains the attribute name
-                attributes.append(valueStr);
-                qDebug() << "[DEBUG] Found attribute using alt method:" << valueStr;
-            }
-        }
-    }
-    
-    // Store the attributes for this type
-    if (!attributes.isEmpty()) {
-        clothTypeAttributes[typeName.toLower()] = attributes;
-        qDebug() << "[DEBUG] Stored" << attributes.size() << "attributes for cloth type:" << typeName;
-    } else {
-        qDebug() << "[DEBUG] No attributes found for cloth type:" << typeName;
-    }
-}
-
-QStringList ReportClothing::getClothTypeAttributes(const QString &typeName)
-{
-    // Get main window to access script data
-    CyberDom *mainWindow = qobject_cast<CyberDom*>(parent()->parent());
-    if (!mainWindow) {
-        return QStringList();
-    }
-    
-    // Get ini data from main window
-    const QMap<QString, QMap<QString, QString>> iniData = mainWindow->getIniData();
-    
-    QString sectionName = "clothtype-" + typeName;
-    QStringList attributes;
-    
-    if (iniData.contains(sectionName)) {
-        const auto &section = iniData[sectionName];
-        
-        // Extract attribute names (keys starting with "attr=")
-        QRegularExpression attrRegex("attr=(.+)");
-        
-        for (auto it = section.constBegin(); it != section.constEnd(); ++it) {
-            QRegularExpressionMatch match = attrRegex.match(it.key());
-            if (match.hasMatch()) {
-                attributes << match.captured(1);
-            }
-        }
-    }
-    
-    return attributes;
-}
 
 void ReportClothing::loadClothingItems()
 {
@@ -413,16 +202,10 @@ void ReportClothing::updateAvailableItems()
 
 void ReportClothing::updateWearingItems()
 {
-    // Create a model for displaying the wearing items
-    QStringListModel *model = new QStringListModel(this);
-    QStringList wearingList;
-    
+    ui->lst_Wearing->clear();
     for (const ClothingItem &item : wearingItems) {
-        wearingList << QString("%1 (%2)").arg(item.getName()).arg(item.getType());
+        ui->lst_Wearing->addItem(QString("%1 (%2)").arg(item.getName()).arg(item.getType()));
     }
-    
-    model->setStringList(wearingList);
-    ui->lst_Wearing->setModel(model);
 }
 
 void ReportClothing::onTypeSelected(const QString &type)
@@ -449,7 +232,7 @@ void ReportClothing::onAvailableItemSelected()
 void ReportClothing::onWearingItemSelected()
 {
     // Enable remove button if an item is selected
-    ui->btn_Remove->setEnabled(ui->lst_Wearing->currentIndex().isValid());
+    ui->btn_Remove->setEnabled(ui->lst_Wearing->currentRow() >= 0);
 }
 
 void ReportClothing::addItemToWearing()
@@ -486,14 +269,11 @@ void ReportClothing::addItemToWearing()
 
 void ReportClothing::removeItemFromWearing()
 {
-    // Get the selected index
-    QModelIndex selectedIndex = ui->lst_Wearing->currentIndex();
-    if (!selectedIndex.isValid()) {
+    int row = ui->lst_Wearing->currentRow();
+    if (row < 0) {
         QMessageBox::warning(this, "Selection Required", "Please select an item from the wearing list.");
         return;
     }
-    
-    int row = selectedIndex.row();
     if (row >= 0 && row < wearingItems.size()) {
         // Remove the item from the wearing list
         wearingItems.removeAt(row);
@@ -508,6 +288,18 @@ void ReportClothing::onNakedCheckboxToggled(bool checked)
         // If naked is checked, clear the wearing list
         wearingItems.clear();
         updateWearingItems();
+    }
+
+    CyberDom *mainWindow = qobject_cast<CyberDom*>(parent());
+    if (!mainWindow && parent())
+        mainWindow = qobject_cast<CyberDom*>(parent()->parent());
+    if (mainWindow) {
+        if (checked)
+            mainWindow->setFlag("zzNaked");
+        else
+            mainWindow->removeFlag("zzNaked");
+    } else {
+        qWarning() << "[ERROR] Failed to get main window for setting zzNaked flag";
     }
 }
 
@@ -721,12 +513,18 @@ QString ReportClothing::getSelectedType() const
 
 void ReportClothing::populateClothTypes()
 {
-    if (parser) {
-        for (const QString &clothType : parser->clothTypes) {
-            ui->cb_Type->addItem(clothType);
-        }
-    } else {
+    if (!parser) {
         qDebug() << "[ERROR] ScriptParser pointer is null!";
+        return;
+    }
+
+    const auto &types = parser->getScriptData().clothingTypes;
+    for (auto it = types.constBegin(); it != types.constEnd(); ++it) {
+        QString name = it.key();
+        if (!name.isEmpty())
+            name[0] = name[0].toUpper();
+        if (ui->cb_Type->findText(name) == -1)
+            ui->cb_Type->addItem(name);
     }
 }
 
