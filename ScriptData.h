@@ -1273,6 +1273,7 @@ struct PopupGroupDefinition {
 struct ScriptData {
     GeneralSettings general;
     QMap<QString, QString> generalSettings;
+    QMap<QString, QMap<QString, QStringList>> rawSections;
     InitSettings init;
     EventSettings events;
     QMap<QString, StatusDefinition> statuses;

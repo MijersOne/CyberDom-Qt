@@ -97,8 +97,6 @@ CyberDom::CyberDom(QWidget *parent)
     // Initialize the .ini file
     initializeIniFile();
 
-    // Load .ini file and set minMerits and maxMerits;
-    loadIniFile();
 
     // Load saved variables from .cds file
     QString cdsPath = currentIniFile;
@@ -188,24 +186,6 @@ int CyberDom::getAskPunishmentMin() const {
 
 int CyberDom::getAskPunishmentMax() const {
     return askPunishmentMax;
-}
-
-void CyberDom::loadIniFile()
-{
-    QSettings settings("", QSettings::IniFormat);
-
-    bool ok;
-    minMerits = getIniValue("General", "MinMerits").toInt(&ok);
-    if (!ok) {
-        qDebug() << "Error converting MinMerits to int, using default value of 0";
-        minMerits = 0; // Default value
-    }
-
-    maxMerits = getIniValue("General", "MaxMerits").toInt(&ok);
-    if (!ok) {
-        qDebug() << "Error converting MaxMerits to int, using default value of 100";
-        maxMerits = 100; // Default value
-    }
 }
 
 void CyberDom::openAssignmentsWindow()
@@ -371,8 +351,6 @@ void CyberDom::openAskPunishmentDialog()
 
 void CyberDom::openChangeMeritsDialog()
 {
-    QSettings settings(currentIniFile, QSettings::IniFormat);
-
     // Fetch MinMerits, MaxMerits, and current Merits
     //int minMerits = settings.value("General/MinMerits", 0).toInt();
     int minMerits = getIniValue("General", "MinMerits").toInt();
@@ -698,56 +676,6 @@ void CyberDom::initializeIniFile() {
     qDebug() << "[DEBUG] File exists: " << QFile::exists(iniFilePath);
     qDebug() << "[DEBUG] File size: " << QFileInfo(iniFilePath).size() << " bytes";
 
-    // Directly examine the file for status sections
-    QFile file(iniFilePath);
-    if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        qDebug() << "[DEBUG] Successfully opened file for analysis";
-        QTextStream in(&file);
-        bool inStatusSection = false;
-        QString currentSection;
-        int statusSectionCount = 0;
-        
-        while (!in.atEnd()) {
-            QString line = in.readLine().trimmed();
-            
-            // Check for section headers
-            if (line.startsWith("[") && line.endsWith("]")) {
-                QString sectionName = line.mid(1, line.length() - 2);
-                currentSection = sectionName;
-                
-                if (sectionName.toLower().startsWith("status-")) {
-                    inStatusSection = true;
-                    statusSectionCount++;
-                    qDebug() << "[DEBUG] Found status section in file: " << sectionName;
-                } else {
-                    inStatusSection = false;
-                }
-            }
-        }
-        
-        qDebug() << "[DEBUG] Total status sections found in direct file analysis: " << statusSectionCount;
-        file.close();
-        
-        // If no status sections found, offer to create a sample script or use demo
-        if (statusSectionCount == 0) {
-            QString demoPath = QDir::currentPath() + "/scripts/demo-female.ini";
-            if (QFile::exists(demoPath) && demoPath != iniFilePath) {
-                QMessageBox::StandardButton reply = QMessageBox::question(this, 
-                    "No Status Sections Found", 
-                    "The script file has no status sections. Would you like to use the demo script instead?",
-                    QMessageBox::Yes | QMessageBox::No);
-                    
-                if (reply == QMessageBox::Yes) {
-                    iniFilePath = demoPath;
-                    saveIniFilePath(iniFilePath);
-                    qDebug() << "[INFO] Switching to demo script: " << iniFilePath;
-                }
-            }
-        }
-    } else {
-        qDebug() << "[ERROR] Could not open file for direct analysis: " << file.errorString();
-    }
-    
     qDebug() << "[DEBUG] ============ END INI FILE DEBUG ============\n";
 
     // Use new parsing method
@@ -985,28 +913,6 @@ QString CyberDom::replaceVariables(const QString &input) const {
     return result;
 }
 
-void CyberDom::processIniValue(const QString &key) {
-    QSettings settings(currentIniFile, QSettings::IniFormat);
-
-    QStringList globalKeys = settings.childKeys();
-    if (!globalKeys.isEmpty()) {
-        QMap<QString, QString> globalData;
-        for (const QString &key : globalKeys) {
-            globalData.insert(key, settings.value(key).toString());
-        }
-        iniData.insert("Global", globalData);
-    }
-
-    if (!settings.contains(key)) {
-        qDebug() << "Key not found in INI File:" << key;
-        return;
-    }
-
-    QString value = settings.value(key, "").toString();
-    value = replaceVariables(value);
-
-    qDebug() << "Processed value:" << value;
-}
 
 void CyberDom::loadAndParseScript(const QString &filePath) {
     if (filePath.isEmpty()) {
@@ -1433,44 +1339,6 @@ void CyberDom::updateMerits(int newMerits) {
     qDebug() << "Merits updated to:" << newMerits;
 }
 
-void CyberDom::parseAskPunishment() {
-    QString askPunishmentValue = getIniValue("General", "AskPunishment", "25,75");
-
-    if (askPunishmentValue.isEmpty()) {
-        qDebug() << "Error: AskPunishment key not found. Using default values.";
-        askPunishmentMin = 25;
-        askPunishmentMax = 75;
-        return;
-}
-
-    qDebug() << "Raw AskPunishment Value from INI:" << askPunishmentValue;
-
-    QStringList values = askPunishmentValue.split(",");
-    if (values.size() != 2) {
-        qDebug() << "Error: Invalid AskPunishment format. Expected two comma-separated values.";
-        askPunishmentMin = 25;
-        askPunishmentMax = 75;
-        return;
-    }
-
-    bool okMin, okMax;
-    int minVal = values[0].toInt(&okMin);
-    int maxVal = values[1].toInt(&okMax);
-
-    qDebug() << "Parsed AskPunishment Values -> Min:" << minVal << ", Max:" << maxVal;
-
-    // If parsing failed, set defaults
-    if (!okMin || !okMax) {
-        qDebug() << "Error: Failed to convert AskPunishment values to integers.";
-        askPunishmentMin = 25;
-        askPunishmentMax = 75;
-    } else {
-        askPunishmentMin = minVal;
-        askPunishmentMax = maxVal;
-    }
-
-    qDebug() << "Final AskPunishment Values -> Min:" << askPunishmentMin << ", Max:" << askPunishmentMax;
-}
 
 QStringList CyberDom::getAvailableJobs() {
     QStringList jobList;

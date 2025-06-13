@@ -123,7 +123,6 @@ private:
     void initializeUiWithIniFile();
     void initializeProgressBarRange();
     void updateProgressBarValue();
-    void loadIniFile();
 
     // Get values from parsed script data
     QString getIniValue(const QString &section, const QString &key, const QString &defaultValue = "") const;
