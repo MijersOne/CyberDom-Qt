@@ -47,6 +47,8 @@ public:
     QSet<QString> assignedJobs;
     QSet<QString> getActiveJobs() { return activeAssignments; }
 
+    const QMap<QString, QMap<QString, QString>>& getIniData() const { return iniData; }
+
     QStringList getAvailableJobs();
     QMap<QString, QDateTime> getJobDeadlines() const { return jobDeadlines; }
     QSet<QString> activeAssignments;
@@ -155,6 +157,7 @@ private:
 
     QMap<QString, FlagData> flags;
     QMap<QString, QDateTime> jobDeadlines;
+    QMap<QString, QMap<QString, QString>> iniData;
 
     // Status tracking
     QStack<QString> statusHistory;
