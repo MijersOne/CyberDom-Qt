@@ -70,6 +70,7 @@ QMap<QString, QMap<QString, QStringList>> ScriptParser::parseIniFile(const QStri
 
 bool ScriptParser::parseScript(const QString& path) {
     auto sections = parseIniFile(path);
+    scriptData.rawSections = sections;
 
     if (!sections.contains("General") || !sections["General"].contains("MinVersion")) {
         qWarning() << "Script missing required [General] section or MinVersion key.";
@@ -121,6 +122,9 @@ void ScriptParser::parseGeneralSection(const QString &sectionName, const QMap<QS
     for (auto it = section.begin(); it != section.end(); ++it) {
         const QString &key = it.key().trimmed();
         const QStringList &values = it.value();
+
+        if (!values.isEmpty())
+            scriptData.generalSettings[key] = values.first();
 
         if (key.compare("ValidateAll", Qt::CaseInsensitive) == 0) {
             if (!values.isEmpty())
@@ -3569,15 +3573,68 @@ bool ScriptParser::loadFromCDS(const QString &cdsPath)
         // Re‐join anything after the first '=' (in case the value contains '=').
         QString varValue = parts.mid(1).join('=').trimmed();
 
-        // 4) Store into your ScriptData. Adjust to match your ScriptData API.
-        //    For example, if ScriptData has a QMap<QString,QString> called savedVariables:
-        //        scriptData.savedVariables[varName] = varValue;
-        //    Or if you have a setter:
-        //        scriptData.setSavedVariable(varName, varValue);
-
-        scriptData.setSavedVariable(varName, varValue);
+        // Store the loaded variable
+        scriptData.stringVariables[varName] = varValue;
     }
 
     file.close();
     return true;
+}
+
+QStringList ScriptParser::getRawSectionNames() const {
+    return scriptData.rawSections.keys();
+}
+
+QMap<QString, QStringList> ScriptParser::getRawSectionData(const QString &section) const {
+    return scriptData.rawSections.value(section.toLower());
+}
+
+QString ScriptParser::getIniValue(const QString &section, const QString &key, const QString &defaultValue) const {
+    QMap<QString, QStringList> sec = scriptData.rawSections.value(section.toLower());
+    if (sec.contains(key) && !sec[key].isEmpty())
+        return sec[key].first();
+    return defaultValue;
+}
+
+QString ScriptParser::getMaster() const {
+    return scriptData.general.masterName;
+}
+
+QString ScriptParser::getSubName() const {
+    return scriptData.general.subNames.isEmpty() ? QString() : scriptData.general.subNames.first();
+}
+
+int ScriptParser::getMinMerits() const { return scriptData.general.minMerits; }
+int ScriptParser::getMaxMerits() const { return scriptData.general.maxMerits; }
+
+bool ScriptParser::isTestMenuEnabled() const {
+    return scriptData.generalSettings.value("TestMenu") == "1";
+}
+
+QList<StatusSection> ScriptParser::getStatusSections() const {
+    return scriptData.statuses.values();
+}
+
+StatusSection ScriptParser::getStatus(const QString &name) const {
+    return scriptData.statuses.value(name, StatusDefinition());
+}
+
+QList<JobSection> ScriptParser::getJobSections() const {
+    return scriptData.jobs.values();
+}
+
+QList<PunishmentSection> ScriptParser::getPunishmentSections() const {
+    return scriptData.punishments.values();
+}
+
+QList<ClothTypeSection> ScriptParser::getClothTypeSections() const {
+    return scriptData.clothingTypes.values();
+}
+
+QuestionSection ScriptParser::getQuestion(const QString &name) const {
+    return scriptData.questions.value(name, QuestionDefinition());
+}
+
+void ScriptParser::setVariable(const QString &name, const QString &value) {
+    scriptData.stringVariables[name] = value;
 }
