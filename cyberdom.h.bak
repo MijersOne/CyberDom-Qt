@@ -1,0 +1,167 @@
+// cyberdom.h
+#ifndef CYBERDOM_H
+#define CYBERDOM_H
+
+#include <QMainWindow>
+#include <QSettings>
+#include <memory>
+
+QT_BEGIN_NAMESPACE
+namespace Ui { class CyberDom; }
+class QLabel;
+class QTimer;
+QT_END_NAMESPACE
+
+// Forward declarations
+class ScriptParser;
+class ClothingItem;
+
+/**
+ * @brief Main application window for CyberDom
+ *
+ * This class serves as the central hub for the application, managing:
+ * - Main window UI and state
+ * - Dialog lifecycle management
+ * - Script loading and parsing
+ * - Application settings and preferences
+ * - Cross-platform functionality
+ */
+class CyberDom : public QMainWindow
+{
+    Q_OBJECT
+
+public:
+    /**
+     * @brief Application operation modes
+     */
+    enum class ApplicationMode {
+        Normal,     ///< Standard operation mode
+        Training,   ///< Training/tutorial mode
+        Advanced    ///< Advanced user mode with additional features
+    };
+    Q_ENUM(ApplicationMode)
+
+    /**
+     * @brief Application state structure
+     */
+    struct ApplicationState {
+        bool isActive;              ///< Whether application is in active state
+        QString currentUser;        ///< Current user identifier
+        QDateTime sessionStartTime; ///< When current session started
+
+        ApplicationState() : isActive(false) {}
+    };
+
+    explicit CyberDom(QWidget *parent = nullptr);
+    ~CyberDom();
+
+    // Public methods
+    ApplicationMode applicationMode() const { return m_currentMode; }
+    bool isModified() const { return m_isModified; }
+    QString currentScriptPath() const { return m_currentScriptPath; }
+
+    // Utility methods
+    QString getDataPath() const;
+    QString getScriptsPath() const;
+    QString getLogsPath() const;
+
+signals:
+    /**
+     * @brief Emitted when application mode changes
+     * @param mode New application mode
+     */
+    void applicationModeChanged(ApplicationMode mode);
+
+    /**
+     * @brief Emitted when script is loaded successfully
+     * @param filePath Path to loaded script
+     */
+    void scriptLoaded(const QString& filePath);
+
+    /**
+     * @brief Emitted when application state changes
+     */
+    void applicationStateChanged();
+
+public slots:
+    // Dialog management
+    void showAboutDialog();
+    void showAddClothingDialog();
+    void showAssignmentsDialog();
+    void showRulesDialog();
+
+    // Application mode
+    void setApplicationMode(ApplicationMode mode);
+
+    // File operations
+    void onFileOpen();
+    void onFileSave();
+    void onFileSaveAs();
+    void onFileExit();
+
+protected:
+    /**
+     * @brief Handle close event to check for unsaved changes
+     */
+    void closeEvent(QCloseEvent* event) override;
+
+private slots:
+    // Script parser slots
+    void onScriptLoaded();
+    void onScriptError(const QString& error);
+
+    // Auto-save
+    void autoSave();
+
+    // Post-initialization
+    void postInitialization();
+
+private:
+    // Initialization methods
+    void initializeApplication();
+    void initializeDataDirectories();
+    void initializeScriptParser();
+    void setupUI();
+    void setupMenus();
+    void setupToolbars();
+    void connectSignals();
+    void setupAutoSave();
+
+    // Settings management
+    void loadSettings();
+    void saveSettings();
+    void loadUserPreferences();
+    void saveUserPreferences();
+
+    // UI state management
+    void updateUIState();
+    void setModified(bool modified);
+
+    // Script handling
+    bool loadScript(const QString& filePath);
+    bool saveScript();
+    bool saveScriptAs();
+
+private:
+    Ui::CyberDom *ui;
+
+    // Core components
+    ScriptParser* m_scriptParser;
+    QSettings* m_settings;
+    QTimer* m_autoSaveTimer;
+
+    // UI components
+    QLabel* m_statusLabel;
+    QLabel* m_modeLabel;
+
+    // Application state
+    std::unique_ptr<ApplicationState> m_applicationState;
+    ApplicationMode m_currentMode;
+    bool m_isModified;
+    QString m_currentScriptPath;
+
+    // Dialog references (optional - for persistent dialogs)
+    // You can add pointers to frequently used dialogs here
+};
+
+#endif // CYBERDOM_H

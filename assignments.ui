@@ -89,49 +89,13 @@
      <string>&amp;Close</string>
     </property>
    </widget>
-   <widget class="QLabel" name="label_Deadline">
-    <property name="geometry">
-     <rect>
-      <x>30</x>
-      <y>30</y>
-      <width>71</width>
-      <height>21</height>
-     </rect>
-    </property>
-    <property name="font">
-     <font>
-      <pointsize>12</pointsize>
-     </font>
-    </property>
-    <property name="text">
-     <string>Deadline</string>
-    </property>
-   </widget>
-   <widget class="QLabel" name="label_Assignment">
-    <property name="geometry">
-     <rect>
-      <x>220</x>
-      <y>30</y>
-      <width>91</width>
-      <height>21</height>
-     </rect>
-    </property>
-    <property name="font">
-     <font>
-      <pointsize>12</pointsize>
-     </font>
-    </property>
-    <property name="text">
-     <string>Assignment</string>
-    </property>
-   </widget>
-   <widget class="QListWidget" name="list_Assignments">
+   <widget class="QTableWidget" name="table_Assignments">
     <property name="geometry">
      <rect>
       <x>20</x>
-      <y>60</y>
+      <y>20</y>
       <width>761</width>
-      <height>371</height>
+      <height>401</height>
      </rect>
     </property>
    </widget>
