@@ -71,8 +71,8 @@ void JobLaunch::on_btnLaunchJob_clicked()
 
     QMap<QString, QString> jobDetails = iniData["job-" + selectedJob];
 
-    // Check if job exists in the INI
-    if (!mainApp->iniData.contains("job-" + selectedJob)) {
+    // Check if job exists in the INI using the accessor
+    if (!iniData.contains("job-" + selectedJob)) {
         QMessageBox::warning(this, "Error", "Job details not found in script.");
         return;
     }
