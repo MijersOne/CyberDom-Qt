@@ -27,8 +27,8 @@ Assignments::Assignments(QWidget *parent, CyberDom *app)
     if (!mainApp) {
         qDebug() << "[ERROR] mainApp is NULL in Assignments!";
     } else {
-        connect(mainApp, &CyberDom::jobListUpdated, this, &Assignments::populateJobList);
-        qDebug() << "[DEBUG] Connected Assignments to CyberDom's jobListUpdated Signal!";
+        // The connection to jobListUpdated is made in CyberDom::openAssignmentsWindow
+        qDebug() << "[DEBUG] Assignments constructed";
     }
 }
 
@@ -420,29 +420,8 @@ void Assignments::on_btn_Delete_clicked()
         return;
     }
 
-    // Remove the assignment from active assignments
-    mainApp->activeAssignments.remove(assignmentName);
-    mainApp->removeJobDeadline(assignmentName);
-
-    // Clear any related flags
-    QString startFlagName = (isPunishment ? "punishment_" : "job_") + assignmentName + "_started";
-    mainApp->removeFlag(startFlagName);
-
-    // Reset status if needed
-    QString statusFlagName = (isPunishment ? "punishment_" : "job_") + assignmentName + "_prev_status";
-    QSettings settings(settingsFile, QSettings::IniFormat);
-    QString prevStatus = settings.value("Assignments/" + statusFlagName, "").toString();
-
-    if (!prevStatus.isEmpty()) {
-        mainApp->updateStatus(prevStatus);
-        settings.remove("Assignments/" + statusFlagName);
-    }
-
-    // Execute delete procedure if specified
-    if (details.contains("DeleteProcedure")) {
-        // Call the procedure handling if implemented
-        // mainApp->executeProcedure(details["DeleteProcedure"]);
-    }
+    // Delegate the removal logic to CyberDom so the jobListUpdated signal is emitted
+    mainApp->deleteAssignment(assignmentName, isPunishment);
 
     QMessageBox::information(this, assignmentType + " Deleted", assignmentType + " " + assignmentName + " has been deleted.");
 
