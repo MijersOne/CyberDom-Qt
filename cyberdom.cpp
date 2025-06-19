@@ -555,16 +555,17 @@ void CyberDom::openSelectPunishmentDialog()
         QList<PunishmentSection> punishments = scriptParser->getPunishmentSections();
         
         for (const PunishmentSection &punishment : punishments) {
+            QString sectionName = "punishment-" + punishment.name;
+            QMap<QString, QStringList> rawData = scriptParser->getRawSectionData(sectionName);
             QMap<QString, QString> punishmentData;
-            for (auto it = punishment.keyValues.begin(); it != punishment.keyValues.end(); ++it) {
+            for (auto it = rawData.begin(); it != rawData.end(); ++it) {
                 if (!it.value().isEmpty()) {
                     punishmentData[it.key()] = it.value().first();
                 }
             }
-            
-            QString sectionName = "punishment-" + punishment.name;
+
             dialogData[sectionName] = punishmentData;
-            
+
             qDebug() << "[DEBUG] Added punishment from scriptParser: " << sectionName;
         }
     }
@@ -1015,32 +1016,34 @@ void CyberDom::applyScriptSettings() {
     // Add job sections
     QList<JobSection> jobs = scriptParser->getJobSections();
     for (const JobSection &job : jobs) {
+        QString sectionName = "job-" + job.name;
+        QMap<QString, QStringList> rawData = scriptParser->getRawSectionData(sectionName);
         QMap<QString, QString> jobData;
-        for (auto it = job.keyValues.begin(); it != job.keyValues.end(); ++it) {
+        for (auto it = rawData.begin(); it != rawData.end(); ++it) {
             if (!it.value().isEmpty()) {
                 jobData[it.key()] = it.value().first();
             }
         }
-        
-        QString sectionName = "job-" + job.name;
+
         iniData[sectionName] = jobData;
-        
+
         qDebug() << "[DEBUG] Added job to iniData: " << sectionName;
     }
     
     // Add punishment sections
     QList<PunishmentSection> punishments = scriptParser->getPunishmentSections();
     for (const PunishmentSection &punishment : punishments) {
+        QString sectionName = "punishment-" + punishment.name;
+        QMap<QString, QStringList> rawData = scriptParser->getRawSectionData(sectionName);
         QMap<QString, QString> punishmentData;
-        for (auto it = punishment.keyValues.begin(); it != punishment.keyValues.end(); ++it) {
+        for (auto it = rawData.begin(); it != rawData.end(); ++it) {
             if (!it.value().isEmpty()) {
                 punishmentData[it.key()] = it.value().first();
             }
         }
-        
-        QString sectionName = "punishment-" + punishment.name;
+
         iniData[sectionName] = punishmentData;
-        
+
         qDebug() << "[DEBUG] Added punishment to iniData: " << sectionName;
     }
 
@@ -1048,16 +1051,17 @@ void CyberDom::applyScriptSettings() {
     QList<StatusSection> statuses = scriptParser->getStatusSections();
     qDebug() << "[DEBUG] Adding " << statuses.size() << " status sections to iniData";
     for (const StatusSection &status : statuses) {
+        QString sectionName = "status-" + status.name;
+        QMap<QString, QStringList> rawData = scriptParser->getRawSectionData(sectionName);
         QMap<QString, QString> statusData;
-        for (auto it = status.keyValues.begin(); it != status.keyValues.end(); ++it) {
+        for (auto it = rawData.begin(); it != rawData.end(); ++it) {
             if (!it.value().isEmpty()) {
                 statusData[it.key()] = it.value().first();
             }
         }
-        
-        QString sectionName = "status-" + status.name;
+
         iniData[sectionName] = statusData;
-        
+
         qDebug() << "[DEBUG] Added status to iniData: " << sectionName << " with " << statusData.size() << " key-value pairs";
     }
 
@@ -1065,16 +1069,17 @@ void CyberDom::applyScriptSettings() {
     QList<ClothTypeSection> clothTypes = scriptParser->getClothTypeSections();
     qDebug() << "[DEBUG] Adding " << clothTypes.size() << " cloth type sections to iniData";
     for (const ClothTypeSection &clothType : clothTypes) {
+        QString sectionName = "clothtype-" + clothType.name;
+        QMap<QString, QStringList> rawData = scriptParser->getRawSectionData(sectionName);
         QMap<QString, QString> clothTypeData;
-        for (auto it = clothType.keyValues.begin(); it != clothType.keyValues.end(); ++it) {
+        for (auto it = rawData.begin(); it != rawData.end(); ++it) {
             if (!it.value().isEmpty()) {
                 clothTypeData[it.key()] = it.value().first();
             }
         }
-        
-        QString sectionName = "clothtype-" + clothType.name;
+
         iniData[sectionName] = clothTypeData;
-        
+
         qDebug() << "[DEBUG] Added cloth type to iniData: " << sectionName << " with " << clothTypeData.size() << " attributes";
     }
 
