@@ -26,6 +26,7 @@
 #include <QSettings>
 #include <QProcess>
 #include <QFile>
+#include <QTextStream>
 #include <QRandomGenerator>
 #include <cstdlib>
 #include <ctime>
@@ -164,7 +165,7 @@ CyberDom::~CyberDom()
     if (scriptParser) {
         QString cdsPath = currentIniFile;
         cdsPath.replace(".ini", ".cds");
-        scriptParser->saveToCDS(cdsPath);
+        saveVariablesToCDS(cdsPath);
     }
 
     delete ui;
@@ -2102,4 +2103,24 @@ void CyberDom::loadQuestionAnswers() {
         questionAnswers[key] = settings.value(key).toString();
     }
     settings.endGroup();
+}
+
+void CyberDom::saveVariablesToCDS(const QString &cdsPath) {
+    if (!scriptParser)
+        return;
+
+    QFile file(cdsPath);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        qWarning() << "[CyberDom] Failed to write .cds:" << cdsPath
+                   << "-" << file.errorString();
+        return;
+    }
+
+    QTextStream out(&file);
+    const auto &vars = scriptParser->getScriptData().stringVariables;
+    for (auto it = vars.constBegin(); it != vars.constEnd(); ++it) {
+        out << it.key() << "=" << it.value() << "\n";
+    }
+
+    file.close();
 }

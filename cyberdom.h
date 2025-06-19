@@ -116,6 +116,9 @@ private:
     QString loadIniFilePath();
     void initializeIniFile();
 
+    // Save variables from the script parser to a .cds file
+    void saveVariablesToCDS(const QString &cdsPath);
+
     // Script initialization
     void loadAndParseScript(const QString &filePath);
     void applyScriptSettings();
