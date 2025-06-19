@@ -31,6 +31,24 @@ AddClothing::AddClothing(const QString &clothingType, QWidget *parent)
     ui->tw_addcloth->verticalHeader()->setVisible(false);
 }
 
+AddClothing::AddClothing(QWidget *parent,
+                         const QString &selectedType,
+                         const QStringList &attributes)
+    : AddClothing(selectedType, parent)
+{
+    Q_UNUSED(attributes);
+}
+
+AddClothing::AddClothing(QWidget *parent,
+                         const QString &selectedType,
+                         const ClothingItem &item,
+                         const QStringList &attributes)
+    : AddClothing(selectedType, parent)
+{
+    Q_UNUSED(item);
+    Q_UNUSED(attributes);
+}
+
 AddClothing::~AddClothing()
 {
     delete ui;
