@@ -58,12 +58,13 @@ void Assignments::populateJobList() {
         return;
     }
 
-    QSet<QString> jobs = mainApp->getActiveJobs();
-    QMap<QString, QDateTime> deadlines = mainApp->getJobDeadlines();
+    const QSet<QString> jobs = mainApp->getActiveJobs();
+    const QMap<QString, QDateTime> deadlines = mainApp->getJobDeadlines();
+    const auto &iniData = mainApp->getIniData();
 
     int row = 0;
     for (const QString &assignmentName : jobs) {
-        if (mainApp->iniData.contains("punishment-" + assignmentName)) {
+        if (iniData.contains("punishment-" + assignmentName)) {
             continue;
         }
 
@@ -92,7 +93,7 @@ void Assignments::populateJobList() {
     // Add Punishments
     for (const QString &assignmentName : jobs) {
         // Check if this is a punishment (not a job)
-        if (mainApp->iniData.contains("punishment-" + assignmentName)) {
+        if (iniData.contains("punishment-" + assignmentName)) {
             QString deadlineStr;
             if (deadlines.contains(assignmentName)) {
                 deadlineStr = deadlines[assignmentName].toString("MM-dd-yyyy h:mm AP");
@@ -139,11 +140,11 @@ void Assignments::on_btn_Start_clicked()
     QString sectionName = sectionPrefix + assignmentName;
     
     // Debug iniData keys
-    QStringList iniKeys = mainApp->iniData.keys();
+    const QStringList iniKeys = iniData.keys();
     qDebug() << "[DEBUG] Checking if job exists in iniData: " << sectionName;
     qDebug() << "[DEBUG] Available sections in iniData: " << iniKeys.join(", ");
 
-    if (!mainApp->iniData.contains(sectionName)) {
+    if (!iniData.contains(sectionName)) {
         // Try lowercase check to handle case sensitivity issues
         bool found = false;
         for (const QString &key : iniKeys) {
@@ -161,7 +162,7 @@ void Assignments::on_btn_Start_clicked()
     }
 
     // Get assignment details
-    QMap<QString, QString> details = mainApp->iniData[sectionName];
+    QMap<QString, QString> details = iniData.value(sectionName);
     QString instructions = details.value("Text", "No specific instructions available.");
 
     // Update the assignment notes text box
@@ -214,10 +215,10 @@ void Assignments::on_btn_Done_clicked()
     QString sectionName = sectionPrefix + assignmentName;
     
     // Debug iniData keys
-    QStringList iniKeys = mainApp->iniData.keys();
+    const QStringList iniKeys = iniData.keys();
     qDebug() << "[DEBUG] Checking if job exists in iniData for 'done': " << sectionName;
     
-    if (!mainApp->iniData.contains(sectionName)) {
+    if (!iniData.contains(sectionName)) {
         // Try lowercase check to handle case sensitivity issues
         bool found = false;
         for (const QString &key : iniKeys) {
@@ -234,7 +235,7 @@ void Assignments::on_btn_Done_clicked()
         }
     }
 
-    QMap<QString, QString> details = mainApp->iniData[sectionName];
+    QMap<QString, QString> details = iniData.value(sectionName);
     bool mustStart = details.contains("muststart") && details["muststart"] == "1";
 
     // Check if the assignment that requires starting was actually started
@@ -288,10 +289,10 @@ void Assignments::on_btn_Abort_clicked()
     QString sectionName = sectionPrefix + assignmentName;
     
     // Debug iniData keys
-    QStringList iniKeys = mainApp->iniData.keys();
+    const QStringList iniKeys = iniData.keys();
     qDebug() << "[DEBUG] Checking if job exists in iniData for 'abort': " << sectionName;
     
-    if (!mainApp->iniData.contains(sectionName)) {
+    if (!iniData.contains(sectionName)) {
         // Try lowercase check to handle case sensitivity issues
         bool found = false;
         for (const QString &key : iniKeys) {
@@ -372,10 +373,10 @@ void Assignments::on_btn_Delete_clicked()
     QString sectionName = sectionPrefix + assignmentName;
     
     // Debug iniData keys
-    QStringList iniKeys = mainApp->iniData.keys();
+    const QStringList iniKeys = iniData.keys();
     qDebug() << "[DEBUG] Checking if job exists in iniData for 'delete': " << sectionName;
     
-    if (!mainApp->iniData.contains(sectionName)) {
+    if (!iniData.contains(sectionName)) {
         // Try lowercase check to handle case sensitivity issues
         bool found = false;
         for (const QString &key : iniKeys) {
@@ -392,7 +393,7 @@ void Assignments::on_btn_Delete_clicked()
         }
     }
 
-    QMap<QString, QString> details = mainApp->iniData[sectionName];
+    QMap<QString, QString> details = iniData.value(sectionName);
 
     // Check if the assignment allows deletion
     bool deleteAllowed = details.contains("DeleteAllowed") && details["DeleteAllowed"] == "1";
