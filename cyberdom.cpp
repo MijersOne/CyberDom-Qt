@@ -2007,26 +2007,42 @@ void CyberDom::runProcedure(const QString &procedureName) {
 
                 // Show the dialog and get result
                 if (dialog.exec() == QDialog::Accepted) {
-                    // Get the selected answer
-                    QString selectedAnswer = dialog.getSelectedAnswer();
-                    qDebug() << "[DEBUG] Question answered:" << selectedAnswer;
+                    // Get the selected answer value
+                    QString selectedValue = dialog.getSelectedAnswer();
+                    qDebug() << "[DEBUG] Question answered:" << selectedValue;
 
                     // Save the answer for later reference
-                    questionAnswers[questionKey] = selectedAnswer;
+                    questionAnswers[questionKey] = selectedValue;
                     saveQuestionAnswers();
 
-                    // Check if the selected answer has an associated procedure
-                    if (questionData.options.contains(selectedAnswer)) {
-                        QString procedureName = questionData.options[selectedAnswer];
+                    // Iterate through defined answers to find matching block
+                    for (const QuestionAnswerBlock &ans : questionData.answers) {
+                        QString compareVal = ans.variableValue.isEmpty() ? ans.answerText : ans.variableValue;
+                        if (compareVal == selectedValue || ans.answerText == selectedValue) {
+                            if (!ans.procedureName.isEmpty()) {
+                                qDebug() << "[DEBUG] Running answer procedure:" << ans.procedureName;
+                                runProcedure(ans.procedureName);
+                            }
 
-                        // Check if this is an inline procedure
-                        if (procedureName == "*") {
-                            qDebug() << "[DEBUG] Inline procedure selected - continuing";
-                            // Continue - the procedure is inline with the question
-                        } else {
-                            // Call the associated procedure
-                            qDebug() << "[DEBUG] Running selected procedure:" << procedureName;
-                            runProcedure(procedureName);
+                            if (ans.hasInlineActions) {
+                                for (const MessageGroup &msgGroup : ans.messages) {
+                                    if (msgGroup.mode == MessageSelectMode::Random && !msgGroup.messages.isEmpty()) {
+                                        int idx = QRandomGenerator::global()->bounded(msgGroup.messages.size());
+                                        QString msg = replaceVariables(msgGroup.messages.at(idx));
+                                        QMessageBox::information(this, "Message", msg);
+                                    } else {
+                                        for (const QString &m : msgGroup.messages)
+                                            QMessageBox::information(this, "Message", replaceVariables(m));
+                                    }
+                                }
+
+                                for (const ProcedureCall &call : ans.procedureCalls)
+                                    runProcedure(call.name);
+
+                                // Punishment handling could be implemented here if needed
+                            }
+
+                            break;
                         }
                     }
                 } else {
