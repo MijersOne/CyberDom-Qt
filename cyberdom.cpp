@@ -1827,6 +1827,48 @@ void CyberDom::markAssignmentDone(const QString &assignmentName, bool isPunishme
     emit jobListUpdated();
 }
 
+void CyberDom::deleteAssignment(const QString &assignmentName, bool isPunishment)
+{
+    QString sectionPrefix = isPunishment ? "punishment-" : "job-";
+    QString sectionName = sectionPrefix + assignmentName;
+
+    bool sectionFound = false;
+    QMap<QString, QString> details;
+    for (auto it = iniData.constBegin(); it != iniData.constEnd(); ++it) {
+        if (it.key().toLower() == sectionName.toLower()) {
+            sectionFound = true;
+            details = it.value();
+            break;
+        }
+    }
+
+    if (!sectionFound) {
+        qDebug() << "[WARNING] Section not found for deleted assignment: " << sectionName;
+        return;
+    }
+
+    activeAssignments.remove(assignmentName);
+    jobDeadlines.remove(assignmentName);
+
+    QString startFlagName = (isPunishment ? "punishment_" : "job_") + assignmentName + "_started";
+    removeFlag(startFlagName);
+
+    QString statusFlagName = (isPunishment ? "punishment_" : "job_") + assignmentName + "_prev_status";
+    QSettings settings(settingsFile, QSettings::IniFormat);
+    QString prevStatus = settings.value("Assignments/" + statusFlagName, "").toString();
+    if (!prevStatus.isEmpty()) {
+        updateStatus(prevStatus);
+        settings.remove("Assignments/" + statusFlagName);
+    }
+
+    if (details.contains("DeleteProcedure")) {
+        // Placeholder for procedure execution
+        // runProcedure(details["DeleteProcedure"]);
+    }
+
+    emit jobListUpdated();
+}
+
 bool CyberDom::isFlagSet(const QString &flagName) const {
     return flags.contains(flagName);
 }
