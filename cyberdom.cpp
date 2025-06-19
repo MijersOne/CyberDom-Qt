@@ -2001,48 +2001,41 @@ void CyberDom::runProcedure(const QString &procedureName) {
                 // Apply variable replacement to question text
                 questionData.phrase = replaceVariables(questionData.phrase);
 
+                // Build a list containing this single question
+                QList<QuestionDefinition> questions{questionData};
+
                 // Create and show the question dialog
-                QuestionDialog dialog(questionData, this);
+                QuestionDialog dialog(questions, this);
                 dialog.setWindowTitle("Question");
 
                 // Show the dialog and get result
                 if (dialog.exec() == QDialog::Accepted) {
-                    // Get the selected answer value
-                    QString selectedValue = dialog.getSelectedAnswer();
-                    qDebug() << "[DEBUG] Question answered:" << selectedValue;
+                    // Extract the selected answer using dialog.getAnswers()
+                    QString selectedAnswer;
+                    QMap<QString, QString> answers = dialog.getAnswers();
+                    if (!questionData.variable.isEmpty()) {
+                        selectedAnswer = answers.value(questionData.variable);
+                    } else if (!answers.isEmpty()) {
+                        selectedAnswer = answers.begin().value();
+                    }
+                    qDebug() << "[DEBUG] Question answered:" << selectedAnswer;
 
                     // Save the answer for later reference
-                    questionAnswers[questionKey] = selectedValue;
+                    questionAnswers[questionKey] = selectedAnswer;
                     saveQuestionAnswers();
 
-                    // Iterate through defined answers to find matching block
-                    for (const QuestionAnswerBlock &ans : questionData.answers) {
-                        QString compareVal = ans.variableValue.isEmpty() ? ans.answerText : ans.variableValue;
-                        if (compareVal == selectedValue || ans.answerText == selectedValue) {
-                            if (!ans.procedureName.isEmpty()) {
-                                qDebug() << "[DEBUG] Running answer procedure:" << ans.procedureName;
-                                runProcedure(ans.procedureName);
-                            }
+                    // Check if the selected answer has an associated procedure
+                    if (questionData.options.contains(selectedAnswer)) {
+                        QString procedureName = questionData.options[selectedAnswer];
 
-                            if (ans.hasInlineActions) {
-                                for (const MessageGroup &msgGroup : ans.messages) {
-                                    if (msgGroup.mode == MessageSelectMode::Random && !msgGroup.messages.isEmpty()) {
-                                        int idx = QRandomGenerator::global()->bounded(msgGroup.messages.size());
-                                        QString msg = replaceVariables(msgGroup.messages.at(idx));
-                                        QMessageBox::information(this, "Message", msg);
-                                    } else {
-                                        for (const QString &m : msgGroup.messages)
-                                            QMessageBox::information(this, "Message", replaceVariables(m));
-                                    }
-                                }
-
-                                for (const ProcedureCall &call : ans.procedureCalls)
-                                    runProcedure(call.name);
-
-                                // Punishment handling could be implemented here if needed
-                            }
-
-                            break;
+                        // Check if this is an inline procedure
+                        if (procedureName == "*") {
+                            qDebug() << "[DEBUG] Inline procedure selected - continuing";
+                            // Continue - the procedure is inline with the question
+                        } else {
+                            // Call the associated procedure
+                            qDebug() << "[DEBUG] Running selected procedure:" << procedureName;
+                            runProcedure(procedureName);
                         }
                     }
                 } else {
