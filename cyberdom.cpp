@@ -927,7 +927,7 @@ void CyberDom::loadAndParseScript(const QString &filePath) {
 
     // Create new script parser if needed
     if (!scriptParser) {
-        scriptParser = new ScriptParser(this);
+        scriptParser = new ScriptParser();
         qDebug() << "[DEBUG] Created new ScriptParser instance";
     }
 
