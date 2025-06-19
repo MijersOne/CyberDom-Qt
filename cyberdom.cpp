@@ -2029,12 +2029,6 @@ void CyberDom::runProcedure(const QString &procedureName) {
                             runProcedure(procedureName);
                         }
                     }
-                } else {
-                    // User canceled - check if we have a NoInputProcedure
-                    if (!questionData.noInputProcedure.isEmpty()) {
-                        qDebug() << "[DEBUG] Running NoInputProcedure:" << questionData.noInputProcedure;
-                        runProcedure(questionData.noInputProcedure);
-                    }
                 }
 
             } else if (key.startsWith("set#", Qt::CaseInsensitive)) {
