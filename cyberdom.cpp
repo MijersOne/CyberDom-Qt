@@ -942,7 +942,7 @@ void CyberDom::loadAndParseScript(const QString &filePath) {
     QList<StatusSection> statuses = scriptParser->getStatusSections();
     qDebug() << "[DEBUG] Parsed " << statuses.size() << " status sections:";
     for (const StatusSection &status : statuses) {
-        qDebug() << "[DEBUG] Status: " << status.name << " (Groups: " << status.groups.join(", ") << ")";
+        qDebug() << "[DEBUG] Status: " << status.name << " (Group: " << status.group << ")";
     }
 
     // Store the path to the current ini file
@@ -1123,12 +1123,13 @@ void CyberDom::applyScriptSettings() {
     // Build status groups from the parsed data
     statusGroups.clear();
     for (const StatusSection &status : scriptParser->getStatusSections()) {
-        for (const QString &group : status.groups) {
-            if (!statusGroups.contains(group)) {
-                statusGroups[group] = QStringList ();
-            }
-            statusGroups[group].append(status.name);
+        QString group = status.group.trimmed();
+        if (group.isEmpty())
+            continue;
+        if (!statusGroups.contains(group)) {
+            statusGroups[group] = QStringList();
         }
+        statusGroups[group].append(status.name);
     }
 }
 
@@ -1247,12 +1248,12 @@ void CyberDom::updateAvailableActions() {
     StatusSection status = scriptParser->getStatus(currentStatus);
 
     // Update UI based on status permissions
-    ui->actionPermissions->setEnabled(status.permissionsAllowed);
-    ui->actionAsk_for_Punishment->setEnabled(status.permissionsAllowed);
-    ui->actionConfessions->setEnabled(status.confessionsAllowed);
-    ui->actionReports->setEnabled(status.reportsAllowed);
-    ui->menuRules->setEnabled(status.rulesAllowed);
-    ui->menuAssignments->setEnabled(status.assignmentsAllowed);
+    ui->actionPermissions->setEnabled(status.permissionsEnabled);
+    ui->actionAsk_for_Punishment->setEnabled(status.permissionsEnabled);
+    ui->actionConfessions->setEnabled(status.confessionsEnabled);
+    ui->actionReports->setEnabled(status.reportsEnabled);
+    ui->menuRules->setEnabled(status.rulesEnabled);
+    ui->menuAssignments->setEnabled(status.assignmentsEnabled);
 
     // If ReportsOnly is true, disable everything except reports
     if (status.reportsOnly) {
