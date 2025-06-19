@@ -2024,18 +2024,22 @@ void CyberDom::runProcedure(const QString &procedureName) {
                     questionAnswers[questionKey] = selectedAnswer;
                     saveQuestionAnswers();
 
-                    // Check if the selected answer has an associated procedure
-                    if (questionData.options.contains(selectedAnswer)) {
-                        QString procedureName = questionData.options[selectedAnswer];
+                    // Check if the selected answer maps to a procedure
+                    for (const auto &answerBlock : questionData.answers) {
+                        QString answerValue = answerBlock.variableValue.isEmpty()
+                                               ? answerBlock.answerText
+                                               : answerBlock.variableValue;
+                        if (answerValue == selectedAnswer) {
+                            QString procedureName = answerBlock.procedureName;
 
-                        // Check if this is an inline procedure
-                        if (procedureName == "*") {
-                            qDebug() << "[DEBUG] Inline procedure selected - continuing";
-                            // Continue - the procedure is inline with the question
-                        } else {
-                            // Call the associated procedure
-                            qDebug() << "[DEBUG] Running selected procedure:" << procedureName;
-                            runProcedure(procedureName);
+                            // Handle inline actions if required in the future
+                            if (!procedureName.isEmpty() && procedureName != "*") {
+                                qDebug() << "[DEBUG] Running selected procedure:" << procedureName;
+                                runProcedure(procedureName);
+                            } else if (procedureName == "*") {
+                                qDebug() << "[DEBUG] Inline procedure selected - continuing";
+                            }
+                            break;
                         }
                     }
                 }
