@@ -923,6 +923,13 @@ void CyberDom::loadAndParseScript(const QString &filePath) {
         return;
     }
 
+    if (!QFile::exists(filePath)) {
+        qDebug() << "[ERROR] Script file not found:" << filePath;
+        QMessageBox::critical(this, "Script Not Found",
+                              "The script file could not be located at:\n" + filePath);
+        return;
+    }
+
     qDebug() << "\n[DEBUG] Starting loadAndParseScript with file: " << filePath;
 
     // Create new script parser if needed
