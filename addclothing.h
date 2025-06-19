@@ -55,6 +55,8 @@ private:
     
     void initializeUI(); // Helper to set up the UI
     void loadAttributes();
+    void setupTable(const QString &clothingType, const QStringList &attributes,
+                    const ClothingItem *existingItem = nullptr);
 };
 
 #endif // ADDCLOTHING_H
