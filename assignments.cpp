@@ -5,6 +5,7 @@
 #include <QMessageBox>
 #include <QSettings>
 #include <QStandardPaths>
+#include <QDebug>
 
 // extern CyberDom *mainApp;
 
@@ -135,6 +136,8 @@ void Assignments::on_btn_Start_clicked()
         return;
     }
 
+    const auto &iniData = mainApp->getIniData();
+
     // Check if the assignment exists in mainApp's data
     QString sectionPrefix = isPunishment ? "punishment-" : "job-";
     QString sectionName = sectionPrefix + assignmentName;
@@ -209,6 +212,7 @@ void Assignments::on_btn_Done_clicked()
         QMessageBox::warning(this, "Error", "Application reference lost.");
         return;
     }
+    const auto &iniData = mainApp->getIniData();
 
     // Check if the assignment exists
     QString sectionPrefix = isPunishment ? "punishment-" : "job-";
@@ -283,6 +287,7 @@ void Assignments::on_btn_Abort_clicked()
         QMessageBox::warning(this, "Error", "Application reference lost.");
         return;
     }
+    const auto &iniData = mainApp->getIniData();
 
     // Check if the assignment exists
     QString sectionPrefix = isPunishment ? "punishment-" : "job-";
@@ -368,6 +373,7 @@ void Assignments::on_btn_Delete_clicked()
         QMessageBox::warning(this, "Error", "Application reference lost.");
         return;
     }
+    const auto &iniData = mainApp->getIniData();
 
     QString sectionPrefix = isPunishment ? "punishment-" : "job-";
     QString sectionName = sectionPrefix + assignmentName;
