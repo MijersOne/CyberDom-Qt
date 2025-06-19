@@ -2001,8 +2001,11 @@ void CyberDom::runProcedure(const QString &procedureName) {
                 // Apply variable replacement to question text
                 questionData.phrase = replaceVariables(questionData.phrase);
 
+                // Build a list containing this single question
+                QList<QuestionDefinition> questions{questionData};
+
                 // Create and show the question dialog
-                QuestionDialog dialog(questionData, this);
+                QuestionDialog dialog(questions, this);
                 dialog.setWindowTitle("Question");
 
                 // Show the dialog and get result
