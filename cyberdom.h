@@ -119,6 +119,10 @@ private:
     // Save variables from the script parser to a .cds file
     void saveVariablesToCDS(const QString &cdsPath);
 
+    // Session management
+    bool loadSessionData(const QString &path);
+    void saveSessionData(const QString &path) const;
+
     // Script initialization
     void loadAndParseScript(const QString &filePath);
     void applyScriptSettings();
@@ -143,6 +147,7 @@ private:
     QDateTime internalClock;
     QString currentIniFile;
     QString settingsFile;
+    QString sessionFilePath;
     QString currentStatus;
 
     Rules *rulesDialog;

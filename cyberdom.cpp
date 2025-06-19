@@ -34,6 +34,7 @@
 #include <QAudioOutput>
 #include <QInputDialog>
 #include <QRegularExpression>
+#include <QCoreApplication>
 
 CyberDom::CyberDom(QWidget *parent)
     : QMainWindow(parent)
@@ -95,8 +96,13 @@ CyberDom::CyberDom(QWidget *parent)
 
     // Update UI with loaded settings
 
-    // Initialize the .ini file
-    initializeIniFile();
+    sessionFilePath = QCoreApplication::applicationDirPath() + "/session.cdt";
+    bool sessionLoaded = loadSessionData(sessionFilePath);
+
+    // Initialize the .ini file if no session was loaded
+    if (!sessionLoaded) {
+        initializeIniFile();
+    }
 
 
     // Load saved variables from .cds file
@@ -166,6 +172,10 @@ CyberDom::~CyberDom()
         QString cdsPath = currentIniFile;
         cdsPath.replace(".ini", ".cds");
         saveVariablesToCDS(cdsPath);
+    }
+
+    if (!sessionFilePath.isEmpty()) {
+        saveSessionData(sessionFilePath);
     }
 
     delete ui;
@@ -2131,4 +2141,42 @@ void CyberDom::saveVariablesToCDS(const QString &cdsPath) {
     }
 
     file.close();
+}
+
+bool CyberDom::loadSessionData(const QString &path) {
+    if (!QFile::exists(path))
+        return false;
+
+    QSettings session(path, QSettings::IniFormat);
+    QString script = session.value("Session/ScriptPath").toString();
+    int merits = session.value("Session/Merits", 0).toInt();
+    QString status = session.value("Session/Status").toString();
+
+    if (script.isEmpty())
+        return false;
+
+    if (!QFile::exists(script)) {
+        QMessageBox::warning(this, tr("Script Not Found"),
+                             tr("The script referenced in the session could not be found:\n%1")
+                                 .arg(script));
+        return false;
+    }
+
+    loadAndParseScript(script);
+    updateMerits(merits);
+    if (!status.isEmpty()) {
+        currentStatus = status;
+        updateStatusDisplay();
+    }
+
+    saveIniFilePath(script);
+    return true;
+}
+
+void CyberDom::saveSessionData(const QString &path) const {
+    QSettings session(path, QSettings::IniFormat);
+    session.setValue("Session/ScriptPath", currentIniFile);
+    session.setValue("Session/Merits", ui->progressBar->value());
+    session.setValue("Session/Status", currentStatus);
+    session.sync();
 }
