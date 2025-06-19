@@ -16,8 +16,7 @@
 #include "rules.h" // Include the header for Rules UI
 #include "listflags.h" // Include the header for the ListFlags UI
 #include "setflags.h" // Include the header for the SetFlags UI
-#include "deleteassignments.h" // Include the header for the DeleteAssignments UI
-#include "askpunishment.h"
+#include "deleteassignments.h" // Include the header for DeleteAssignments UI
 #include "clothingitem.h"
 #include "questiondialog.h"
 
