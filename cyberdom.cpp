@@ -2007,8 +2007,14 @@ void CyberDom::runProcedure(const QString &procedureName) {
 
                 // Show the dialog and get result
                 if (dialog.exec() == QDialog::Accepted) {
-                    // Get the selected answer
-                    QString selectedAnswer = dialog.getSelectedAnswer();
+                    // Extract the selected answer using dialog.getAnswers()
+                    QString selectedAnswer;
+                    QMap<QString, QString> answers = dialog.getAnswers();
+                    if (!questionData.variable.isEmpty()) {
+                        selectedAnswer = answers.value(questionData.variable);
+                    } else if (!answers.isEmpty()) {
+                        selectedAnswer = answers.begin().value();
+                    }
                     qDebug() << "[DEBUG] Question answered:" << selectedAnswer;
 
                     // Save the answer for later reference
