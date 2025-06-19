@@ -663,6 +663,17 @@ void CyberDom::initializeIniFile() {
     
     QString iniFilePath = loadIniFilePath();
 
+    // Validate that the stored ini file path actually exists
+    if (!iniFilePath.isEmpty() && !QFile::exists(iniFilePath)) {
+        QMessageBox::warning(this,
+                             tr("Script Not Found"),
+                             tr("The previously selected script could not be found. Please locate it again."));
+        iniFilePath = promptForIniFile();
+        if (!iniFilePath.isEmpty()) {
+            saveIniFilePath(iniFilePath);
+        }
+    }
+
     qDebug() << "\n[DEBUG] ============ INI FILE DEBUG ============";
     qDebug() << "[DEBUG] Initial iniFilePath from settings: " << iniFilePath;
     qDebug() << "[DEBUG] Fresh start detected: " << (freshStart ? "Yes" : "No");
