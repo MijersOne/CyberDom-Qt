@@ -115,20 +115,26 @@ CyberDom::CyberDom(QWidget *parent)
         qDebug() << "[INFO] No .cds found (or failed to load) at" << cdsPath;
     }
 
-    // Initialize the internal clock with the current system time
+    // Initialize the internal clock
     QSettings settings(settingsFile, QSettings::IniFormat);
     QString savedDate = settings.value("System/CurrentDate", "").toString();
     QString savedTime = settings.value("System/CurrentTime", "").toString();
 
-    if (savedDate.isEmpty()) {
-        // First run - use system date and time
-        internalClock = QDateTime::currentDateTime();
-        settings.setValue("System/CurrentDate", internalClock.date().toString("MM-dd-yyyy"));
-    } else {
-        // Use saved date but current time
-        QDate date = QDate::fromString(savedDate, "MM-dd-yyyy");
-        QTime time = QTime::fromString(savedTime, "HH:MM");
-        internalClock = QDateTime(date, time);
+    if (!sessionLoaded) {
+        if (savedDate.isEmpty()) {
+            // First run - use system date and time
+            internalClock = QDateTime::currentDateTime();
+            settings.setValue("System/CurrentDate",
+                              internalClock.date().toString("MM-dd-yyyy"));
+            settings.setValue("System/CurrentTime",
+                              internalClock.time().toString("hh:mm:ss"));
+        } else {
+            QDate date = QDate::fromString(savedDate, "MM-dd-yyyy");
+            QTime time = QTime::fromString(savedTime, "hh:mm:ss");
+            if (!time.isValid())
+                time = QTime::currentTime();
+            internalClock = QDateTime(date, time);
+        }
     }
 
     // Setup the timer
@@ -176,6 +182,15 @@ CyberDom::~CyberDom()
 
     if (!sessionFilePath.isEmpty()) {
         saveSessionData(sessionFilePath);
+    }
+
+    // Persist the current internal clock time to settings
+    if (!settingsFile.isEmpty()) {
+        QSettings settings(settingsFile, QSettings::IniFormat);
+        settings.setValue("System/CurrentDate",
+                           internalClock.date().toString("MM-dd-yyyy"));
+        settings.setValue("System/CurrentTime",
+                           internalClock.time().toString("hh:mm:ss"));
     }
 
     delete ui;
@@ -254,9 +269,12 @@ void CyberDom::updateInternalClock()
     if (previousTime.date() != internalClock.date()) {
         qDebug() << "Date changed from: " << previousTime.toString("MM-dd-yyyy") << "to: " << internalClock.toString("MM-dd-yyyy");
 
-        // Save the current date to settings
+        // Save the current date and time to settings
         QSettings settings(settingsFile, QSettings::IniFormat);
-        settings.setValue("System/CurrentDate", internalClock.date().toString("MM-dd-yyyy"));
+        settings.setValue("System/CurrentDate",
+                          internalClock.date().toString("MM-dd-yyyy"));
+        settings.setValue("System/CurrentTime",
+                          internalClock.time().toString("hh:mm:ss"));
     }
 
     for (TimerInstance &timer : activeTimers) {
@@ -2213,6 +2231,12 @@ bool CyberDom::loadSessionData(const QString &path) {
     QString script = session.value("Session/ScriptPath").toString();
     int merits = session.value("Session/Merits", 0).toInt();
     QString status = session.value("Session/Status").toString();
+    QDateTime lastInternal =
+        QDateTime::fromString(session.value("Session/InternalClock").toString(),
+                              Qt::ISODate);
+    QDateTime lastSystem =
+        QDateTime::fromString(session.value("Session/LastSystemTime").toString(),
+                              Qt::ISODate);
 
     if (script.isEmpty())
         return false;
@@ -2231,6 +2255,13 @@ bool CyberDom::loadSessionData(const QString &path) {
         updateStatusDisplay();
     }
 
+    if (lastInternal.isValid() && lastSystem.isValid()) {
+        qint64 diffSecs = lastSystem.secsTo(QDateTime::currentDateTime());
+        internalClock = lastInternal.addSecs(diffSecs);
+    } else {
+        internalClock = QDateTime::currentDateTime();
+    }
+
     saveIniFilePath(script);
     return true;
 }
@@ -2240,6 +2271,10 @@ void CyberDom::saveSessionData(const QString &path) const {
     session.setValue("Session/ScriptPath", currentIniFile);
     session.setValue("Session/Merits", ui->progressBar->value());
     session.setValue("Session/Status", currentStatus);
+    session.setValue("Session/InternalClock",
+                     internalClock.toString(Qt::ISODate));
+    session.setValue("Session/LastSystemTime",
+                     QDateTime::currentDateTime().toString(Qt::ISODate));
     session.sync();
 
     QSettings::Status stat = session.status();
