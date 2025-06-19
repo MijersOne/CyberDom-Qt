@@ -72,13 +72,14 @@ bool ScriptParser::parseScript(const QString& path) {
     auto sections = parseIniFile(path);
     scriptData.rawSections = sections;
 
-    if (!sections.contains("General") || !sections["General"].contains("MinVersion")) {
+    // Section names are stored in lower-case by parseIniFile()
+    if (!sections.contains("general") || !sections["general"].contains("MinVersion")) {
         qWarning() << "Script missing required [General] section or MinVersion key.";
         return false;
     }
 
-    if (sections.contains("General"))
-        parseGeneralSection("General", sections["General"]);
+    if (sections.contains("general"))
+        parseGeneralSection("general", sections["general"]);
     if (sections.contains("init"))
         parseInitSection(sections["init"]);
 
