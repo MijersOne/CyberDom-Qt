@@ -47,8 +47,8 @@ private slots:
 private:
     Ui::AddClothing *ui;
     QMap<QString, QStringList> clothingTypes;
+    bool isEditMode = false; // True when editing an existing item
     // QString clothingType;
-    // bool isEditMode;
     // ClothingItem existingItem;
     // QLineEdit *nameEdit; // Line edit for clothing item name
     // QStringList providedAttributes; // Attributes provided from outside
