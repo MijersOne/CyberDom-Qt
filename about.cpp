@@ -3,6 +3,7 @@
 
 #include <QSettings>
 #include <QFileInfo>
+#include <QDebug>
 
 About::About(QWidget *parent, const QString &iniFilePath, const QString &version)
     : QDialog(parent)

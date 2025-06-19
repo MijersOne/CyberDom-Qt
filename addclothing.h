@@ -18,16 +18,13 @@ class AddClothing : public QDialog
 
 public:
     // Constructor for creating a new clothing item
-    explicit AddClothing(const QString &clothingType, QWidget *parent = nullptr);
-    
+    explicit AddClothing(QWidget *parent, const QString &clothingType);
+
     // Constructor with attributes list
-    // explicit AddClothing(QWidget *parent, const QString &selectedType, const QStringList &attributes);
-    
-    // // Constructor for editing an existing clothing item
-    // AddClothing(QWidget *parent, const QString &selectedType, const ClothingItem &item);
-    
-    // // Constructor for editing with provided attributes
-    // AddClothing(QWidget *parent, const QString &selectedType, const ClothingItem &item, const QStringList &attributes);
+    AddClothing(QWidget *parent, const QString &clothingType, const QStringList &attributes);
+
+    // Constructor for editing with provided attributes
+    AddClothing(QWidget *parent, const QString &clothingType, const ClothingItem &item, const QStringList &attributes);
     
     ~AddClothing();
 
@@ -53,6 +50,8 @@ private:
     
     void initializeUI(); // Helper to set up the UI
     void loadAttributes();
+    void setupTable(const QString &clothingType, const QStringList &attributes,
+                    const ClothingItem *existingItem = nullptr);
 };
 
 #endif // ADDCLOTHING_H
