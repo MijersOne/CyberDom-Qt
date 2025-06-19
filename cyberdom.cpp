@@ -106,6 +106,7 @@ CyberDom::CyberDom(QWidget *parent)
         qDebug() << "[INFO] Loaded saved variables from" << cdsPath;
     } else {
         qDebug() << "[INFO] No .cds found (or failed to load) at" << cdsPath;
+    }
 
     // Initialize the internal clock with the current system time
     QSettings settings(settingsFile, QSettings::IniFormat);
