@@ -669,9 +669,11 @@ void CyberDom::initializeIniFile() {
 
     // If this is a fresh start or no ini file path is stored, prompt for a new file
     if (freshStart || iniFilePath.isEmpty()) {
-        // If this is a fresh start, force selection of a new file
-        if (freshStart) {
-            iniFilePath = promptForIniFile();
+        iniFilePath = promptForIniFile();
+
+        // Save the path for future launches if the user selected a file
+        if (!iniFilePath.isEmpty()) {
+            saveIniFilePath(iniFilePath);
         }
     }
 
