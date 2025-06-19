@@ -68,18 +68,3 @@ void AddClothing::setupTable(const QString &clothingType, const QStringList &att
     ui->tw_addcloth->horizontalHeader()->setStretchLastSection(true);
     ui->tw_addcloth->verticalHeader()->setVisible(false);
 }
-
-AddClothing::AddClothing(QWidget *parent,
-                         const QString &selectedType,
-                         const ClothingItem &item,
-                         const QStringList &attributes)
-    : AddClothing(selectedType, parent)
-{
-    Q_UNUSED(item);
-    Q_UNUSED(attributes);
-}
-
-AddClothing::~AddClothing()
-{
-    delete ui;
-}

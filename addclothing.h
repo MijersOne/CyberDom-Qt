@@ -18,7 +18,8 @@ class AddClothing : public QDialog
 
 public:
     // Constructor for creating a new clothing item
-    explicit AddClothing(const QString &clothingType, QWidget *parent = nullptr);
+    explicit AddClothing(QWidget *parent,
+                         const QString &clothingType);
     
     // Constructor with attributes list
     AddClothing(QWidget *parent,
