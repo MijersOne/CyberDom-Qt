@@ -23,9 +23,8 @@ CyberDom *mainApp = nullptr;
 int main(int argc, char *argv[])
 {
     QApplication a(argc, argv);
-    mainApp = new CyberDom();
-    mainApp->show();
-    //CyberDom w;
-    //w.show();
+    CyberDom w;
+    mainApp = &w;
+    w.show();
     return a.exec();
 }
