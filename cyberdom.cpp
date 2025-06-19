@@ -23,6 +23,7 @@
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QSettings>
+#include <QDebug>
 #include <QProcess>
 #include <QFile>
 #include <QTextStream>
@@ -2240,4 +2241,12 @@ void CyberDom::saveSessionData(const QString &path) const {
     session.setValue("Session/Merits", ui->progressBar->value());
     session.setValue("Session/Status", currentStatus);
     session.sync();
+
+    QSettings::Status stat = session.status();
+    if (stat != QSettings::NoError) {
+        qWarning() << "[CyberDom] Failed to save session data to" << path
+                   << "- status:" << stat;
+    } else {
+        qDebug() << "[CyberDom] Session data saved to" << path;
+    }
 }
