@@ -36,9 +36,7 @@ public:
     ~AddClothing();
 
 signals:
-    void clothingItemAddedItem(const ClothingItem &item); // New signal with unique name
     void clothingItemEdited(const ClothingItem &item); // Signal to emit when an item is edited
-    void clothingItemAddedName(const QString &itemName); // Renamed for uniqueness
     void clothingItemAdded(const ClothingItem &item);
 
 private slots:
@@ -47,7 +45,6 @@ private slots:
 
 private:
     Ui::AddClothing *ui;
-    QMap<QString, QStringList> clothingTypes;
     bool isEditMode = false; // True when editing an existing item
     // QString clothingType;
     // ClothingItem existingItem;
