@@ -1,1 +1,23 @@
 # CyberDom-Qt
+
+CyberDom-Qt is a Qt-based graphical interface for running CyberDom training scripts. The application guides the user through tasks defined in a script while handling jobs, punishments and rewards.
+
+## Build
+
+Ensure a Qt development environment is available and CMake 3.14 or newer is installed:
+
+```bash
+mkdir build && cd build
+cmake ..
+make
+```
+
+You can also open `CyberDom.pro` in Qt Creator and build directly from the IDE.
+
+## Run
+
+After compiling, execute the generated binary:
+
+```bash
+./CyberDom
+```
