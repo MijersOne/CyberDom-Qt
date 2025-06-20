@@ -2526,38 +2526,36 @@ void ScriptParser::parseClothingTypes(const QMap<QString, QMap<QString, QStringL
         type.name = typeName;
 
         ClothingAttribute currentAttr;
-
         QString currentValue;
 
         for (auto keyIt = entries.begin(); keyIt != entries.end(); ++keyIt) {
             const QString& key = keyIt.key();
             const QStringList& values = keyIt.value();
 
+            QString keyLower = key.toLower();
+
             for (const QString& rawValue : values) {
                 QString value = rawValue.trimmed();
 
-                if (key == "Check")
-                    type.checks.append(value);
-                else if (key == "Attr") {
-                    // Save last attr
+                if (keyLower == "attr") {
                     if (!currentAttr.name.isEmpty())
                         type.attributes.append(currentAttr);
                     currentAttr = ClothingAttribute();
                     currentAttr.name = value;
                     currentValue.clear();
-                }
-                else if (key == "Value") {
+                } else if (keyLower == "value") {
                     currentAttr.values.append(value);
                     currentValue = value;
-                }
-                else if (key == "Check" && !currentValue.isEmpty()) {
-                    type.valueChecks[currentValue].append(value);
-                }
-                else if (key == "Flag" && currentValue.isEmpty()) {
-                    type.topLevelFlags.append(value);
-                }
-                else if (key == "Flag" && !currentValue.isEmpty()) {
-                    type.valueFlags[currentValue].append(value);
+                } else if (keyLower == "check") {
+                    if (currentValue.isEmpty())
+                        type.checks.append(value);
+                    else
+                        type.valueChecks[currentValue].append(value);
+                } else if (keyLower == "flag") {
+                    if (currentValue.isEmpty())
+                        type.topLevelFlags.append(value);
+                    else
+                        type.valueFlags[currentValue].append(value);
                 }
             }
         }
