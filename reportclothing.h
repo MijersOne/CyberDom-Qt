@@ -29,7 +29,7 @@ private:
     Ui::ReportClothing *ui;
     QMap<QString, QList<ClothingItem>> clothingByType; // Map of clothing items by type
     QList<ClothingItem> wearingItems; // List of items currently being worn
-    QMap<QString, QStringList> clothTypeAttributes; // Map of cloth type names to their attributes
+    QMap<QString, QList<ClothingAttribute>> clothTypeAttributes; // Map of cloth type names to their attributes
     
     void loadClothingTypes(); // Load clothing types from script data
     void loadClothingItems(); // Load clothing items from settings
