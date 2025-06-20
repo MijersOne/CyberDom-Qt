@@ -919,6 +919,24 @@ void CyberDom::resetApplication() {
             }
         }
 
+        // Delete the stored session file if it exists
+        if (!sessionFilePath.isEmpty()) {
+            QFile sessionFile(sessionFilePath);
+            if (sessionFile.exists()) {
+                if (!sessionFile.remove()) {
+                    QMessageBox::warning(this, "Reset Warning",
+                                         "Could not delete the session file: " + sessionFilePath +
+                                             "\nThe application will restart, but some session data may persist.");
+                } else {
+                    qDebug() << "[INFO] Successfully deleted session file: " << sessionFilePath;
+                }
+            }
+        }
+
+        // Clear paths so the destructor doesn't recreate the files
+        settingsFile.clear();
+        sessionFilePath.clear();
+
         // Explicitly clear the INI file path selection
         appSettings.setValue("SelectedIniFile", "");
         
