@@ -43,6 +43,8 @@ CyberDom::CyberDom(QWidget *parent)
 
     ui->setupUi(this);
 
+    reportMenu = ui->menuReport;
+
     // Connect the menuAssignments action to the slot function
     connect(ui->actionAssignments, &QAction::triggered, this, &CyberDom::openAssignmentsWindow);
 
@@ -338,6 +340,41 @@ void CyberDom::openReportClothingDialog()
     }
     
     delete reportClothingDialog;
+}
+
+void CyberDom::openReport(const QString &name)
+{
+    if (!scriptParser) {
+        qWarning() << "[CyberDom] No script loaded for report:" << name;
+        return;
+    }
+
+    qDebug() << "[CyberDom] Opening report:" << name;
+    runProcedure("report-" + name);
+}
+
+void CyberDom::populateReportMenu()
+{
+    if (!reportMenu)
+        return;
+
+    reportMenu->clear();
+
+    if (!scriptParser)
+        return;
+
+    const auto &reports = scriptParser->getScriptData().reports;
+    for (auto it = reports.constBegin(); it != reports.constEnd(); ++it) {
+        const ReportDefinition &rep = it.value();
+        if (!rep.showInMenu)
+            continue;
+
+        QString label = rep.title.isEmpty() ? rep.name : rep.title;
+        QAction *act = reportMenu->addAction(label);
+        connect(act, &QAction::triggered, this, [this, name = rep.name]() {
+            openReport(name);
+        });
+    }
 }
 
 void CyberDom::setupMenuConnections()
@@ -1197,6 +1234,8 @@ void CyberDom::applyScriptSettings() {
         }
         statusGroups[group].append(status.name);
     }
+
+    populateReportMenu();
 }
 
 void CyberDom::setupInitialStatus() {

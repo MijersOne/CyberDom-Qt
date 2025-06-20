@@ -4,6 +4,7 @@
 #include <QMainWindow>
 #include <QTimer>
 #include <QDateTime>
+#include <QMenu>
 #include <QMap>
 #include <QString>
 #include <QStringList>
@@ -177,6 +178,8 @@ private:
     QTimer *flagTimer;
 
     bool testMenuEnabled = false;
+    QMenu *reportMenu = nullptr;
+
     bool isPunishment = false;
 
     QList<ClothingItem> clothingInventory;
@@ -207,6 +210,7 @@ private:
     void executeStatusEntryProcedures(const QString &statusName);
     void updateStatusDisplay();
 
+    void populateReportMenu();
 private slots:
     void applyTimeToClock(int days, int hours, int minutes, int seconds);
     void openAboutDialog();
@@ -215,6 +219,7 @@ private slots:
     void openReportClothingDialog();
     void setupMenuConnections();
     void openAskPunishmentDialog();
+    void openReport(const QString &name);
     void openChangeMeritsDialog();
     void openChangeStatusDialog();
     void openLaunchJobDialog();
