@@ -8,6 +8,7 @@
 #include <QString>
 #include <QStringList>
 #include <QStack>
+#include <QSet>
 #include "rules.h"
 #include "assignments.h"
 #include "scriptparser.h"
