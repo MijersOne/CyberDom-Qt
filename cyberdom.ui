@@ -136,7 +136,7 @@
      <string>Communication</string>
     </property>
     <addaction name="actionAsk_Permission"/>
-    <addaction name="actionReport"/>
+    <addaction name="menuReport"/>
     <addaction name="actionReport_Clothing"/>
     <addaction name="actionCofess"/>
     <addaction name="actionAsk_for_Clothing_Instructions"/>
@@ -225,11 +225,11 @@
     <string>Ask Permission</string>
    </property>
   </action>
-  <action name="actionReport">
-   <property name="text">
+  <widget class="QMenu" name="menuReport">
+   <property name="title">
     <string>Report</string>
    </property>
-  </action>
+  </widget>
   <action name="actionReport_Clothing">
    <property name="text">
     <string>Report Clothing</string>

@@ -6,6 +6,7 @@
 #include <QMap>
 #include <QDateTime>
 #include <QStack>
+#include <QSet>
 
 enum class CaseMode {
     All,
