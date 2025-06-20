@@ -50,7 +50,7 @@ public:
     void parseAssignmentBehavior(const QMap<QString, QStringList>& entries, AssignmentBehavior& a);
     void parseInstructionSections(const QMap<QString, QMap<QString, QStringList>>& sections);
     void parseInstructionSets(const QMap<QString, QMap<QString, QStringList>>& sections);
-    void parseClothingTypes(const QMap<QString, QMap<QString, QStringList>>& sections);
+    void parseClothingTypes(const QStringList &lines);
     void parseProcedureSections(const QMap<QString, QMap<QString, QStringList>>& sections);
     void parsePopupSections(const QMap<QString, QMap<QString, QStringList>>& sections);
     void parsePopupGroupSections(const QMap<QString, QMap<QString, QStringList>>& sections);
@@ -77,6 +77,8 @@ public:
     MeritAdjustment merits;
 
 private:
+    QStringList readIniLines(const QString &path);
+    QString scriptFilePath;
     ScriptData scriptData;
 };
 
