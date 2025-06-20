@@ -329,7 +329,7 @@ void CyberDom::openAskInstructionsDialog()
 
 void CyberDom::openReportClothingDialog()
 {
-    ReportClothing *reportClothingDialog = new ReportClothing(this);
+    ReportClothing *reportClothingDialog = new ReportClothing(this, scriptParser);
     
     // Display the dialog
     if (reportClothingDialog->exec() == QDialog::Accepted) {
