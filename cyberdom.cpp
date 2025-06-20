@@ -248,7 +248,7 @@ void CyberDom::applyTimeToClock(int days, int hours, int minutes, int seconds)
 {
     // Update the internal clock with the specified values
     internalClock = internalClock.addDays(days)
-                                 .addSecs(hours * 3000 + minutes * 60 + seconds);
+                                 .addSecs(hours * 3600 + minutes * 60 + seconds);
 
     // Update the displayed clock
     ui->clockLabel->setText(internalClock.toString("hh:mm:ss AP"));
