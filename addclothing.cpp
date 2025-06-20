@@ -4,6 +4,8 @@
 #include <QTableWidgetItem>
 #include <QMessageBox>
 #include <QDialogButtonBox>
+#include <QComboBox>
+#include <QLineEdit>
 
 AddClothing::AddClothing(QWidget *parent, const QString &clothingType)
     : QDialog(parent)
@@ -13,11 +15,15 @@ AddClothing::AddClothing(QWidget *parent, const QString &clothingType)
     isEditMode = false;
     connect(ui->buttonBox, &QDialogButtonBox::accepted, this, &AddClothing::on_buttonBox_accepted);
     connect(ui->buttonBox, &QDialogButtonBox::rejected, this, &QDialog::reject);
-    setupTable(clothingType, {"Colour", "Style", "Description"});
+    QList<ClothingAttribute> defaultAttrs;
+    defaultAttrs.append(ClothingAttribute{QStringLiteral("Colour"), {}});
+    defaultAttrs.append(ClothingAttribute{QStringLiteral("Style"), {}});
+    defaultAttrs.append(ClothingAttribute{QStringLiteral("Description"), {}});
+    setupTable(clothingType, defaultAttrs);
 }
 
 AddClothing::AddClothing(QWidget *parent, const QString &clothingType,
-                         const QStringList &attributes)
+                         const QList<ClothingAttribute> &attributes)
     : QDialog(parent)
     , ui(new Ui::AddClothing)
 {
@@ -29,7 +35,7 @@ AddClothing::AddClothing(QWidget *parent, const QString &clothingType,
 }
 
 AddClothing::AddClothing(QWidget *parent, const QString &clothingType,
-                         const ClothingItem &item, const QStringList &attributes)
+                         const ClothingItem &item, const QList<ClothingAttribute> &attributes)
     : QDialog(parent)
     , ui(new Ui::AddClothing)
 {
@@ -45,14 +51,18 @@ AddClothing::~AddClothing()
     delete ui;
 }
 
-void AddClothing::setupTable(const QString &clothingType, const QStringList &attributes,
+void AddClothing::setupTable(const QString &clothingType,
+                             const QList<ClothingAttribute> &attributes,
                              const ClothingItem *existingItem)
 {
+    QStringList attrNames;
+    for (const ClothingAttribute &attr : attributes)
+        attrNames << attr.name;
+
     QStringList rows;
-    rows << "Type" << "Name" << attributes;
+    rows << "Type" << "Name" << attrNames;
 
     ui->tw_addcloth->setRowCount(rows.size());
-    ui->tw_addcloth->setRowCount(5);
     ui->tw_addcloth->setColumnCount(2);
     ui->tw_addcloth->setHorizontalHeaderLabels(QStringList()
                                                << "Attribute" << "Value");
@@ -63,17 +73,30 @@ void AddClothing::setupTable(const QString &clothingType, const QStringList &att
         attrItem->setFlags(attrItem->flags() & ~Qt::ItemIsEditable);
         ui->tw_addcloth->setItem(row, 0, attrItem);
 
-        QTableWidgetItem *valueItem = new QTableWidgetItem();
         if (attr.compare("Type", Qt::CaseInsensitive) == 0) {
-            valueItem->setText(clothingType);
+            QTableWidgetItem *valueItem = new QTableWidgetItem(clothingType);
             valueItem->setFlags(valueItem->flags() & ~Qt::ItemIsEditable);
-        } else if (existingItem) {
-            if (attr.compare("Name", Qt::CaseInsensitive) == 0)
+            ui->tw_addcloth->setItem(row, 1, valueItem);
+        } else if (attr.compare("Name", Qt::CaseInsensitive) == 0) {
+            QTableWidgetItem *valueItem = new QTableWidgetItem();
+            if (existingItem)
                 valueItem->setText(existingItem->getName());
-            else
-                valueItem->setText(existingItem->getAttribute(attr));
+            ui->tw_addcloth->setItem(row, 1, valueItem);
+        } else {
+            const ClothingAttribute &attribute = attributes[row - 2];
+            if (!attribute.values.isEmpty()) {
+                QComboBox *combo = new QComboBox();
+                combo->addItems(attribute.values);
+                if (existingItem)
+                    combo->setCurrentText(existingItem->getAttribute(attr));
+                ui->tw_addcloth->setCellWidget(row, 1, combo);
+            } else {
+                QLineEdit *edit = new QLineEdit();
+                if (existingItem)
+                    edit->setText(existingItem->getAttribute(attr));
+                ui->tw_addcloth->setCellWidget(row, 1, edit);
+            }
         }
-        ui->tw_addcloth->setItem(row, 1, valueItem);
     }
 
     ui->tw_addcloth->horizontalHeader()->setStretchLastSection(true);
@@ -100,11 +123,21 @@ void AddClothing::on_buttonBox_accepted()
     ClothingItem item(name, type);
     for (int row = 2; row < ui->tw_addcloth->rowCount(); ++row) {
         QTableWidgetItem *attrItem = ui->tw_addcloth->item(row, 0);
-        QTableWidgetItem *valueItem = ui->tw_addcloth->item(row, 1);
-        if (!attrItem || !valueItem)
+        if (!attrItem)
             continue;
+
         QString attrName = attrItem->text();
-        QString attrValue = valueItem->text().trimmed();
+        QString attrValue;
+
+        QWidget *w = ui->tw_addcloth->cellWidget(row, 1);
+        if (QComboBox *combo = qobject_cast<QComboBox*>(w)) {
+            attrValue = combo->currentText().trimmed();
+        } else if (QLineEdit *edit = qobject_cast<QLineEdit*>(w)) {
+            attrValue = edit->text().trimmed();
+        } else if (QTableWidgetItem *valueItem = ui->tw_addcloth->item(row, 1)) {
+            attrValue = valueItem->text().trimmed();
+        }
+
         if (!attrValue.isEmpty())
             item.addAttribute(attrName, attrValue);
     }

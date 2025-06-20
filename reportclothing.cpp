@@ -77,10 +77,7 @@ void ReportClothing::loadClothingTypes()
             display[0] = display[0].toUpper();
         typeNames.append(display);
 
-        QStringList attrs;
-        for (const ClothingAttribute &attr : it.value().attributes)
-            attrs.append(attr.name);
-        clothTypeAttributes[display.toLower()] = attrs;
+        clothTypeAttributes[display.toLower()] = it.value().attributes;
     }
 
     typeNames.sort();
@@ -213,11 +210,13 @@ void ReportClothing::onTypeSelected(const QString &type)
     updateAvailableItems();
     
     // Get attributes for selected type to display them
-    QStringList attributes = clothTypeAttributes.value(type.toLower(), QStringList());
-    
-    // Log the attributes
+    QList<ClothingAttribute> attributes = clothTypeAttributes.value(type.toLower());
+
     if (!attributes.isEmpty()) {
-        qDebug() << "[DEBUG] Attributes for type" << type << ":" << attributes.join(", ");
+        QStringList names;
+        for (const ClothingAttribute &a : attributes)
+            names << a.name;
+        qDebug() << "[DEBUG] Attributes for type" << type << ":" << names.join(", ");
     } else {
         qDebug() << "[DEBUG] No attributes found for type" << type;
     }
@@ -361,7 +360,7 @@ void ReportClothing::openAddClothingDialog()
         return;
     }
 
-    QStringList attributes = clothTypeAttributes.value(selectedType.toLower(), QStringList());
+    QList<ClothingAttribute> attributes = clothTypeAttributes.value(selectedType.toLower());
     AddClothing addClothingDialog(this, selectedType, attributes);
 
     connect(&addClothingDialog, &AddClothing::clothingItemAdded, this, static_cast<void (ReportClothing::*)(const ClothingItem &)>(&ReportClothing::addClothingItemToList));
@@ -424,8 +423,8 @@ void ReportClothing::editSelectedItem()
     for (int i = 0; i < clothingByType[selectedType].size(); i++) {
         if (clothingByType[selectedType][i].getName() == selectedItemName) {
             // Get attributes for the selected type
-            QStringList attributes = clothTypeAttributes.value(selectedType.toLower(), QStringList());
-            
+            QList<ClothingAttribute> attributes = clothTypeAttributes.value(selectedType.toLower());
+
             // Open edit dialog with this item and its attributes
             AddClothing editDialog(this, selectedType, clothingByType[selectedType][i], attributes);
             

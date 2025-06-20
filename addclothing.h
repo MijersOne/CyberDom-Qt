@@ -7,6 +7,7 @@
 #include <QLineEdit>
 #include <QLabel>
 #include "clothingitem.h"
+#include "ScriptData.h"
 
 namespace Ui {
 class AddClothing;
@@ -24,13 +25,13 @@ public:
     // Constructor with attributes list
     AddClothing(QWidget *parent,
                 const QString &selectedType,
-                const QStringList &attributes);
+                const QList<ClothingAttribute> &attributes);
 
     // Constructor for editing an existing clothing item with attributes
     AddClothing(QWidget *parent,
                 const QString &selectedType,
                 const ClothingItem &item,
-                const QStringList &attributes);
+                const QList<ClothingAttribute> &attributes);
     
     ~AddClothing();
 
@@ -56,7 +57,8 @@ private:
     
     void initializeUI(); // Helper to set up the UI
     void loadAttributes();
-    void setupTable(const QString &clothingType, const QStringList &attributes,
+    void setupTable(const QString &clothingType,
+                    const QList<ClothingAttribute> &attributes,
                     const ClothingItem *existingItem = nullptr);
 };
 
