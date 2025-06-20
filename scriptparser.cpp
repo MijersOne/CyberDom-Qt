@@ -68,7 +68,36 @@ QMap<QString, QMap<QString, QStringList>> ScriptParser::parseIniFile(const QStri
     return sections;
 }
 
+QStringList ScriptParser::readIniLines(const QString &path) {
+    QFile file(path);
+    QStringList lines;
+
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        qWarning() << "Failed to open script file:" << path;
+        return lines;
+    }
+
+    QTextStream in(&file);
+    QString basePath = QFileInfo(path).absolutePath();
+
+    while (!in.atEnd()) {
+        QString line = in.readLine().trimmed();
+
+        if (line.startsWith("%include=", Qt::CaseInsensitive)) {
+            QString includedFile = resolveIncludePath(path, line);
+            lines += readIniLines(includedFile);
+            continue;
+        }
+
+        lines << line;
+    }
+
+    file.close();
+    return lines;
+}
+
 bool ScriptParser::parseScript(const QString& path) {
+    scriptFilePath = path;
     auto sections = parseIniFile(path);
     scriptData.rawSections = sections;
 
@@ -83,7 +112,8 @@ bool ScriptParser::parseScript(const QString& path) {
     if (sections.contains("init"))
         parseInitSection(sections["init"]);
 
-    parseClothingTypes(sections);
+    QStringList iniLines = readIniLines(path);
+    parseClothingTypes(iniLines);
     parseStatusSections(sections);
     parseReportSections(sections);
     parseConfessionSections(sections);
@@ -2513,58 +2543,73 @@ void ScriptParser::parseInstructionSets(const QMap<QString, QMap<QString, QStrin
     }
 }
 
-void ScriptParser::parseClothingTypes(const QMap<QString, QMap<QString, QStringList>>& sections) {
-    for (auto it = sections.begin(); it != sections.end(); ++it) {
-        const QString& sectionName = it.key();
-        if (!sectionName.startsWith("clothtype-"))
+void ScriptParser::parseClothingTypes(const QStringList &lines) {
+    QString currentSection;
+    ClothingTypeDefinition type;
+    ClothingAttribute currentAttr;
+    QString currentValue;
+
+    auto finalizeType = [&]() {
+        if (!currentAttr.name.isEmpty()) {
+            type.attributes.append(currentAttr);
+            currentAttr = ClothingAttribute();
+        }
+        if (!type.name.isEmpty())
+            scriptData.clothingTypes.insert(type.name, type);
+        type = ClothingTypeDefinition();
+    };
+
+    for (const QString &rawLine : lines) {
+        QString line = rawLine.trimmed();
+        if (line.isEmpty() || line.startsWith('#') || line.startsWith(';'))
             continue;
 
-        QString typeName = sectionName.mid(QString("clothtype-").length());
-        const QMap<QString, QStringList>& entries = it.value();
-
-        ClothingTypeDefinition type;
-        type.name = typeName;
-
-        ClothingAttribute currentAttr;
-        QString currentValue;
-
-        for (auto keyIt = entries.begin(); keyIt != entries.end(); ++keyIt) {
-            const QString& key = keyIt.key();
-            const QStringList& values = keyIt.value();
-
-            QString keyLower = key.toLower();
-
-            for (const QString& rawValue : values) {
-                QString value = rawValue.trimmed();
-
-                if (keyLower == "attr") {
-                    if (!currentAttr.name.isEmpty())
-                        type.attributes.append(currentAttr);
-                    currentAttr = ClothingAttribute();
-                    currentAttr.name = value;
-                    currentValue.clear();
-                } else if (keyLower == "value") {
-                    currentAttr.values.append(value);
-                    currentValue = value;
-                } else if (keyLower == "check") {
-                    if (currentValue.isEmpty())
-                        type.checks.append(value);
-                    else
-                        type.valueChecks[currentValue].append(value);
-                } else if (keyLower == "flag") {
-                    if (currentValue.isEmpty())
-                        type.topLevelFlags.append(value);
-                    else
-                        type.valueFlags[currentValue].append(value);
-                }
+        if (line.startsWith('[') && line.endsWith(']')) {
+            finalizeType();
+            currentSection = line.mid(1, line.length() - 2).trimmed().toLower();
+            if (currentSection.startsWith("clothtype-")) {
+                type.name = currentSection.mid(QString("clothtype-").length());
+            } else {
+                currentSection.clear();
             }
+            currentAttr = ClothingAttribute();
+            currentValue.clear();
+            continue;
         }
 
-        if (!currentAttr.name.isEmpty())
-            type.attributes.append(currentAttr);
+        if (!currentSection.startsWith("clothtype-"))
+            continue;
 
-        scriptData.clothingTypes.insert(type.name, type);
+        int eq = line.indexOf('=');
+        if (eq == -1)
+            continue;
+
+        QString key = line.left(eq).trimmed();
+        QString value = line.mid(eq + 1).trimmed();
+
+        if (key.compare("Attr", Qt::CaseInsensitive) == 0) {
+            if (!currentAttr.name.isEmpty())
+                type.attributes.append(currentAttr);
+            currentAttr = ClothingAttribute();
+            currentAttr.name = value;
+            currentValue.clear();
+        } else if (key.compare("Value", Qt::CaseInsensitive) == 0) {
+            currentAttr.values.append(value);
+            currentValue = value;
+        } else if (key.compare("Check", Qt::CaseInsensitive) == 0) {
+            if (currentValue.isEmpty())
+                type.checks.append(value);
+            else
+                type.valueChecks[currentValue].append(value);
+        } else if (key.compare("Flag", Qt::CaseInsensitive) == 0) {
+            if (currentValue.isEmpty())
+                type.topLevelFlags.append(value);
+            else
+                type.valueFlags[currentValue].append(value);
+        }
     }
+
+    finalizeType();
 }
 
 void ScriptParser::parseProcedureSections(const QMap<QString, QMap<QString, QStringList>>& sections) {
