@@ -371,6 +371,7 @@ void CyberDom::populateReportMenu()
             continue;
 
         QString label = rep.title.isEmpty() ? rep.name : rep.title;
+        qDebug() << "[ReportMenu] Adding" << rep.name;
         QAction *act = reportMenu->addAction(label);
         connect(act, &QAction::triggered, this, [this, name = rep.name]() {
             openReport(name);
