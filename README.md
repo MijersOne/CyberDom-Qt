@@ -26,3 +26,7 @@ After compiling, execute the generated binary:
 
 - Dynamic **Report** submenu under Communication. Items are populated on startup.
 - The submenu includes **Add Clothing** which opens a popup to create clothing items.
+
+## Debugging
+
+Runtime messages are written to `debug_output.log` in the application directory. Use this log when diagnosing crashes or other issues.

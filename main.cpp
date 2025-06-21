@@ -23,6 +23,7 @@ CyberDom *mainApp = nullptr;
 int main(int argc, char *argv[])
 {
     QApplication a(argc, argv);
+    qInstallMessageHandler(customMessageHandler);
     CyberDom w;
     mainApp = &w;
     w.show();
