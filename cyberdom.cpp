@@ -21,6 +21,7 @@
 #include "questiondialog.h"
 
 #include <QFileDialog>
+#include <QAction>
 #include <QMessageBox>
 #include <QSettings>
 #include <QDebug>
