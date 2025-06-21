@@ -21,3 +21,8 @@ After compiling, execute the generated binary:
 ```bash
 ./CyberDom
 ```
+
+## Features
+
+- Dynamic **Report** submenu under Communication. Items are populated on startup.
+- The submenu includes **Add Clothing** which opens a popup to create clothing items.
