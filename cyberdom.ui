@@ -17,14 +17,14 @@
    <layout class="QVBoxLayout" name="verticalLayout">
     <item>
      <widget class="QLabel" name="lbl_Status">
-      <property name="text">
-       <string>Status:</string>
-      </property>
       <property name="sizePolicy">
        <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
         <horstretch>0</horstretch>
         <verstretch>0</verstretch>
        </sizepolicy>
+      </property>
+      <property name="text">
+       <string>Status:</string>
       </property>
      </widget>
     </item>
@@ -40,14 +40,14 @@
     </item>
     <item>
      <widget class="QProgressBar" name="progressBar">
-      <property name="value">
-       <number>0</number>
-      </property>
       <property name="sizePolicy">
        <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
         <horstretch>0</horstretch>
         <verstretch>0</verstretch>
        </sizepolicy>
+      </property>
+      <property name="value">
+       <number>0</number>
       </property>
      </widget>
     </item>
@@ -55,53 +55,53 @@
      <layout class="QHBoxLayout" name="bottomLayout">
       <item>
        <widget class="QLabel" name="lbl_Merits">
-        <property name="text">
-         <string>Merits:</string>
-        </property>
         <property name="sizePolicy">
          <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
           <horstretch>0</horstretch>
           <verstretch>0</verstretch>
          </sizepolicy>
+        </property>
+        <property name="text">
+         <string>Merits:</string>
         </property>
        </widget>
       </item>
       <item>
        <widget class="QLabel" name="clockLabel">
-        <property name="text">
-         <string>00:00:00</string>
-        </property>
         <property name="sizePolicy">
          <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
           <horstretch>0</horstretch>
           <verstretch>0</verstretch>
          </sizepolicy>
+        </property>
+        <property name="text">
+         <string>00:00:00</string>
         </property>
        </widget>
       </item>
       <item>
        <widget class="QLabel" name="timerLabel">
-        <property name="text">
-         <string>00:00:00</string>
-        </property>
         <property name="sizePolicy">
          <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
           <horstretch>0</horstretch>
           <verstretch>0</verstretch>
          </sizepolicy>
+        </property>
+        <property name="text">
+         <string>00:00:00</string>
         </property>
        </widget>
       </item>
       <item>
        <widget class="QPushButton" name="resetTimer">
-        <property name="text">
-         <string>Reset</string>
-        </property>
         <property name="sizePolicy">
          <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
           <horstretch>0</horstretch>
           <verstretch>0</verstretch>
          </sizepolicy>
+        </property>
+        <property name="text">
+         <string>Reset</string>
         </property>
        </widget>
       </item>
@@ -138,9 +138,14 @@
       <string>Report</string>
      </property>
     </widget>
+    <widget class="QMenu" name="menuConfess">
+     <property name="title">
+      <string>Confess</string>
+     </property>
+    </widget>
     <addaction name="actionAsk_Permission"/>
     <addaction name="actionReport_Clothing"/>
-    <addaction name="actionCofess"/>
+    <addaction name="menuConfess"/>
     <addaction name="actionAsk_for_Clothing_Instructions"/>
     <addaction name="actionAsk_for_Other_Instructions"/>
     <addaction name="actionAsk_for_Punishment"/>
@@ -231,11 +236,6 @@
   <action name="actionReport_Clothing">
    <property name="text">
     <string>Report Clothing</string>
-   </property>
-  </action>
-  <action name="actionCofess">
-   <property name="text">
-    <string>Confess</string>
    </property>
   </action>
   <action name="actionAsk_for_Clothing_Instructions">
@@ -460,6 +460,11 @@
    </property>
   </action>
   <action name="actiontest">
+   <property name="text">
+    <string>test</string>
+   </property>
+  </action>
+  <action name="actiontest_2">
    <property name="text">
     <string>test</string>
    </property>
