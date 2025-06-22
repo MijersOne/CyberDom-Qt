@@ -209,6 +209,7 @@ private:
     void updateAvailableActions();
     void executeStatusEntryProcedures(const QString &statusName);
     void updateStatusDisplay();
+    void playSoundSafe(const QString &filePath);
 
     void populateReportMenu();
 private slots:
