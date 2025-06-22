@@ -52,6 +52,8 @@ CyberDom::CyberDom(QWidget *parent)
     }
 
     reportMenu = ui->menuReport;
+    if (reportMenu)
+        connect(this, &CyberDom::destroyed, reportMenu, &QMenu::clear);
 
     // Connect the menuAssignments action to the slot function
     connect(ui->actionAssignments, &QAction::triggered, this, &CyberDom::openAssignmentsWindow);
@@ -204,6 +206,9 @@ CyberDom::~CyberDom()
         settings.setValue("System/CurrentTime",
                            internalClock.time().toString("hh:mm:ss"));
     }
+
+    if (reportMenu)
+        reportMenu->clear();
 
     delete ui;
     delete scriptParser;
@@ -377,7 +382,8 @@ void CyberDom::populateReportMenu()
 
         QString label = rep.title.isEmpty() ? rep.name : rep.title;
         qDebug() << "[ReportMenu] Adding" << rep.name;
-        QAction *act = reportMenu->addAction(label);
+        QAction *act = new QAction(label, reportMenu);
+        reportMenu->addAction(act);
         connect(act, &QAction::triggered, this, [this, name = rep.name]() {
             openReport(name);
         });

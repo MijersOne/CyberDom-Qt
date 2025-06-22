@@ -44,6 +44,7 @@ void MainWindow::populateReportMenu()
 
     reportMenu->clear();
 
-    QAction *addAct = reportMenu->addAction(tr("Add Clothing"));
+    QAction *addAct = new QAction(tr("Add Clothing"), reportMenu);
+    reportMenu->addAction(addAct);
     connect(addAct, &QAction::triggered, this, &MainWindow::openAddClothingDialog);
 }
