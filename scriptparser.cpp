@@ -3675,6 +3675,10 @@ QList<ClothTypeSection> ScriptParser::getClothTypeSections() const {
     return scriptData.clothingTypes.values();
 }
 
+QList<ConfessionDefinition> ScriptParser::getConfessionSections() const {
+    return scriptData.confessions.values();
+}
+
 QuestionSection ScriptParser::getQuestion(const QString &name) const {
     return scriptData.questions.value(name, QuestionDefinition());
 }

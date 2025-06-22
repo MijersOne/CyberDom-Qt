@@ -34,6 +34,7 @@ public:
     QList<JobDefinition> getJobSections() const;
     QList<PunishmentDefinition> getPunishmentSections() const;
     QList<ClothingTypeDefinition> getClothTypeSections() const;
+    QList<ConfessionDefinition> getConfessionSections() const;
     QuestionDefinition getQuestion(const QString &name) const;
     void setVariable(const QString &name, const QString &value);
 
