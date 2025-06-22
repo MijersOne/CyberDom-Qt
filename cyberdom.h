@@ -186,6 +186,7 @@ private:
 
     // Procedure handling
     void runProcedure(const QString &procedureName);
+    void executeReport(const QString &name);
 
     struct TimerInstance {
         QString name;
