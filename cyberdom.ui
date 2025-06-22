@@ -13,11 +13,6 @@
   <property name="windowTitle">
    <string>CyberDom</string>
   </property>
-  <widget class="QMenu" name="menuReport">
-   <property name="title">
-    <string>Report</string>
-   </property>
-  </widget>
   <widget class="QMenuBar" name="menubar">
    <property name="geometry">
     <rect>
@@ -42,6 +37,11 @@
     <property name="title">
      <string>Communication</string>
     </property>
+    <widget class="QMenu" name="menuReport">
+     <property name="title">
+      <string>Report</string>
+     </property>
+    </widget>
     <addaction name="actionAsk_Permission"/>
     <addaction name="actionReport_Clothing"/>
     <addaction name="actionCofess"/>
@@ -361,6 +361,11 @@
   <action name="actionClothing">
    <property name="text">
     <string>Clothing</string>
+   </property>
+  </action>
+  <action name="actiontest">
+   <property name="text">
+    <string>test</string>
    </property>
   </action>
  </widget>
