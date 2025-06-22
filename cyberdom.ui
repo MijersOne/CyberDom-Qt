@@ -48,7 +48,7 @@
     <addaction name="actionAsk_for_Clothing_Instructions"/>
     <addaction name="actionAsk_for_Other_Instructions"/>
     <addaction name="actionAsk_for_Punishment"/>
-    <addaction name="actionReport"/>
+    <addaction name="menuReport"/>
    </widget>
    <widget class="QMenu" name="menuAssignments">
     <property name="title">
@@ -361,11 +361,6 @@
   <action name="actionClothing">
    <property name="text">
     <string>Clothing</string>
-   </property>
-  </action>
-  <action name="actionReport">
-   <property name="text">
-    <string>Report</string>
    </property>
   </action>
  </widget>
