@@ -44,6 +44,12 @@ CyberDom::CyberDom(QWidget *parent)
 
     ui->setupUi(this);
 
+    // Ensure ScriptParser is available early
+    if (!scriptParser) {
+        scriptParser = new ScriptParser();
+        qDebug() << "[DEBUG] Created ScriptParser in constructor";
+    }
+
     reportMenu = ui->menuReport;
 
     // Connect the menuAssignments action to the slot function
@@ -108,14 +114,16 @@ CyberDom::CyberDom(QWidget *parent)
     }
 
 
-    // Load saved variables from .cds file
-    QString cdsPath = currentIniFile;
-    QRegularExpression rx("\\.ini$", QRegularExpression::CaseInsensitiveOption);
-    cdsPath.replace(rx, ".cds");
-    if (scriptParser->loadFromCDS(cdsPath)) {
-        qDebug() << "[INFO] Loaded saved variables from" << cdsPath;
-    } else {
-        qDebug() << "[INFO] No .cds found (or failed to load) at" << cdsPath;
+    // Load saved variables from .cds file if possible
+    if (scriptParser && !currentIniFile.isEmpty()) {
+        QString cdsPath = currentIniFile;
+        QRegularExpression rx("\\.ini$", QRegularExpression::CaseInsensitiveOption);
+        cdsPath.replace(rx, ".cds");
+        if (scriptParser->loadFromCDS(cdsPath)) {
+            qDebug() << "[INFO] Loaded saved variables from" << cdsPath;
+        } else {
+            qDebug() << "[INFO] No .cds found (or failed to load) at" << cdsPath;
+        }
     }
 
     // Initialize the internal clock
