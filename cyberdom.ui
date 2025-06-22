@@ -13,103 +13,10 @@
   <property name="windowTitle">
    <string>CyberDom</string>
   </property>
-  <widget class="QWidget" name="centralwidget">
-   <widget class="QTextBrowser" name="textBrowser">
-    <property name="geometry">
-     <rect>
-      <x>20</x>
-      <y>50</y>
-      <width>761</width>
-      <height>421</height>
-     </rect>
-    </property>
-   </widget>
-   <widget class="QLabel" name="lbl_Merits">
-    <property name="geometry">
-     <rect>
-      <x>20</x>
-      <y>480</y>
-      <width>121</width>
-      <height>31</height>
-     </rect>
-    </property>
-    <property name="font">
-     <font>
-      <pointsize>16</pointsize>
-     </font>
-    </property>
-    <property name="text">
-     <string>Merits:</string>
-    </property>
-   </widget>
-   <widget class="QProgressBar" name="progressBar">
-    <property name="geometry">
-     <rect>
-      <x>20</x>
-      <y>520</y>
-      <width>761</width>
-      <height>24</height>
-     </rect>
-    </property>
-    <property name="sizePolicy">
-     <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-      <horstretch>0</horstretch>
-      <verstretch>0</verstretch>
-     </sizepolicy>
-    </property>
-    <property name="minimumSize">
-     <size>
-      <width>0</width>
-      <height>0</height>
-     </size>
-    </property>
-    <property name="sizeIncrement">
-     <size>
-      <width>0</width>
-      <height>0</height>
-     </size>
-    </property>
-    <property name="baseSize">
-     <size>
-      <width>0</width>
-      <height>0</height>
-     </size>
-    </property>
-    <property name="value">
-     <number>24</number>
-    </property>
-   </widget>
-   <widget class="QLabel" name="lbl_Status">
-    <property name="geometry">
-     <rect>
-      <x>20</x>
-      <y>10</y>
-      <width>491</width>
-      <height>31</height>
-     </rect>
-    </property>
-    <property name="font">
-     <font>
-      <pointsize>16</pointsize>
-     </font>
-    </property>
-    <property name="text">
-     <string>Status:</string>
-    </property>
-   </widget>
-   <widget class="QLabel" name="clockLabel">
-    <property name="geometry">
-     <rect>
-      <x>690</x>
-      <y>480</y>
-      <width>91</width>
-      <height>20</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>12:00:00 AM</string>
-    </property>
-   </widget>
+  <widget class="QMenu" name="menuReport">
+   <property name="title">
+    <string>Report</string>
+   </property>
   </widget>
   <widget class="QMenuBar" name="menubar">
    <property name="geometry">
@@ -117,7 +24,7 @@
      <x>0</x>
      <y>0</y>
      <width>800</width>
-     <height>21</height>
+     <height>22</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -136,12 +43,12 @@
      <string>Communication</string>
     </property>
     <addaction name="actionAsk_Permission"/>
-    <addaction name="menuReport"/>
     <addaction name="actionReport_Clothing"/>
     <addaction name="actionCofess"/>
     <addaction name="actionAsk_for_Clothing_Instructions"/>
     <addaction name="actionAsk_for_Other_Instructions"/>
     <addaction name="actionAsk_for_Punishment"/>
+    <addaction name="actionReport"/>
    </widget>
    <widget class="QMenu" name="menuAssignments">
     <property name="title">
@@ -225,11 +132,6 @@
     <string>Ask Permission</string>
    </property>
   </action>
-  <widget class="QMenu" name="menuReport">
-   <property name="title">
-    <string>Report</string>
-   </property>
-  </widget>
   <action name="actionReport_Clothing">
    <property name="text">
     <string>Report Clothing</string>
@@ -459,6 +361,11 @@
   <action name="actionClothing">
    <property name="text">
     <string>Clothing</string>
+   </property>
+  </action>
+  <action name="actionReport">
+   <property name="text">
+    <string>Report</string>
    </property>
   </action>
  </widget>
