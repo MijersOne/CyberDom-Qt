@@ -35,6 +35,7 @@
 #include <QAudioOutput>
 #include <QInputDialog>
 #include <QRegularExpression>
+#include <QUrl>
 #include <QCoreApplication>
 
 CyberDom::CyberDom(QWidget *parent)
@@ -298,11 +299,7 @@ void CyberDom::updateInternalClock()
             }
 
             if (!timer.sound.isEmpty()) {
-                auto player = new QMediaPlayer(this);
-                auto audioOutput = new QAudioOutput(this);
-                player->setAudioOutput(audioOutput);
-                player->setSource(QUrl::fromLocalFile(timer.sound));
-                player->play();
+                playSoundSafe(timer.sound);
             }
 
             if (!timer.procedure.isEmpty()) {
@@ -1913,6 +1910,24 @@ void CyberDom::markAssignmentDone(const QString &assignmentName, bool isPunishme
     emit jobListUpdated();
 }
 
+void CyberDom::playSoundSafe(const QString &filePath) {
+    auto player = new QMediaPlayer(this);
+    connect(player,
+            QOverload<QMediaPlayer::Error>::of(&QMediaPlayer::error), this,
+            [player, filePath](QMediaPlayer::Error error) {
+                if (error != QMediaPlayer::NoError) {
+                    qWarning() << "[Audio] Failed to play" << filePath << ":"
+                               << player->errorString();
+                }
+            });
+    player->setMedia(QUrl::fromLocalFile(filePath));
+    player->play();
+    if (player->error() != QMediaPlayer::NoError) {
+        qWarning() << "[Audio] Failed to start playback for" << filePath << ":"
+                   << player->errorString();
+    }
+}
+
 void CyberDom::deleteAssignment(const QString &assignmentName, bool isPunishment)
 {
     QString sectionPrefix = isPunishment ? "punishment-" : "job-";
@@ -2102,11 +2117,7 @@ void CyberDom::runProcedure(const QString &procedureName) {
                 QMessageBox::information(this, "Message", replaceVariables(value));
 
             } else if (key.compare("Sound", Qt::CaseInsensitive) == 0) {
-                auto player = new QMediaPlayer(this);
-                auto audioOutput = new QAudioOutput(this);
-                player->setAudioOutput(audioOutput);
-                player->setSource(QUrl::fromLocalFile(value));
-                player->play();
+                playSoundSafe(value);
 
             } else if (key.compare("Input", Qt::CaseInsensitive) == 0) {
                 bool ok;
