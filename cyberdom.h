@@ -219,6 +219,7 @@ private slots:
     void openAskClothingDialog();
     void openAskInstructionsDialog();
     void openReportClothingDialog();
+    void openAddClothingDialog();
     void setupMenuConnections();
     void openAskPunishmentDialog();
     void openReport(const QString &name);

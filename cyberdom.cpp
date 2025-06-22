@@ -10,6 +10,7 @@
 // #include "ui_assignments.h" // Include the header for Assignments UI
 #include "timeadd.h" // Include the header for Time_Add UI
 #include "about.h" // Include the header for About UI
+#include "addclothing.h" // Include the header for AddClothing UI
 #include "askclothing.h" // Include the header for AskClothing UI
 #include "askinstructions.h" // Include the header for AskInstructions UI
 #include "reportclothing.h" // Include the header for ReportClothing UI
@@ -353,6 +354,12 @@ void CyberDom::openReportClothingDialog()
     delete reportClothingDialog;
 }
 
+void CyberDom::openAddClothingDialog()
+{
+    AddClothing dlg(this, tr("Generic"));
+    dlg.exec();
+}
+
 void CyberDom::openReport(const QString &name)
 {
     if (!scriptParser) {
@@ -366,13 +373,23 @@ void CyberDom::openReport(const QString &name)
 
 void CyberDom::populateReportMenu()
 {
+    // Refresh the pointer each time in case the UI was recreated
+    reportMenu = ui->menuReport;
     if (!reportMenu)
         return;
 
     reportMenu->clear();
 
+    // Optional action always shown at the top of the report list
+    QAction *addClothing = new QAction(tr("Add Clothing"), reportMenu);
+    reportMenu->addAction(addClothing);
+    connect(addClothing, &QAction::triggered, this, &CyberDom::openAddClothingDialog);
+
     if (!scriptParser)
         return;
+
+    // Insert a separator between the static and dynamic items
+    reportMenu->addSeparator();
 
     const auto &reports = scriptParser->getScriptData().reports;
     for (auto it = reports.constBegin(); it != reports.constEnd(); ++it) {
