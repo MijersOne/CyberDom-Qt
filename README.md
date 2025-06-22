@@ -42,4 +42,5 @@ tail -f debug_output.log
 ```
 
 Each menu entry will be listed with a `[ReportMenu]` prefix as it is created. A crash after a specific entry often indicates a problem in the script definition for that report.
-=======
+
+For additional help, review the example scripts included with the project and open an issue if problems persist.

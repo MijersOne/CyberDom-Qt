@@ -1913,14 +1913,14 @@ void CyberDom::markAssignmentDone(const QString &assignmentName, bool isPunishme
 void CyberDom::playSoundSafe(const QString &filePath) {
     auto player = new QMediaPlayer(this);
     connect(player,
-            QOverload<QMediaPlayer::Error>::of(&QMediaPlayer::error), this,
-            [player, filePath](QMediaPlayer::Error error) {
+            &QMediaPlayer::errorOccurred,
+            this,
+            [player, filePath](QMediaPlayer::Error error, const QString &errorString) {
                 if (error != QMediaPlayer::NoError) {
-                    qWarning() << "[Audio] Failed to play" << filePath << ":"
-                               << player->errorString();
+                    qWarning() << "[Audio] Failed to play" << filePath << ":" << errorString;
                 }
             });
-    player->setMedia(QUrl::fromLocalFile(filePath));
+    player->setSource(QUrl::fromLocalFile(filePath));
     player->play();
     if (player->error() != QMediaPlayer::NoError) {
         qWarning() << "[Audio] Failed to start playback for" << filePath << ":"
