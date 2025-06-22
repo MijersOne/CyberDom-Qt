@@ -179,6 +179,7 @@ private:
 
     bool testMenuEnabled = false;
     QMenu *reportMenu = nullptr;
+    QMenu *confessMenu = nullptr;
 
     bool isPunishment = false;
 
@@ -213,6 +214,7 @@ private:
     void playSoundSafe(const QString &filePath);
 
     void populateReportMenu();
+    void populateConfessMenu();
 private slots:
     void applyTimeToClock(int days, int hours, int minutes, int seconds);
     void openAboutDialog();
@@ -231,6 +233,7 @@ private slots:
     void openListFlagsDialog();
     void openSetFlagsDialog();
     void openDeleteAssignmentsDialog();
+    void openConfession(const QString &name);
     void resetApplication();
     void updateMerits(int newMerits);
     void checkPunishments();

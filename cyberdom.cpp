@@ -56,6 +56,10 @@ CyberDom::CyberDom(QWidget *parent)
     if (reportMenu)
         connect(this, &CyberDom::destroyed, reportMenu, &QMenu::clear);
 
+    confessMenu = ui->menuConfess;
+    if (confessMenu)
+        connect(this, &CyberDom::destroyed, confessMenu, &QMenu::clear);
+
     // Connect the menuAssignments action to the slot function
     connect(ui->actionAssignments, &QAction::triggered, this, &CyberDom::openAssignmentsWindow);
 
@@ -210,6 +214,8 @@ CyberDom::~CyberDom()
 
     if (reportMenu)
         reportMenu->clear();
+    if (confessMenu)
+        confessMenu->clear();
 
     delete ui;
     delete scriptParser;
@@ -371,6 +377,12 @@ void CyberDom::openReport(const QString &name)
     executeReport(name);
 }
 
+void CyberDom::openConfession(const QString &name)
+{
+    qDebug() << "[ConfessMenu] Selected confession:" << name;
+    // Placeholder for future implementation
+}
+
 void CyberDom::populateReportMenu()
 {
     // Refresh the pointer each time in case the UI was recreated
@@ -403,6 +415,31 @@ void CyberDom::populateReportMenu()
         reportMenu->addAction(act);
         connect(act, &QAction::triggered, this, [this, name = rep.name]() {
             openReport(name);
+        });
+    }
+}
+
+void CyberDom::populateConfessMenu()
+{
+    confessMenu = ui->menuConfess;
+    if (!confessMenu)
+        return;
+
+    confessMenu->clear();
+
+    if (!scriptParser)
+        return;
+
+    const auto confessions = scriptParser->getConfessionSections();
+    for (const auto &conf : confessions) {
+        if (!conf.showInMenu)
+            continue;
+
+        QString label = conf.title.isEmpty() ? conf.name : conf.title;
+        QAction *act = new QAction(label, confessMenu);
+        confessMenu->addAction(act);
+        connect(act, &QAction::triggered, this, [this, name = conf.name]() {
+            openConfession(name);
         });
     }
 }
@@ -1266,6 +1303,7 @@ void CyberDom::applyScriptSettings() {
     }
 
     populateReportMenu();
+    populateConfessMenu();
 }
 
 void CyberDom::setupInitialStatus() {
