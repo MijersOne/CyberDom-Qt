@@ -356,7 +356,7 @@ void CyberDom::openReport(const QString &name)
     }
 
     qDebug() << "[CyberDom] Opening report:" << name;
-    runProcedure("report-" + name);
+    executeReport(name);
 }
 
 void CyberDom::populateReportMenu()
@@ -2299,6 +2299,57 @@ void CyberDom::saveVariablesToCDS(const QString &cdsPath) {
     }
 
     file.close();
+}
+
+void CyberDom::executeReport(const QString &name) {
+    if (!scriptParser) {
+        qWarning() << "[CyberDom] No script loaded for report:" << name;
+        return;
+    }
+
+    const auto &reports = scriptParser->getScriptData().reports;
+    if (!reports.contains(name)) {
+        qWarning() << "[CyberDom] Report definition not found:" << name;
+        return;
+    }
+
+    const ReportDefinition &rep = reports.value(name);
+
+    int merits = getMeritsFromIni();
+    if (rep.merits.set != 0)
+        merits = rep.merits.set;
+    merits += rep.merits.add;
+    merits -= rep.merits.subtract;
+    merits = std::max(getMinMerits(), std::min(getMaxMerits(), merits));
+    updateMerits(merits);
+
+    auto showMessage = [this](const QString &m) {
+        if (!m.trimmed().isEmpty())
+            QMessageBox::information(this, tr("Report"), replaceVariables(m.trimmed()));
+    };
+
+    for (const QString &txt : rep.statusTexts)
+        showMessage(txt);
+
+    for (const MessageGroup &grp : rep.messages) {
+        if (grp.messages.isEmpty())
+            continue;
+        if (grp.mode == MessageSelectMode::Random) {
+            int idx = QRandomGenerator::global()->bounded(grp.messages.size());
+            showMessage(grp.messages.at(idx));
+        } else {
+            for (const QString &msg : grp.messages)
+                showMessage(msg);
+        }
+    }
+
+    for (const QString &flag : rep.setFlags)
+        setFlag(flag);
+    for (const QString &flag : rep.removeFlags)
+        removeFlag(flag);
+
+    if (!rep.clothingInstruction.isEmpty())
+        updateClothingInstructions(rep.clothingInstruction);
 }
 
 bool CyberDom::loadSessionData(const QString &path) {
