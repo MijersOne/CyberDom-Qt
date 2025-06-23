@@ -17,10 +17,15 @@ About::About(QWidget *parent, const QString &iniFilePath, const QString &version
     ui->lbl_PathDir->setText(iniFilePath);
     ui->lbl_ScriptName->setText(fileInfo.fileName());
 
-    // Read the version from the .ini file and update lbl_SVersionN
-    ui->lbl_SVersionN->setText(version);
+    // Pull the script version from the [General] section.  If a value was
+    // provided via the constructor, use it as a fallback.
+    scriptVersion = settings.value("General/Version", version).toString();
 
-    qDebug() << "Version read from INI:" << version; // Debugging
+    // Update the UI label displaying the script version
+    if (ui->lbl_SVersionN)
+        ui->lbl_SVersionN->setText(scriptVersion);
+
+    qDebug() << "Version read from INI:" << scriptVersion; // Debugging
 }
 
 About::~About()
