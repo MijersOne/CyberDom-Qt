@@ -1200,7 +1200,7 @@ void ScriptParser::parsePermissionSections(const QMap<QString, QMap<QString, QSt
             permission.merits.add = entries.value("AddMerit", entries.value("AddMerits")).value(0).toInt();
 
         if (entries.contains("SubtractMerit") || entries.contains("SubtractMerits"))
-            permission.merits.add = entries.value("SubtractMerit", entries.value("SubtractMerits")).value(0).toInt();
+            permission.merits.subtract = entries.value("SubtractMerit", entries.value("SubtractMerits")).value(0).toInt();
 
         if (entries.contains("SetMerit") || entries.contains("SetMerits"))
             permission.merits.set = entries.value("SetMerit", entries.value("SetMerits")).value(0).toInt();
@@ -1587,7 +1587,7 @@ void ScriptParser::parsePunishmentSections(const QMap<QString, QMap<QString, QSt
             p.merits.add = entries.value("AddMerit", entries.value("AddMerits")).value(0).toInt();
 
         if (entries.contains("SubtractMerit") || entries.contains("SubtractMerits"))
-            p.merits.add = entries.value("SubtractMerit", entries.value("SubtractMerits")).value(0).toInt();
+            p.merits.subtract = entries.value("SubtractMerit", entries.value("SubtractMerits")).value(0).toInt();
 
         if (entries.contains("SetMerit") || entries.contains("SetMerits"))
             p.merits.set = entries.value("SetMerit", entries.value("SetMerits")).value(0).toInt();
