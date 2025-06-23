@@ -2787,12 +2787,18 @@ void CyberDom::onResetSigninTimer() {
 }
 
 int CyberDom::parseTimeToSeconds(const QString &timeStr) const {
-    QTime t = QTime::fromString(timeStr.trimmed(), "H:mm");
+    QTime t = QTime::fromString(timeStr.trimmed(), "H:mm:ss");
+    if (!t.isValid())
+        t = QTime::fromString(timeStr.trimmed(), "HH:mm:ss");
+    if (!t.isValid())
+        t = QTime::fromString(timeStr.trimmed(), "h:mm:ss");
+    if (!t.isValid())
+        t = QTime::fromString(timeStr.trimmed(), "H:mm");
     if (!t.isValid())
         t = QTime::fromString(timeStr.trimmed(), "HH:mm");
     if (!t.isValid())
         return 0;
-    return t.hour() * 3600 + t.minute() * 60;
+    return t.hour() * 3600 + t.minute() * 60 + t.second();
 }
 
 int CyberDom::parseTimeRangeToSeconds(const QString &range) const {
