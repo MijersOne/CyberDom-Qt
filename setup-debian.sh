@@ -3,7 +3,7 @@ set -e
 
 sudo apt-get update
 sudo apt-get install -y \
-    qtbase5-dev qt5-qmake qtchooser libqt5multimedia5-dev
+    qt6-base-dev qt6-multimedia-dev qmake6
 
-echo "Qt packages installed. Run 'cmake ..' inside build directory again."
+echo "Qt packages installed. Run 'cmake ..' inside build directory again or use qmake6."
 
