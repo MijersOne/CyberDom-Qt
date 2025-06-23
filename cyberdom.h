@@ -167,6 +167,11 @@ private:
 
     QMap<QString, FlagData> flags;
     QMap<QString, QDateTime> jobDeadlines;
+    QMap<QString, QDateTime> jobExpiryTimes;
+    QMap<QString, int> jobRemindIntervals; // seconds
+    QMap<QString, QDateTime> jobNextReminds;
+    QMap<QString, int> jobLateMerits;
+    QSet<QString> expiredAssignments;
     QMap<QString, QMap<QString, QString>> iniData;
 
     // Status tracking
@@ -215,6 +220,10 @@ private:
 
     void populateReportMenu();
     void populateConfessMenu();
+
+    int parseTimeToSeconds(const QString &timeStr) const;
+    int parseTimeRangeToSeconds(const QString &range) const;
+    int randomIntFromRange(const QString &range) const;
 private slots:
     void applyTimeToClock(int days, int hours, int minutes, int seconds);
     void openAboutDialog();

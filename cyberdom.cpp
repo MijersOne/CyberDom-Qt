@@ -20,6 +20,7 @@
 #include "deleteassignments.h" // Include the header for DeleteAssignments UI
 #include "clothingitem.h"
 #include "questiondialog.h"
+#include "ScriptUtils.h"
 
 #include <QFileDialog>
 #include <QAction>
@@ -1639,6 +1640,20 @@ void CyberDom::addJobToAssignments(QString jobName)
 
                     jobDeadlines[jobName] = deadline;
                     qDebug() << "[DEBUG] Job deadline set: " << jobName << " - " << deadline.toString("MM-dd-yyyy hh:mm AP");
+
+                    if (jobDetails.contains("ExpireAfter")) {
+                        int expireSec = parseTimeRangeToSeconds(jobDetails["ExpireAfter"]);
+                        if (expireSec > 0)
+                            jobExpiryTimes[jobName] = deadline.addSecs(expireSec);
+                    }
+                    if (jobDetails.contains("RemindInterval")) {
+                        int intervalSec = parseTimeRangeToSeconds(jobDetails["RemindInterval"]);
+                        if (intervalSec > 0)
+                            jobRemindIntervals[jobName] = intervalSec;
+                    }
+                    if (jobDetails.contains("LateMerits")) {
+                        jobLateMerits[jobName] = randomIntFromRange(jobDetails["LateMerits"]);
+                    }
                 } else {
                     qDebug() << "[DEBUG] Invalid EndTime format for job: " << jobName;
                 }
@@ -1653,16 +1668,67 @@ void CyberDom::addJobToAssignments(QString jobName)
 }
 
 void CyberDom::checkPunishments() {
-    QDateTime now = QDateTime::currentDateTime();
+    QDateTime now = internalClock;
 
-    // Check if any punishments have reached their deadline
-    for (const QString &jobName : activeAssignments) {
-        if (jobDeadlines.contains(jobName) && jobDeadlines[jobName] <= now) {
-            // Handle completed punishments (e.g., remove from activeJobs, show a message)
-            qDebug() << "Punishment completed: " << jobName;
-            activeAssignments.remove(jobName);
-            jobDeadlines.remove(jobName);
-            emit jobListUpdated(); // Update the Assignments window
+    for (const QString &name : activeAssignments) {
+        if (!jobDeadlines.contains(name))
+            continue;
+
+        QDateTime deadline = jobDeadlines[name];
+        if (now < deadline)
+            continue;
+
+        QString section;
+        if (iniData.contains("job-" + name))
+            section = "job-" + name;
+        else if (iniData.contains("punishment-" + name))
+            section = "punishment-" + name;
+        if (section.isEmpty())
+            continue;
+
+        QMap<QString, QString> details = iniData[section];
+        QSettings settings(settingsFile, QSettings::IniFormat);
+
+        if (!expiredAssignments.contains(name)) {
+            expiredAssignments.insert(name);
+            if (jobLateMerits.contains(name)) {
+                int current = settings.value("User/Merits", maxMerits / 2).toInt();
+                current -= jobLateMerits[name];
+                if (current < minMerits) current = minMerits;
+                settings.setValue("User/Merits", current);
+                updateMerits(current);
+            }
+            if (jobRemindIntervals.contains(name))
+                jobNextReminds[name] = now.addSecs(jobRemindIntervals[name]);
+        } else if (jobRemindIntervals.contains(name) && now >= jobNextReminds.value(name)) {
+            QMessageBox::information(this, "Assignment Late", QString("You are late completing %1").arg(name));
+            if (details.contains("RemindPenalty")) {
+                int sev = randomIntFromRange(details["RemindPenalty"]);
+                QString grp = details.value("RemindPenaltyGroup");
+                if (sev > 0)
+                    applyPunishment(sev, grp);
+            }
+            jobNextReminds[name] = now.addSecs(jobRemindIntervals[name]);
+        }
+
+        if (jobExpiryTimes.contains(name) && now >= jobExpiryTimes[name]) {
+            if (details.contains("ExpirePenalty")) {
+                int sev = randomIntFromRange(details["ExpirePenalty"]);
+                QString grp = details.value("ExpirePenaltyGroup");
+                if (sev > 0)
+                    applyPunishment(sev, grp);
+            }
+            if (details.contains("ExpireProcedure"))
+                runProcedure(details["ExpireProcedure"]);
+
+            activeAssignments.remove(name);
+            jobDeadlines.remove(name);
+            jobExpiryTimes.remove(name);
+            jobRemindIntervals.remove(name);
+            jobNextReminds.remove(name);
+            jobLateMerits.remove(name);
+            expiredAssignments.remove(name);
+            emit jobListUpdated();
         }
     }
 }
@@ -1720,6 +1786,19 @@ void CyberDom::addPunishmentToAssignments(const QString &punishmentName, int amo
                 }
 
                 jobDeadlines[punishmentName] = deadline;
+                if (punishmentDetails.contains("ExpireAfter")) {
+                    int expireSec = parseTimeRangeToSeconds(punishmentDetails["ExpireAfter"]);
+                    if (expireSec > 0)
+                        jobExpiryTimes[punishmentName] = deadline.addSecs(expireSec);
+                }
+                if (punishmentDetails.contains("RemindInterval")) {
+                    int intervalSec = parseTimeRangeToSeconds(punishmentDetails["RemindInterval"]);
+                    if (intervalSec > 0)
+                        jobRemindIntervals[punishmentName] = intervalSec;
+                }
+                if (punishmentDetails.contains("LateMerits")) {
+                    jobLateMerits[punishmentName] = randomIntFromRange(punishmentDetails["LateMerits"]);
+                }
                 break;
             }
         }
@@ -1949,8 +2028,12 @@ void CyberDom::markAssignmentDone(const QString &assignmentName, bool isPunishme
     // Remove from active assignments
     activeAssignments.remove(assignmentName);
 
-    // Remove from deadlines
+    // Remove from deadlines and tracking
     jobDeadlines.remove(assignmentName);
+    jobExpiryTimes.remove(assignmentName);
+    jobRemindIntervals.remove(assignmentName);
+    jobNextReminds.remove(assignmentName);
+    expiredAssignments.remove(assignmentName);
 
     // Cleanup any flags
     QString startFlagName = (isPunishment ? "punishment_" : "job_") + assignmentName + "_started";
@@ -1984,6 +2067,16 @@ void CyberDom::markAssignmentDone(const QString &assignmentName, bool isPunishme
 
             updateMerits(currentMerits);
         }
+    }
+
+    if (jobLateMerits.contains(assignmentName)) {
+        int restore = jobLateMerits.take(assignmentName);
+        int currentMerits = settings.value("User/Merits", maxMerits / 2).toInt();
+        currentMerits += restore;
+        if (currentMerits > maxMerits) currentMerits = maxMerits;
+        if (currentMerits < minMerits) currentMerits = minMerits;
+        settings.setValue("User/Merits", currentMerits);
+        updateMerits(currentMerits);
     }
 
     // Execute DoneProcedure if specified
@@ -2037,6 +2130,11 @@ void CyberDom::deleteAssignment(const QString &assignmentName, bool isPunishment
 
     activeAssignments.remove(assignmentName);
     jobDeadlines.remove(assignmentName);
+    jobExpiryTimes.remove(assignmentName);
+    jobRemindIntervals.remove(assignmentName);
+    jobNextReminds.remove(assignmentName);
+    jobLateMerits.remove(assignmentName);
+    expiredAssignments.remove(assignmentName);
 
     QString startFlagName = (isPunishment ? "punishment_" : "job_") + assignmentName + "_started";
     removeFlag(startFlagName);
@@ -2503,6 +2601,38 @@ bool CyberDom::loadSessionData(const QString &path) {
         }
     }
     session.endGroup(); // Deadlines
+
+    session.beginGroup("Expiry");
+    const QStringList expKeys = session.childKeys();
+    for (const QString &key : expKeys) {
+        QDateTime dt = QDateTime::fromString(session.value(key).toString(), Qt::ISODate);
+        if (dt.isValid())
+            jobExpiryTimes[key] = dt;
+    }
+    session.endGroup();
+
+    session.beginGroup("RemindIntervals");
+    const QStringList riKeys = session.childKeys();
+    for (const QString &key : riKeys) {
+        jobRemindIntervals[key] = session.value(key).toInt();
+    }
+    session.endGroup();
+
+    session.beginGroup("NextReminds");
+    const QStringList nrKeys = session.childKeys();
+    for (const QString &key : nrKeys) {
+        QDateTime dt = QDateTime::fromString(session.value(key).toString(), Qt::ISODate);
+        if (dt.isValid())
+            jobNextReminds[key] = dt;
+    }
+    session.endGroup();
+
+    session.beginGroup("LateMerits");
+    const QStringList lmKeys = session.childKeys();
+    for (const QString &key : lmKeys) {
+        jobLateMerits[key] = session.value(key).toInt();
+    }
+    session.endGroup();
     session.endGroup(); // Assignments
 
     if (script.isEmpty())
@@ -2552,6 +2682,26 @@ void CyberDom::saveSessionData(const QString &path) const {
         session.setValue(it.key(), it.value().toString(Qt::ISODate));
     }
     session.endGroup(); // Deadlines
+    session.beginGroup("Expiry");
+    for (auto it = jobExpiryTimes.constBegin(); it != jobExpiryTimes.constEnd(); ++it) {
+        session.setValue(it.key(), it.value().toString(Qt::ISODate));
+    }
+    session.endGroup(); // Expiry
+    session.beginGroup("RemindIntervals");
+    for (auto it = jobRemindIntervals.constBegin(); it != jobRemindIntervals.constEnd(); ++it) {
+        session.setValue(it.key(), it.value());
+    }
+    session.endGroup();
+    session.beginGroup("NextReminds");
+    for (auto it = jobNextReminds.constBegin(); it != jobNextReminds.constEnd(); ++it) {
+        session.setValue(it.key(), it.value().toString(Qt::ISODate));
+    }
+    session.endGroup();
+    session.beginGroup("LateMerits");
+    for (auto it = jobLateMerits.constBegin(); it != jobLateMerits.constEnd(); ++it) {
+        session.setValue(it.key(), it.value());
+    }
+    session.endGroup();
     session.endGroup(); // Assignments
     session.sync();
 
@@ -2562,4 +2712,33 @@ void CyberDom::saveSessionData(const QString &path) const {
     } else {
         qDebug() << "[CyberDom] Session data saved to" << path;
     }
+}
+
+int CyberDom::parseTimeToSeconds(const QString &timeStr) const {
+    QTime t = QTime::fromString(timeStr.trimmed(), "H:mm");
+    if (!t.isValid())
+        t = QTime::fromString(timeStr.trimmed(), "HH:mm");
+    if (!t.isValid())
+        return 0;
+    return t.hour() * 3600 + t.minute() * 60;
+}
+
+int CyberDom::parseTimeRangeToSeconds(const QString &range) const {
+    QStringList parts = range.split(',', Qt::SkipEmptyParts);
+    if (parts.size() == 2) {
+        int minSec = parseTimeToSeconds(parts[0]);
+        int maxSec = parseTimeToSeconds(parts[1]);
+        return ScriptUtils::randomInRange(minSec, maxSec, false);
+    }
+    return parseTimeToSeconds(range);
+}
+
+int CyberDom::randomIntFromRange(const QString &range) const {
+    QStringList parts = range.split(',', Qt::SkipEmptyParts);
+    if (parts.size() == 2) {
+        int min = parts[0].toInt();
+        int max = parts[1].toInt();
+        return ScriptUtils::randomInRange(min, max, false);
+    }
+    return range.toInt();
 }
