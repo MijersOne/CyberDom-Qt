@@ -54,8 +54,22 @@ void Rules::updateRulesDialog(RuleCategory category)
         }
         break;
     case Confessions:
-        ui->lbl_Permission->setText("Confessions Rules");
-        ui->lw_Permissions->addItems({"Confession 1", "Confession 2"});
+        ui->lbl_Permission->setText("Confess when:");
+        if (mainWin) {
+            ScriptParser *parser = mainWin->getScriptParser();
+            if (parser) {
+                const auto &confs = parser->getScriptData().confessions;
+                QStringList items;
+                for (auto it = confs.constBegin(); it != confs.constEnd(); ++it) {
+                    const ConfessionDefinition &conf = it.value();
+                    if (!conf.title.isEmpty())
+                        items << conf.title;
+                    else
+                        items << conf.name;
+                }
+                ui->lw_Permissions->addItems(items);
+            }
+        }
         break;
     case Clothing:
         ui->lbl_Permission->setText("Clothing Rules");
