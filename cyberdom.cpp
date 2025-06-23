@@ -876,24 +876,7 @@ void CyberDom::updateStatus(const QString &newStatus) {
     qDebug() << "Updated Status Label: " << formattedStatus;
 
     StatusSection status = scriptParser->getStatus(currentStatus);
-    if (!status.signinIntervalMin.isEmpty()) {
-        signinRemainingSecs = parseTimeRangeToSeconds(status.signinIntervalMin + "," + status.signinIntervalMax);
-        ui->timerLabel->setStyleSheet("");
-        QTime t(0, 0);
-        t = t.addSecs(signinRemainingSecs);
-        ui->timerLabel->setText(t.toString("hh:mm:ss"));
-        if (signinTimer)
-            signinTimer->start(1000);
-        ui->timerLabel->show();
-        ui->resetTimer->show();
-        ui->lbl_Timer->show();
-    } else {
-        if (signinTimer)
-            signinTimer->stop();
-        ui->timerLabel->hide();
-        ui->resetTimer->hide();
-        ui->lbl_Timer->hide();
-    }
+    updateSigninWidgetsVisibility(status);
 }
 
 void CyberDom::updateStatusText() {
@@ -1391,6 +1374,9 @@ void CyberDom::changeStatus(const QString &newStatus, bool isSubStatus) {
     QString oldStatus = currentStatus;
     currentStatus = newStatus;
 
+    StatusSection status = scriptParser->getStatus(currentStatus);
+    updateSigninWidgetsVisibility(status);
+
     // Update UI elements based on new status
     updateStatusDisplay();
     updateAvailableActions();
@@ -1446,18 +1432,24 @@ void CyberDom::updateStatusDisplay() {
     updateStatusText();
 
     StatusSection status = scriptParser->getStatus(currentStatus);
+    updateSigninWidgetsVisibility(status);
+}
+
+void CyberDom::updateSigninWidgetsVisibility(const StatusSection &status) {
     if (!status.signinIntervalMin.isEmpty()) {
         signinRemainingSecs = parseTimeRangeToSeconds(status.signinIntervalMin + "," + status.signinIntervalMax);
         ui->timerLabel->setStyleSheet("");
         QTime t(0, 0);
         t = t.addSecs(signinRemainingSecs);
         ui->timerLabel->setText(t.toString("hh:mm:ss"));
-        signinTimer->start(1000);
+        if (signinTimer)
+            signinTimer->start(1000);
         ui->timerLabel->show();
         ui->resetTimer->show();
         ui->lbl_Timer->show();
     } else {
-        signinTimer->stop();
+        if (signinTimer)
+            signinTimer->stop();
         ui->timerLabel->hide();
         ui->resetTimer->hide();
         ui->lbl_Timer->hide();
