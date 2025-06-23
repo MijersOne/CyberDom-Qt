@@ -36,8 +36,22 @@ void Rules::updateRulesDialog(RuleCategory category)
         }
         break;
     case Reports:
-        ui->lbl_Permission->setText("Reports Rules");
-        ui->lw_Permissions->addItems({"Report X", "Report Y", "Report Z"});
+        ui->lbl_Permission->setText("Report when:");
+        if (mainWin) {
+            ScriptParser *parser = mainWin->getScriptParser();
+            if (parser) {
+                const auto &reports = parser->getScriptData().reports;
+                QStringList items;
+                for (auto it = reports.constBegin(); it != reports.constEnd(); ++it) {
+                    const ReportDefinition &rep = it.value();
+                    if (!rep.title.isEmpty())
+                        items << rep.title;
+                    else
+                        items << rep.name;
+                }
+                ui->lw_Permissions->addItems(items);
+            }
+        }
         break;
     case Confessions:
         ui->lbl_Permission->setText("Confessions Rules");
