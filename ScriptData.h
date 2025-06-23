@@ -460,6 +460,7 @@ struct InitSettings {
 
 struct EventSettings {
     QString firstRunProcedure;
+    QString signIn;
 };
 
 struct StatusDefinition {
