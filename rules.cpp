@@ -110,8 +110,24 @@ void Rules::updateRulesDialog(RuleCategory category)
         }
         break;
     case OtherRules:
-        ui->lbl_Permission->setText("Other Rules");
-        ui->lw_Permissions->addItems({"Other Rule 1", "Other Rule 2"});
+        ui->lbl_Permission->setText("always obey these Rules:");
+        if (mainWin) {
+            ScriptParser *parser = mainWin->getScriptParser();
+            if (parser) {
+                QStringList sections = parser->getRawSectionNames();
+                QStringList items;
+                for (const QString &sec : sections) {
+                    if (!sec.startsWith("rule-", Qt::CaseInsensitive))
+                        continue;
+
+                    QString title = parser->getIniValue(sec, "Title");
+                    if (title.isEmpty())
+                        title = sec.mid(QStringLiteral("rule-").length());
+                    items << title;
+                }
+                ui->lw_Permissions->addItems(items);
+            }
+        }
         break;
     }
 
