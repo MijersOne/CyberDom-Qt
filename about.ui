@@ -113,10 +113,10 @@
      <pointsize>12</pointsize>
     </font>
    </property>
-   <property name="text">
-    <string>TextLabel</string>
-   </property>
-  </widget>
+  <property name="text">
+    <string>Unknown</string>
+  </property>
+ </widget>
   <widget class="QLabel" name="lbl_SVersion">
    <property name="geometry">
     <rect>
@@ -150,7 +150,7 @@
     </font>
    </property>
    <property name="text">
-    <string>TextLabel</string>
+    <string>Unknown</string>
    </property>
   </widget>
   <widget class="QLabel" name="lbl_Path">

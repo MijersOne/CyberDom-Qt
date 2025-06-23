@@ -18,6 +18,7 @@ public:
 
 private:
     Ui::About *ui;
+    QString scriptVersion;
 };
 
 #endif // ABOUT_H
