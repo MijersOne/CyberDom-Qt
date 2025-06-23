@@ -1548,24 +1548,26 @@ void CyberDom::assignScheduledJobs() {
     QDateTime currentTime = QDateTime::currentDateTime();
 
     for (const QString &job : iniData.keys()) {
-        if (!job.startsWith("job-")) continue;
+        if (!job.startsWith("job-"))
+            continue;
 
+        const QString jobName = job.mid(4); // strip "job-" prefix
         QMap<QString, QString> jobDetails = iniData[job];
 
         // Run Daily Jobs
         if (jobDetails.contains("Run") && jobDetails["Run"] == "Daily") {
-            if (!activeAssignments.contains(job)) {
-                activeAssignments.insert(job);
-                qDebug() << "[DEBUG] Job Auto-Assigned (Daily Run): " << job;
+            if (!activeAssignments.contains(jobName)) {
+                activeAssignments.insert(jobName);
+                qDebug() << "[DEBUG] Job Auto-Assigned (Daily Run): " << jobName;
             }
         }
 
         // Run Jobs at Specific Intervals
         if (jobDetails.contains("FirstInterval")) {
             QTime jobStartTime = QTime::fromString(jobDetails["FirstInterval"], "hh:mm");
-            if (currentTime.time() >= jobStartTime && !activeAssignments.contains(job)) {
-                activeAssignments.insert(job);
-                qDebug() << "[DEBUG] Job Auto-Assigned (First Interval): " << job;
+            if (currentTime.time() >= jobStartTime && !activeAssignments.contains(jobName)) {
+                activeAssignments.insert(jobName);
+                qDebug() << "[DEBUG] Job Auto-Assigned (First Interval): " << jobName;
             }
         }
     }
@@ -2475,13 +2477,29 @@ bool CyberDom::loadSessionData(const QString &path) {
                               Qt::ISODate);
     session.beginGroup("Assignments");
     QStringList assignments = session.value("ActiveJobs").toStringList();
-    activeAssignments = QSet<QString>(assignments.begin(), assignments.end());
+    QSet<QString> loadedAssignments;
+    for (const QString &name : assignments) {
+        if (name.startsWith("job-"))
+            loadedAssignments.insert(name.mid(4));
+        else if (name.startsWith("punishment-"))
+            loadedAssignments.insert(name.mid(11));
+        else
+            loadedAssignments.insert(name);
+    }
+    activeAssignments = loadedAssignments;
+
     session.beginGroup("Deadlines");
     const QStringList deadlineKeys = session.childKeys();
     for (const QString &key : deadlineKeys) {
         QDateTime dt = QDateTime::fromString(session.value(key).toString(), Qt::ISODate);
         if (dt.isValid()) {
-            jobDeadlines[key] = dt;
+            QString cleanKey = key;
+            if (cleanKey.startsWith("job-"))
+                cleanKey = cleanKey.mid(4);
+            else if (cleanKey.startsWith("punishment-"))
+                cleanKey = cleanKey.mid(11);
+
+            jobDeadlines[cleanKey] = dt;
         }
     }
     session.endGroup(); // Deadlines
