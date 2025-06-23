@@ -472,10 +472,16 @@ void ScriptParser::parseStatusSections(const QMap<QString, QMap<QString, QString
         if (entries.contains("Question"))
             status.advancedQuestions.append(entries["Question"]);
 
-        if (entries.contains("SigninInterval") || entries.contains("SignInInterval")) {
-            QStringList parts = entries.contains("SigninInterval")
-                                   ? entries["SigninInterval"].value(0).split(',', Qt::SkipEmptyParts)
-                                   : entries["SignInInterval"].value(0).split(',', Qt::SkipEmptyParts);
+        QString signinKey;
+        for (auto keyIt = entries.constBegin(); keyIt != entries.constEnd(); ++keyIt) {
+            QString lower = keyIt.key().toLower();
+            if (lower == "signininterval" || lower == "signinininterval") {
+                signinKey = keyIt.key();
+                break;
+            }
+        }
+        if (!signinKey.isEmpty()) {
+            QStringList parts = entries[signinKey].value(0).split(',', Qt::SkipEmptyParts);
             status.signinIntervalMin = parts.value(0).trimmed();
             status.signinIntervalMax = parts.value(1, parts.value(0)).trimmed();
         }
