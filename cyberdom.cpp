@@ -1665,7 +1665,7 @@ void CyberDom::checkPunishments() {
     }
 }
 
-void CyberDom::addPunishmentToAssignments(QString punishmentName)
+void CyberDom::addPunishmentToAssignments(const QString &punishmentName, int amount)
 {
     if (!activeAssignments.contains(punishmentName)) {
         activeAssignments.insert(punishmentName);
@@ -1701,22 +1701,20 @@ void CyberDom::addPunishmentToAssignments(QString punishmentName)
                 // Check if punishment has a ValueUnit of time
                 else if (punishmentDetails.contains("ValueUnit")) {
                     QString valueUnit = punishmentDetails["ValueUnit"];
-                    int value = 0;
+                    int value = punishmentDetails.value("value", "0").toInt();
 
-                    // Get the severity/value
-                    if (punishmentDetails.contains("value")) {
-                        value = punishmentDetails["value"].toInt();
+                    int total = value * amount;
+
+                    if (valueUnit.compare("minute", Qt::CaseInsensitive) == 0) {
+                        deadline = deadline.addSecs(total * 60);
+                    } else if (valueUnit.compare("hour", Qt::CaseInsensitive) == 0) {
+                        deadline = deadline.addSecs(total * 3600);
+                    } else if (valueUnit.compare("day", Qt::CaseInsensitive) == 0) {
+                        deadline = deadline.addDays(total);
                     }
 
-                    if (valueUnit.toLower() == "minute") {
-                        deadline = deadline.addSecs(value * 60);
-                    } else if (valueUnit.toLower() == "hour") {
-                        deadline = deadline.addSecs(value * 3600);
-                    } else if (valueUnit.toLower() == "day") {
-                        deadline = deadline.addDays(value);
-                    }
-
-                    qDebug() << "[DEBUG] Punishment deadline set from ValueUnit: " << deadline.toString("MM-dd-yyyy hh:mm AP");
+                    qDebug() << "[DEBUG] Punishment deadline set from ValueUnit: " << deadline.toString("MM-dd-yyyy hh:mm AP")
+                               << " amount:" << amount;
                 }
 
                 jobDeadlines[punishmentName] = deadline;
@@ -1739,9 +1737,34 @@ void CyberDom::applyPunishment(int severity, const QString &group)
 {
     // Choose a punishment based on severity and group
     QString punishmentName = selectPunishmentFromGroup(severity, group);
+    if (punishmentName.isEmpty())
+        return;
 
-    if (!punishmentName.isEmpty()) {
-        addPunishmentToAssignments(punishmentName);
+    QString key = "punishment-" + punishmentName;
+    QMap<QString, QString> details;
+    for (auto it = iniData.constBegin(); it != iniData.constEnd(); ++it) {
+        if (it.key().compare(key, Qt::CaseInsensitive) == 0) {
+            details = it.value();
+            break;
+        }
+    }
+
+    int value = details.value("value", "1").toInt();
+    if (value <= 0)
+        value = 1;
+    int min = details.value("min", "1").toInt();
+    int max = details.value("max", QString::number(min)).toInt();
+
+    int remaining = severity;
+    while (remaining > 0) {
+        int amount = remaining / value;
+        if (amount < min)
+            amount = min;
+        if (amount > max)
+            amount = max;
+
+        addPunishmentToAssignments(punishmentName, amount);
+        remaining -= amount * value;
     }
 }
 
@@ -2268,6 +2291,13 @@ void CyberDom::runProcedure(const QString &procedureName) {
                                 runProcedure(procedureName);
                             } else if (procedureName == "*") {
                                 qDebug() << "[DEBUG] Inline procedure selected - continuing";
+                            }
+
+                            if (answerBlock.punishMin > 0 || answerBlock.punishMax > 0) {
+                                int minS = answerBlock.punishMin;
+                                int maxS = qMax(answerBlock.punishMax, minS);
+                                int severity = QRandomGenerator::global()->bounded(maxS - minS + 1) + minS;
+                                applyPunishment(severity);
                             }
                             break;
                         }

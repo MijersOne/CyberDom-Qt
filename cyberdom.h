@@ -58,7 +58,7 @@ public:
     void assignJobFromTrigger(QString section);
     void assignScheduledJobs();
     void addJobToAssignments(QString assignmentName);
-    void addPunishmentToAssignments(QString punishmentName);
+    void addPunishmentToAssignments(const QString &punishmentName, int amount = 1);
     void applyPunishment(int severity, const QString &group = QString());
 
     QString selectPunishmentFromGroup(int severity, const QString &group);
