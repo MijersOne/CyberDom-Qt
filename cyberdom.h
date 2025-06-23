@@ -181,6 +181,8 @@ private:
     // Timers
     QTimer *punishmentTimer;
     QTimer *flagTimer;
+    QTimer *signinTimer;
+    int signinRemainingSecs = 0;
 
     bool testMenuEnabled = false;
     QMenu *reportMenu = nullptr;
@@ -247,6 +249,8 @@ private slots:
     void updateMerits(int newMerits);
     void checkPunishments();
     void checkFlagExpiry();
+    void updateSigninTimer();
+    void onResetSigninTimer();
 };
 
 #endif // CYBERDOM_H

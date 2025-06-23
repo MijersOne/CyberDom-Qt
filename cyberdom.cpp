@@ -21,6 +21,7 @@
 #include "clothingitem.h"
 #include "questiondialog.h"
 #include "ScriptUtils.h"
+#include <QtMath>
 
 #include <QFileDialog>
 #include <QAction>
@@ -180,6 +181,13 @@ CyberDom::CyberDom(QWidget *parent)
     flagTimer = new QTimer(this);
     connect(flagTimer, &QTimer::timeout, this, &CyberDom::checkFlagExpiry);
     flagTimer->start(30000); // Check every 30 seconds
+
+    // Signin timer setup
+    signinTimer = new QTimer(this);
+    connect(signinTimer, &QTimer::timeout, this, &CyberDom::updateSigninTimer);
+    connect(ui->resetTimer, &QPushButton::clicked, this, &CyberDom::onResetSigninTimer);
+    ui->timerLabel->hide();
+    ui->resetTimer->hide();
 
     // Debugging values to confirm override
     qDebug() << "CyberDom initialized with Min Merits:" << minMerits << "Max Merits:" << maxMerits;
@@ -865,6 +873,22 @@ void CyberDom::updateStatus(const QString &newStatus) {
     settings.setValue("User/CurrentStatus", currentStatus);
 
     qDebug() << "Updated Status Label: " << formattedStatus;
+
+    StatusSection status = scriptParser->getStatus(currentStatus);
+    if (!status.signinIntervalMin.isEmpty()) {
+        signinRemainingSecs = parseTimeRangeToSeconds(status.signinIntervalMin + "," + status.signinIntervalMax);
+        ui->timerLabel->setStyleSheet("");
+        QTime t(0, 0);
+        t = t.addSecs(signinRemainingSecs);
+        ui->timerLabel->setText(t.toString("hh:mm:ss"));
+        signinTimer->start(1000);
+        ui->timerLabel->show();
+        ui->resetTimer->show();
+    } else {
+        signinTimer->stop();
+        ui->timerLabel->hide();
+        ui->resetTimer->hide();
+    }
 }
 
 void CyberDom::updateStatusText() {
@@ -1415,6 +1439,22 @@ void CyberDom::updateStatusDisplay() {
 
     // Update the text box with the Status text
     updateStatusText();
+
+    StatusSection status = scriptParser->getStatus(currentStatus);
+    if (!status.signinIntervalMin.isEmpty()) {
+        signinRemainingSecs = parseTimeRangeToSeconds(status.signinIntervalMin + "," + status.signinIntervalMax);
+        ui->timerLabel->setStyleSheet("");
+        QTime t(0, 0);
+        t = t.addSecs(signinRemainingSecs);
+        ui->timerLabel->setText(t.toString("hh:mm:ss"));
+        signinTimer->start(1000);
+        ui->timerLabel->show();
+        ui->resetTimer->show();
+    } else {
+        signinTimer->stop();
+        ui->timerLabel->hide();
+        ui->resetTimer->hide();
+    }
 }
 
 void CyberDom::updateAvailableActions() {
@@ -2712,6 +2752,38 @@ void CyberDom::saveSessionData(const QString &path) const {
     } else {
         qDebug() << "[CyberDom] Session data saved to" << path;
     }
+}
+
+void CyberDom::updateSigninTimer() {
+    signinRemainingSecs--;
+
+    int displaySecs = qAbs(signinRemainingSecs);
+    QTime t(0, 0);
+    t = t.addSecs(displaySecs);
+    ui->timerLabel->setText(t.toString("hh:mm:ss"));
+
+    if (signinRemainingSecs <= 0)
+        ui->timerLabel->setStyleSheet("QLabel { color: red; }");
+}
+
+void CyberDom::onResetSigninTimer() {
+    StatusSection status = scriptParser->getStatus(currentStatus);
+    if (status.signinIntervalMin.isEmpty())
+        return;
+
+    if (signinRemainingSecs <= 0) {
+        int lateMinutes = qCeil((-signinRemainingSecs) / 60.0);
+        int severity = status.signinPenalty1 + lateMinutes * status.signinPenalty2;
+        applyPunishment(severity, status.signinPenaltyGroup);
+    }
+
+    signinRemainingSecs = parseTimeRangeToSeconds(status.signinIntervalMin + "," + status.signinIntervalMax);
+    ui->timerLabel->setStyleSheet("");
+    signinTimer->start(1000);
+
+    QString proc = scriptParser->getScriptData().eventHandlers.signIn;
+    if (!proc.isEmpty())
+        runProcedure(proc);
 }
 
 int CyberDom::parseTimeToSeconds(const QString &timeStr) const {
