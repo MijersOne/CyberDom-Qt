@@ -2427,6 +2427,19 @@ bool CyberDom::loadSessionData(const QString &path) {
     QDateTime lastSystem =
         QDateTime::fromString(session.value("Session/LastSystemTime").toString(),
                               Qt::ISODate);
+    session.beginGroup("Assignments");
+    QStringList assignments = session.value("ActiveJobs").toStringList();
+    activeAssignments = QSet<QString>(assignments.begin(), assignments.end());
+    session.beginGroup("Deadlines");
+    const QStringList deadlineKeys = session.childKeys();
+    for (const QString &key : deadlineKeys) {
+        QDateTime dt = QDateTime::fromString(session.value(key).toString(), Qt::ISODate);
+        if (dt.isValid()) {
+            jobDeadlines[key] = dt;
+        }
+    }
+    session.endGroup(); // Deadlines
+    session.endGroup(); // Assignments
 
     if (script.isEmpty())
         return false;
@@ -2453,6 +2466,7 @@ bool CyberDom::loadSessionData(const QString &path) {
     }
 
     saveIniFilePath(script);
+    emit jobListUpdated();
     return true;
 }
 
@@ -2465,6 +2479,16 @@ void CyberDom::saveSessionData(const QString &path) const {
                      internalClock.toString(Qt::ISODate));
     session.setValue("Session/LastSystemTime",
                      QDateTime::currentDateTime().toString(Qt::ISODate));
+
+    // Persist active assignments and their deadlines
+    session.beginGroup("Assignments");
+    session.setValue("ActiveJobs", QStringList(activeAssignments.values()));
+    session.beginGroup("Deadlines");
+    for (auto it = jobDeadlines.constBegin(); it != jobDeadlines.constEnd(); ++it) {
+        session.setValue(it.key(), it.value().toString(Qt::ISODate));
+    }
+    session.endGroup(); // Deadlines
+    session.endGroup(); // Assignments
     session.sync();
 
     QSettings::Status stat = session.status();
