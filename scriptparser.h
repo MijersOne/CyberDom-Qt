@@ -35,6 +35,7 @@ public:
     QList<PunishmentDefinition> getPunishmentSections() const;
     QList<ClothingTypeDefinition> getClothTypeSections() const;
     QList<ConfessionDefinition> getConfessionSections() const;
+    QList<InstructionDefinition> getInstructionSections() const;
     QuestionDefinition getQuestion(const QString &name) const;
     void setVariable(const QString &name, const QString &value);
 
