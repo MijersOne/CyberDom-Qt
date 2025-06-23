@@ -370,6 +370,8 @@ void ScriptParser::parseEventsSection(const QMap<QString, QStringList>& section)
 
     if (section.contains("FirstRun"))
         e.firstRunProcedure = section["FirstRun"].value(0);
+    if (section.contains("Signin"))
+        e.signIn = section["Signin"].value(0);
 }
 
 void ScriptParser::parseStatusSections(const QMap<QString, QMap<QString, QStringList>>& sections) {

@@ -2775,6 +2775,9 @@ void CyberDom::onResetSigninTimer() {
         int lateMinutes = qCeil((-signinRemainingSecs) / 60.0);
         int severity = status.signinPenalty1 + lateMinutes * status.signinPenalty2;
         applyPunishment(severity, status.signinPenaltyGroup);
+        QString eventProc = scriptParser->getScriptData().events.signIn;
+        if (!eventProc.isEmpty())
+            runProcedure(eventProc);
     }
 
     signinRemainingSecs = parseTimeRangeToSeconds(status.signinIntervalMin + "," + status.signinIntervalMax);
