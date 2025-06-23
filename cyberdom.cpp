@@ -2293,10 +2293,25 @@ void CyberDom::runProcedure(const QString &procedureName) {
                                 qDebug() << "[DEBUG] Inline procedure selected - continuing";
                             }
 
-                            if (answerBlock.punishMin > 0 || answerBlock.punishMax > 0) {
-                                int minS = answerBlock.punishMin;
-                                int maxS = qMax(answerBlock.punishMax, minS);
-                                int severity = QRandomGenerator::global()->bounded(maxS - minS + 1) + minS;
+                            // Apply punishment if configured
+                            if (answerBlock.punishMin != 0 || answerBlock.punishMax != 0) {
+                                int minSeverity = answerBlock.punishMin;
+                                int maxSeverity = answerBlock.punishMax ? answerBlock.punishMax : minSeverity;
+                                if (maxSeverity < minSeverity)
+                                    maxSeverity = minSeverity;
+
+                                int severity;
+#if QT_VERSION >= QT_VERSION_CHECK(5, 10, 0)
+                                severity = QRandomGenerator::global()->bounded(minSeverity, maxSeverity + 1);
+#else
+                                static bool seeded = false;
+                                if (!seeded) {
+                                    std::srand(static_cast<unsigned int>(std::time(nullptr)));
+                                    seeded = true;
+                                }
+                                severity = minSeverity + std::rand() % (maxSeverity - minSeverity + 1);
+#endif
+
                                 applyPunishment(severity);
                             }
                             break;
