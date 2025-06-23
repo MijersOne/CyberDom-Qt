@@ -330,7 +330,7 @@ void CyberDom::openAboutDialog()
         return;
     }
 
-    QString version = getIniValue("General", "Version"); // Retrieve version
+    QString version = getIniValue("General", "Version", "Unknown"); // Retrieve version or default
     About aboutDialog(this, currentIniFile, version); // Create the About dialog, passing the parent
     aboutDialog.exec(); // Show the dialog modally
 }
