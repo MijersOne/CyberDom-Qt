@@ -218,6 +218,7 @@ private:
     void updateAvailableActions();
     void executeStatusEntryProcedures(const QString &statusName);
     void updateStatusDisplay();
+    void updateSigninWidgetsVisibility(const StatusSection &status);
     void playSoundSafe(const QString &filePath);
 
     void populateReportMenu();
