@@ -3,6 +3,7 @@
 #include "cyberdom.h"
 #include <QSettings>
 #include <QMessageBox>
+#include <QInputDialog>
 #include <QDebug>
 
 SelectPunishment::SelectPunishment(QWidget *parent, QMap<QString, QMap<QString, QString>> iniData)
@@ -119,53 +120,85 @@ void SelectPunishment::on_buttonBox_accepted()
 
     // Use case-insensitive lookup to find the punishment section
     bool found = false;
+    QMap<QString, QString> punishmentDetails;
     QMap<QString, QMap<QString, QString>>::const_iterator it;
     for (it = iniData.constBegin(); it != iniData.constEnd(); ++it) {
         if (it.key().toLower() == selectedPunishmentKey.toLower()) {
             found = true;
-            
-            // Add the punishment to assignments
-            mainApp->addPunishmentToAssignments(selectedPunishmentName);
-
-            QMap<QString, QString> punishmentDetails = it.value();
-
-            // Display Punishment Information
-            QString punishmentInfo = "Starting Punishment: " + selectedPunishmentName + "\n";
-            for (const auto &key : punishmentDetails.keys()) {
-                punishmentInfo += key + ": " + punishmentDetails[key] + "\n";
-            }
-            QMessageBox::information(this, "Punishment Details", punishmentInfo);
+            punishmentDetails = it.value();
             break;
         }
     }
-    
+
     if (!found) {
         qDebug() << "[WARNING] Punishment details not found in iniData, using default values";
-        
+
         // Create default punishment details
-        QMap<QString, QString> defaultDetails;
-        defaultDetails["value"] = "10";
-        defaultDetails["max"] = "20";
-        
+        punishmentDetails["value"] = "10";
+        punishmentDetails["max"] = "20";
+
         if (selectedPunishmentName.contains("minute")) {
-            defaultDetails["ValueUnit"] = "minute";
+            punishmentDetails["ValueUnit"] = "minute";
         } else if (selectedPunishmentName.contains("hour")) {
-            defaultDetails["ValueUnit"] = "hour";
+            punishmentDetails["ValueUnit"] = "hour";
         } else if (selectedPunishmentName.contains("day")) {
-            defaultDetails["ValueUnit"] = "day";
+            punishmentDetails["ValueUnit"] = "day";
         }
-        
+
         // Add to iniData for future use
-        iniData[selectedPunishmentKey] = defaultDetails;
-        
-        // Add the punishment to assignments
-        mainApp->addPunishmentToAssignments(selectedPunishmentName);
-        
-        // Display Punishment Information with default values
-        QString punishmentInfo = "Starting Punishment: " + selectedPunishmentName + "\n";
-        for (const auto &key : defaultDetails.keys()) {
-            punishmentInfo += key + ": " + defaultDetails[key] + "\n";
-        }
-        QMessageBox::information(this, "Punishment Details", punishmentInfo);
+        iniData[selectedPunishmentKey] = punishmentDetails;
     }
+
+    // Ask for severity if Value and Max are provided
+    int severity = 1;
+    if (punishmentDetails.contains("value") && punishmentDetails.contains("max")) {
+        int value = punishmentDetails.value("value").toInt();
+        if (value <= 0)
+            value = 1;
+        int minAmt = punishmentDetails.value("min", "1").toInt();
+        int maxAmt = punishmentDetails.value("max").toInt();
+
+        int minSeverity = value * minAmt;
+        int maxSeverity = value * maxAmt;
+
+        bool ok = false;
+        QString label = tr("Enter Severity (%1 - %2)").arg(minSeverity).arg(maxSeverity);
+        severity = QInputDialog::getInt(this,
+                                        tr("Punishment Severity"),
+                                        label,
+                                        minSeverity,
+                                        minSeverity,
+                                        maxSeverity,
+                                        1,
+                                        &ok);
+        if (!ok)
+            return;
+    }
+
+    // Apply punishment according to severity and details
+    int value = punishmentDetails.value("value", "1").toInt();
+    if (value <= 0)
+        value = 1;
+    int minAmt = punishmentDetails.value("min", "1").toInt();
+    int maxAmt = punishmentDetails.value("max", QString::number(minAmt)).toInt();
+
+    int remaining = severity;
+    while (remaining > 0) {
+        int amount = remaining / value;
+        if (amount < minAmt)
+            amount = minAmt;
+        if (amount > maxAmt)
+            amount = maxAmt;
+
+        mainApp->addPunishmentToAssignments(selectedPunishmentName, amount);
+        remaining -= amount * value;
+    }
+
+    // Display Punishment Information
+    QString punishmentInfo = "Starting Punishment: " + selectedPunishmentName + "\n";
+    for (const auto &key : punishmentDetails.keys()) {
+        punishmentInfo += key + ": " + punishmentDetails[key] + "\n";
+    }
+    punishmentInfo += tr("Severity: %1").arg(severity);
+    QMessageBox::information(this, tr("Punishment Details"), punishmentInfo);
 }
