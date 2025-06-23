@@ -91,8 +91,23 @@ void Rules::updateRulesDialog(RuleCategory category)
         }
         break;
     case Instructions:
-        ui->lbl_Permission->setText("Instructions Rules");
-        ui->lw_Permissions->addItems({"Instruction A", "Instruction B"});
+        ui->lbl_Permission->setText("always ask Instructions on how to:");
+        if (mainWin) {
+            ScriptParser *parser = mainWin->getScriptParser();
+            if (parser) {
+                const auto instructions = parser->getInstructionSections();
+                QStringList items;
+                for (const auto &instr : instructions) {
+                    if (instr.isClothing)
+                        continue;
+                    if (!instr.title.isEmpty())
+                        items << instr.title;
+                    else
+                        items << instr.name;
+                }
+                ui->lw_Permissions->addItems(items);
+            }
+        }
         break;
     case OtherRules:
         ui->lbl_Permission->setText("Other Rules");

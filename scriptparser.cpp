@@ -2273,6 +2273,8 @@ void ScriptParser::parseInstructionSections(const QMap<QString, QMap<QString, QS
         bool isClothing = false;
         if (sectionName.startsWith("instruction-")) {
             sectionName = sectionName.mid(QString("instruction-").length());
+        } else if (sectionName.startsWith("instructions-")) {
+            sectionName = sectionName.mid(QString("instructions-").length());
         } else if (sectionName.startsWith("clothing-")) {
             isClothing = true;
             sectionName = sectionName.mid(QString("clothing-").length());
@@ -3680,7 +3682,14 @@ QList<ConfessionDefinition> ScriptParser::getConfessionSections() const {
 }
 
 QList<InstructionDefinition> ScriptParser::getInstructionSections() const {
-    return scriptData.instructions.values();
+    QList<InstructionDefinition> result;
+    for (auto it = scriptData.instructions.constBegin(); it != scriptData.instructions.constEnd(); ++it) {
+        QString lowerName = it.key().toLower();
+        if (scriptData.rawSections.contains(QString("set-%1").arg(lowerName)))
+            continue;
+        result.append(it.value());
+    }
+    return result;
 }
 
 QuestionSection ScriptParser::getQuestion(const QString &name) const {
