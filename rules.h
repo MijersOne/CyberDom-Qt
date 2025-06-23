@@ -30,6 +30,7 @@ private:
 
 public slots:
     void updateRulesDialog(RuleCategory category);
+    void resetDialog();
 };
 
 #endif // RULES_H
