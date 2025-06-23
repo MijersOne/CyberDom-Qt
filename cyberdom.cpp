@@ -48,6 +48,13 @@ CyberDom::CyberDom(QWidget *parent)
 
     ui->setupUi(this);
 
+    // Setup signin timer early so updateStatus can use it
+    signinTimer = new QTimer(this);
+    connect(signinTimer, &QTimer::timeout, this, &CyberDom::updateSigninTimer);
+    connect(ui->resetTimer, &QPushButton::clicked, this, &CyberDom::onResetSigninTimer);
+    ui->timerLabel->hide();
+    ui->resetTimer->hide();
+
     // Ensure ScriptParser is available early
     if (!scriptParser) {
         scriptParser = new ScriptParser();
@@ -181,13 +188,6 @@ CyberDom::CyberDom(QWidget *parent)
     flagTimer = new QTimer(this);
     connect(flagTimer, &QTimer::timeout, this, &CyberDom::checkFlagExpiry);
     flagTimer->start(30000); // Check every 30 seconds
-
-    // Signin timer setup
-    signinTimer = new QTimer(this);
-    connect(signinTimer, &QTimer::timeout, this, &CyberDom::updateSigninTimer);
-    connect(ui->resetTimer, &QPushButton::clicked, this, &CyberDom::onResetSigninTimer);
-    ui->timerLabel->hide();
-    ui->resetTimer->hide();
 
     // Debugging values to confirm override
     qDebug() << "CyberDom initialized with Min Merits:" << minMerits << "Max Merits:" << maxMerits;
@@ -881,11 +881,13 @@ void CyberDom::updateStatus(const QString &newStatus) {
         QTime t(0, 0);
         t = t.addSecs(signinRemainingSecs);
         ui->timerLabel->setText(t.toString("hh:mm:ss"));
-        signinTimer->start(1000);
+        if (signinTimer)
+            signinTimer->start(1000);
         ui->timerLabel->show();
         ui->resetTimer->show();
     } else {
-        signinTimer->stop();
+        if (signinTimer)
+            signinTimer->stop();
         ui->timerLabel->hide();
         ui->resetTimer->hide();
     }
