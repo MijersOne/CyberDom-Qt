@@ -54,6 +54,7 @@ CyberDom::CyberDom(QWidget *parent)
     connect(ui->resetTimer, &QPushButton::clicked, this, &CyberDom::onResetSigninTimer);
     ui->timerLabel->hide();
     ui->resetTimer->hide();
+    ui->lbl_Timer->hide();
 
     // Ensure ScriptParser is available early
     if (!scriptParser) {
@@ -885,11 +886,13 @@ void CyberDom::updateStatus(const QString &newStatus) {
             signinTimer->start(1000);
         ui->timerLabel->show();
         ui->resetTimer->show();
+        ui->lbl_Timer->show();
     } else {
         if (signinTimer)
             signinTimer->stop();
         ui->timerLabel->hide();
         ui->resetTimer->hide();
+        ui->lbl_Timer->hide();
     }
 }
 
@@ -1452,10 +1455,12 @@ void CyberDom::updateStatusDisplay() {
         signinTimer->start(1000);
         ui->timerLabel->show();
         ui->resetTimer->show();
+        ui->lbl_Timer->show();
     } else {
         signinTimer->stop();
         ui->timerLabel->hide();
         ui->resetTimer->hide();
+        ui->lbl_Timer->hide();
     }
 }
 
