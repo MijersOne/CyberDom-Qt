@@ -1445,17 +1445,18 @@ void CyberDom::executeStatusEntryProcedures(const QString &statusName) {
 }
 
 QString CyberDom::getIniValue(const QString &section, const QString &key, const QString &defaultValue) const {
-    if (!iniData.contains(section)) {
-        qDebug() << "Section not found in INI -" << section;
+    QString sectionKey = section.toLower();
+    if (!iniData.contains(sectionKey)) {
+        qDebug() << "Section not found in INI -" << sectionKey;
         return defaultValue;
     }
 
-    if (!iniData[section].contains(key)) {
-        qDebug() << "Key not found in section -" << section << "/" << key;
+    if (!iniData[sectionKey].contains(key)) {
+        qDebug() << "Key not found in section -" << sectionKey << "/" << key;
         return defaultValue;
     }
 
-    QString value = iniData[section][key];
+    QString value = iniData[sectionKey][key];
     return value;
 }
 
