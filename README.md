@@ -7,7 +7,7 @@ CyberDom-Qt is a Qt-based graphical interface for running CyberDom training scri
 Install the following Qt packages on Debian/Ubuntu:
 
 ```bash
-sudo apt-get install qtbase5-dev qt5-qmake qtchooser libqt5multimedia5-dev
+sudo apt-get install qt6-base-dev qt6-multimedia-dev qmake6
 ```
 
 A helper script `setup-debian.sh` is provided to automate this. After installing the packages, rerun `cmake ..` in the `build` directory if you configured the project before installing dependencies.
@@ -19,6 +19,13 @@ Ensure a Qt development environment is available and CMake 3.14 or newer is inst
 ```bash
 mkdir build && cd build
 cmake ..
+make
+```
+
+Alternatively, build directly with `qmake6`:
+
+```bash
+qmake6 CyberDom.pro
 make
 ```
 
