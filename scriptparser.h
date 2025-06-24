@@ -33,6 +33,7 @@ public:
     StatusDefinition getStatus(const QString &name) const;
     QList<JobDefinition> getJobSections() const;
     QList<PunishmentDefinition> getPunishmentSections() const;
+    QList<PermissionDefinition> getPermissionSections() const;
     QList<ClothingTypeDefinition> getClothTypeSections() const;
     QList<ConfessionDefinition> getConfessionSections() const;
     QList<InstructionDefinition> getInstructionSections() const;

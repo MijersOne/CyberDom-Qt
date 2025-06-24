@@ -115,6 +115,9 @@ CyberDom::CyberDom(QWidget *parent)
     // Connect the DeleteAssignments action to a slot function
     connect(ui->actionList_and_Delete_Assignments, &QAction::triggered, this, &CyberDom::openDeleteAssignmentsDialog);
 
+    // Connect asking for permissions
+    connect(ui->actionAsk_Permission, &QAction::triggered, this, &CyberDom::openAskPermissionDialog);
+
     // Connect the Delete_Status_File action to a slot function
     connect(ui->actionDelete_Status_File, &QAction::triggered, this, &CyberDom::resetApplication);
 
@@ -387,10 +390,130 @@ void CyberDom::openReport(const QString &name)
     executeReport(name);
 }
 
+void CyberDom::openAskPermissionDialog()
+{
+    if (!scriptParser)
+        return;
+
+    QStringList labels;
+    const auto perms = scriptParser->getPermissionSections();
+    for (const auto &perm : perms) {
+        QString label = perm.title.isEmpty() ? perm.name : perm.title;
+        labels << label;
+    }
+
+    bool ok = false;
+    QString choice = QInputDialog::getItem(this, tr("Ask Permission"),
+                                           tr("Select permission:"), labels, 0, false, &ok);
+    if (!ok || choice.isEmpty())
+        return;
+
+    QString selectedName;
+    for (const auto &perm : perms) {
+        QString label = perm.title.isEmpty() ? perm.name : perm.title;
+        if (label == choice) {
+            selectedName = perm.name;
+            break;
+        }
+    }
+
+    if (!selectedName.isEmpty())
+        openPermission(selectedName);
+}
+
+void CyberDom::openPermission(const QString &name)
+{
+    if (!scriptParser)
+        return;
+
+    const auto &perms = scriptParser->getScriptData().permissions;
+    if (!perms.contains(name)) {
+        qWarning() << "[CyberDom] Permission definition not found:" << name;
+        return;
+    }
+
+    const PermissionDefinition &perm = perms.value(name);
+    incrementUsageCount(QString("Permission/%1").arg(name));
+
+    if (!perm.beforeProcedure.isEmpty())
+        runProcedure(perm.beforeProcedure);
+
+    bool granted = QMessageBox::question(this, tr("Permission"),
+                                         tr("Grant permission '%1'?")
+                                             .arg(perm.title.isEmpty() ? perm.name : perm.title),
+                                         QMessageBox::Yes | QMessageBox::No) == QMessageBox::Yes;
+
+    if (granted) {
+        if (!perm.permitMessage.isEmpty())
+            QMessageBox::information(this, tr("Permission"), replaceVariables(perm.permitMessage));
+        QString eventProc = scriptParser->getScriptData().eventHandlers.permissionGiven;
+        if (!eventProc.isEmpty())
+            runProcedure(eventProc);
+    } else {
+        if (!perm.denyMessage.isEmpty())
+            QMessageBox::information(this, tr("Permission"), replaceVariables(perm.denyMessage));
+        if (!perm.denyProcedure.isEmpty())
+            runProcedure(perm.denyProcedure);
+        QString eventProc = scriptParser->getScriptData().eventHandlers.permissionDenied;
+        if (!eventProc.isEmpty())
+            runProcedure(eventProc);
+    }
+}
+
 void CyberDom::openConfession(const QString &name)
 {
-    qDebug() << "[ConfessMenu] Selected confession:" << name;
-    // Placeholder for future implementation
+    if (!scriptParser)
+        return;
+
+    const auto &confs = scriptParser->getScriptData().confessions;
+    if (!confs.contains(name)) {
+        qWarning() << "[CyberDom] Confession definition not found:" << name;
+        return;
+    }
+
+    const ConfessionDefinition &conf = confs.value(name);
+    incrementUsageCount(QString("Confession/%1").arg(name));
+
+    auto showMessage = [this](const QString &m) {
+        if (!m.trimmed().isEmpty())
+            QMessageBox::information(this, tr("Confession"), replaceVariables(m.trimmed()));
+    };
+
+    for (const QString &txt : conf.statusTexts)
+        showMessage(txt);
+
+    for (const MessageGroup &grp : conf.messages) {
+        if (grp.messages.isEmpty())
+            continue;
+        if (grp.mode == MessageSelectMode::Random) {
+            int idx = QRandomGenerator::global()->bounded(grp.messages.size());
+            showMessage(grp.messages.at(idx));
+        } else {
+            for (const QString &msg : grp.messages)
+                showMessage(msg);
+        }
+    }
+
+    QList<QuestionDefinition> questions;
+    for (const QString &qname : conf.inputQuestions) {
+        QuestionSection q = scriptParser->getQuestion(qname);
+        if (!q.name.isEmpty())
+            questions.append(q);
+    }
+    for (const QString &qname : conf.advancedQuestions) {
+        QuestionSection q = scriptParser->getQuestion(qname);
+        if (!q.name.isEmpty())
+            questions.append(q);
+    }
+
+    if (!questions.isEmpty()) {
+        for (QuestionDefinition &q : questions)
+            q.phrase = replaceVariables(q.phrase);
+        QuestionDialog dlg(questions, this);
+        dlg.exec();
+    } else if (!conf.noInputProcedure.isEmpty()) {
+        runProcedure(conf.noInputProcedure);
+    }
 }
 
 void CyberDom::populateReportMenu()
@@ -2821,4 +2944,11 @@ int CyberDom::randomIntFromRange(const QString &range) const {
         return ScriptUtils::randomInRange(min, max, false);
     }
     return range.toInt();
+}
+
+void CyberDom::incrementUsageCount(const QString &key) {
+    QSettings settings(settingsFile, QSettings::IniFormat);
+    int count = settings.value(QStringLiteral("Usage/%1").arg(key), 0).toInt();
+    settings.setValue(QStringLiteral("Usage/%1").arg(key), count + 1);
+    settings.sync();
 }
