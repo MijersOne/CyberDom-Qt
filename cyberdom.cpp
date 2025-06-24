@@ -2729,6 +2729,8 @@ bool CyberDom::loadSessionData(const QString &path) {
     QString script = session.value("Session/ScriptPath").toString();
     int merits = session.value("Session/Merits", 0).toInt();
     QString status = session.value("Session/Status").toString();
+    lastInstructions = session.value("Session/LastInstructions").toString();
+    lastClothingInstructions = session.value("Session/LastClothingInstructions").toString();
     QDateTime lastInternal =
         QDateTime::fromString(session.value("Session/InternalClock").toString(),
                               Qt::ISODate);
@@ -2797,6 +2799,51 @@ bool CyberDom::loadSessionData(const QString &path) {
     session.endGroup();
     session.endGroup(); // Assignments
 
+    session.beginGroup("Flags");
+    const QStringList flagGroups = session.childGroups();
+    for (const QString &fname : flagGroups) {
+        session.beginGroup(fname);
+        FlagData fd;
+        fd.name = fname;
+        fd.setTime = QDateTime::fromString(session.value("SetTime").toString(), Qt::ISODate);
+        fd.expiryTime = QDateTime::fromString(session.value("ExpiryTime").toString(), Qt::ISODate);
+        fd.text = session.value("Text").toString();
+        QString groupsStr = session.value("Groups").toString();
+        if (!groupsStr.isEmpty())
+            fd.groups = groupsStr.split(',', Qt::SkipEmptyParts);
+        flags[fname] = fd;
+        session.endGroup();
+    }
+    session.endGroup();
+
+    session.beginGroup("Answers");
+    const QStringList ansKeys = session.childKeys();
+    for (const QString &key : ansKeys) {
+        questionAnswers[key] = session.value(key).toString();
+    }
+    session.endGroup();
+
+    session.beginGroup("Counters");
+    session.beginGroup("Reports");
+    const QStringList repKeys = session.childKeys();
+    for (const QString &key : repKeys) {
+        reportCounts[key] = session.value(key).toInt();
+    }
+    session.endGroup();
+    session.beginGroup("Confessions");
+    const QStringList confKeys = session.childKeys();
+    for (const QString &key : confKeys) {
+        confessionCounts[key] = session.value(key).toInt();
+    }
+    session.endGroup();
+    session.beginGroup("Permissions");
+    const QStringList permKeys = session.childKeys();
+    for (const QString &key : permKeys) {
+        permissionCounts[key] = session.value(key).toInt();
+    }
+    session.endGroup();
+    session.endGroup(); // Counters
+
     if (script.isEmpty())
         return false;
 
@@ -2835,6 +2882,8 @@ void CyberDom::saveSessionData(const QString &path) const {
                      internalClock.toString(Qt::ISODate));
     session.setValue("Session/LastSystemTime",
                      QDateTime::currentDateTime().toString(Qt::ISODate));
+    session.setValue("Session/LastInstructions", lastInstructions);
+    session.setValue("Session/LastClothingInstructions", lastClothingInstructions);
 
     // Persist active assignments and their deadlines
     session.beginGroup("Assignments");
@@ -2865,6 +2914,46 @@ void CyberDom::saveSessionData(const QString &path) const {
     }
     session.endGroup();
     session.endGroup(); // Assignments
+
+    // Persist flags
+    session.beginGroup("Flags");
+    for (auto it = flags.constBegin(); it != flags.constEnd(); ++it) {
+        const FlagData &fd = it.value();
+        session.beginGroup(it.key());
+        session.setValue("SetTime", fd.setTime.toString(Qt::ISODate));
+        session.setValue("ExpiryTime", fd.expiryTime.toString(Qt::ISODate));
+        session.setValue("Text", fd.text);
+        session.setValue("Groups", fd.groups.join(","));
+        session.endGroup();
+    }
+    session.endGroup();
+
+    // Persist question answers
+    session.beginGroup("Answers");
+    for (auto it = questionAnswers.constBegin(); it != questionAnswers.constEnd(); ++it) {
+        session.setValue(it.key(), it.value());
+    }
+    session.endGroup();
+
+    // Persist menu usage counters
+    session.beginGroup("Counters");
+    session.beginGroup("Reports");
+    for (auto it = reportCounts.constBegin(); it != reportCounts.constEnd(); ++it) {
+        session.setValue(it.key(), it.value());
+    }
+    session.endGroup();
+    session.beginGroup("Confessions");
+    for (auto it = confessionCounts.constBegin(); it != confessionCounts.constEnd(); ++it) {
+        session.setValue(it.key(), it.value());
+    }
+    session.endGroup();
+    session.beginGroup("Permissions");
+    for (auto it = permissionCounts.constBegin(); it != permissionCounts.constEnd(); ++it) {
+        session.setValue(it.key(), it.value());
+    }
+    session.endGroup();
+    session.endGroup(); // Counters
+
     session.sync();
 
     QSettings::Status stat = session.status();

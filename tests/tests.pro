@@ -1,7 +1,11 @@
-QT += core testlib
+QT += core gui widgets multimedia network testlib
 CONFIG += console c++17 testcase
+
+include(../CyberDom.pro)
+
+SOURCES -= main.cpp
+
 SOURCES += signininterval_test.cpp \
-           ../scriptparser.cpp
-HEADERS += ../scriptparser.h \
-           ../ScriptData.h
-TARGET = signininterval_test
+           session_test.cpp
+
+TARGET = cyberdom_tests

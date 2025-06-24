@@ -37,6 +37,7 @@ QT_END_NAMESPACE
 class CyberDom : public QMainWindow
 {
     Q_OBJECT
+    friend class SessionSaveLoadTest;
 
 public:
     CyberDom(QWidget *parent = nullptr);
@@ -210,6 +211,10 @@ private:
     QMap<QString, QString> questionAnswers;
     void loadQuestionAnswers();
     void saveQuestionAnswers();
+
+    QMap<QString, int> reportCounts;
+    QMap<QString, int> confessionCounts;
+    QMap<QString, int> permissionCounts;
 
     // UI update methods
     void updateStatusText();
