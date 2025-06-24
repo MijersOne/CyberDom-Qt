@@ -6,6 +6,7 @@
 #include <QSettings>
 #include <QStandardPaths>
 #include <QDebug>
+#include <QtMath>
 
 // extern CyberDom *mainApp;
 
@@ -78,7 +79,9 @@ void Assignments::populateJobList() {
 
         ui->table_Assignments->insertRow(row);
         ui->table_Assignments->setItem(row, 0, new QTableWidgetItem(deadlineStr));
-        ui->table_Assignments->setItem(row, 1, new QTableWidgetItem(assignmentName));
+        QTableWidgetItem *jobItem = new QTableWidgetItem(assignmentName);
+        jobItem->setData(Qt::UserRole, assignmentName);
+        ui->table_Assignments->setItem(row, 1, jobItem);
         ui->table_Assignments->setItem(row, 2, new QTableWidgetItem("Job"));
 
         // Style jobs differently from punishments
@@ -102,9 +105,24 @@ void Assignments::populateJobList() {
                 deadlineStr = "No Deadline";
             }
 
+            QString displayName = assignmentName;
+            int amt = mainApp->getPunishmentAmount(assignmentName);
+            QMap<QString, QString> details = iniData.value("punishment-" + assignmentName);
+            if (displayName.contains('#')) {
+                double val = details.value("value", "1").toDouble();
+                QString unit = details.value("ValueUnit").toLower();
+                int total = qRound(val * amt);
+                displayName.replace('#', QString::number(total));
+            }
+            if (!displayName.isEmpty()) {
+                displayName[0] = displayName[0].toUpper();
+            }
+
             ui->table_Assignments->insertRow(row);
             ui->table_Assignments->setItem(row, 0, new QTableWidgetItem(deadlineStr));
-            ui->table_Assignments->setItem(row, 1, new QTableWidgetItem(assignmentName));
+            QTableWidgetItem *punItem = new QTableWidgetItem(displayName);
+            punItem->setData(Qt::UserRole, assignmentName);
+            ui->table_Assignments->setItem(row, 1, punItem);
             ui->table_Assignments->setItem(row, 2, new QTableWidgetItem("Punishment"));
 
             ui->table_Assignments->item(row, 2)->setBackground(QColor(255, 230, 230));
@@ -127,7 +145,10 @@ void Assignments::on_btn_Start_clicked()
     }
 
     // Get the assignment details
-    QString assignmentName = ui->table_Assignments->item(selectedRow, 1)->text();
+    QTableWidgetItem *startItem = ui->table_Assignments->item(selectedRow, 1);
+    QString assignmentName = startItem->data(Qt::UserRole).toString();
+    if (assignmentName.isEmpty())
+        assignmentName = startItem->text();
     QString assignmentType = ui->table_Assignments->item(selectedRow, 2)->text();
     bool isPunishment = (assignmentType.toLower() == "punishment");
 
@@ -188,7 +209,11 @@ void Assignments::on_btn_Start_clicked()
 
     // Reselect the same assignment in the refreshed table
     for (int i = 0; i < ui->table_Assignments->rowCount(); i++) {
-        if (ui->table_Assignments->item(i, 1)->text() == savedAssignmentName) {
+        QTableWidgetItem *item = ui->table_Assignments->item(i,1);
+        QString base = item->data(Qt::UserRole).toString();
+        if (base.isEmpty())
+            base = item->text();
+        if (base == savedAssignmentName) {
             ui->table_Assignments->selectRow(i);
             break;
         }
@@ -204,7 +229,10 @@ void Assignments::on_btn_Done_clicked()
     }
 
     // Get assignment details
-    QString assignmentName = ui->table_Assignments->item(selectedRow, 1)->text();
+    QTableWidgetItem *doneItem = ui->table_Assignments->item(selectedRow, 1);
+    QString assignmentName = doneItem->data(Qt::UserRole).toString();
+    if (assignmentName.isEmpty())
+        assignmentName = doneItem->text();
     QString assignmentType = ui->table_Assignments->item(selectedRow, 2)->text();
     bool isPunishment = (assignmentType.toLower() == "punishment");
 
@@ -279,7 +307,10 @@ void Assignments::on_btn_Abort_clicked()
     }
 
     // Get assignment details
-    QString assignmentName = ui->table_Assignments->item(selectedRow, 1)->text();
+    QTableWidgetItem *abortItem = ui->table_Assignments->item(selectedRow, 1);
+    QString assignmentName = abortItem->data(Qt::UserRole).toString();
+    if (assignmentName.isEmpty())
+        assignmentName = abortItem->text();
     QString assignmentType = ui->table_Assignments->item(selectedRow, 2)->text();
     bool isPunishment = (assignmentType.toLower() == "punishment");
 
@@ -350,7 +381,11 @@ void Assignments::on_btn_Abort_clicked()
 
     // Reselect the same assignment in the refreshed table
     for (int i = 0; i < ui->table_Assignments->rowCount(); i++) {
-        if (ui->table_Assignments->item(i, 1)->text() == savedAssignmentName) {
+        QTableWidgetItem *item = ui->table_Assignments->item(i,1);
+        QString base = item->data(Qt::UserRole).toString();
+        if (base.isEmpty())
+            base = item->text();
+        if (base == savedAssignmentName) {
             ui->table_Assignments->selectRow(i);
             break;
         }
@@ -365,7 +400,10 @@ void Assignments::on_btn_Delete_clicked()
         return;
     }
 
-    QString assignmentName = ui->table_Assignments->item(selectedRow, 1)->text();
+    QTableWidgetItem *delItem = ui->table_Assignments->item(selectedRow, 1);
+    QString assignmentName = delItem->data(Qt::UserRole).toString();
+    if (assignmentName.isEmpty())
+        assignmentName = delItem->text();
     QString assignmentType = ui->table_Assignments->item(selectedRow, 2)->text();
     bool isPunishment = (assignmentType.toLower() == "punishment");
 

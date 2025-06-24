@@ -54,6 +54,7 @@ public:
 
     QStringList getAvailableJobs();
     QMap<QString, QDateTime> getJobDeadlines() const { return jobDeadlines; }
+    int getPunishmentAmount(const QString &name) const { return punishmentAmounts.value(name, 0); }
     QSet<QString> activeAssignments;
 
     void assignJobFromTrigger(QString section);
@@ -172,6 +173,7 @@ private:
     QMap<QString, int> jobRemindIntervals; // seconds
     QMap<QString, QDateTime> jobNextReminds;
     QMap<QString, int> jobLateMerits;
+    QMap<QString, int> punishmentAmounts; // amount units for each punishment
     QSet<QString> expiredAssignments;
     QMap<QString, QMap<QString, QString>> iniData;
 
