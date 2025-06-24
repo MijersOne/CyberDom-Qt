@@ -1945,9 +1945,9 @@ void CyberDom::addPunishmentToAssignments(const QString &punishmentName, int amo
                 // Check if punishment has a ValueUnit of time
                 else if (punishmentDetails.contains("ValueUnit")) {
                     QString valueUnit = punishmentDetails["ValueUnit"];
-                    int value = punishmentDetails.value("value", "0").toInt();
+                    double value = punishmentDetails.value("value", "0").toDouble();
 
-                    int total = value * amount;
+                    int total = qRound(value * amount);
 
                     if (valueUnit.compare("minute", Qt::CaseInsensitive) == 0) {
                         deadline = deadline.addSecs(total * 60);
@@ -2006,22 +2006,40 @@ void CyberDom::applyPunishment(int severity, const QString &group)
         }
     }
 
-    int value = details.value("value", "1").toInt();
+    // Fetch punishment parameters with proper defaults and decimal support
+    bool hasValue = details.contains("value");
+    double value = details.value("value", "1").toDouble();
+    QString valueUnit = details.value("ValueUnit").toLower();
+    if (!hasValue && valueUnit == "once")
+        value = 1.0; // avoid division by zero
     if (value <= 0)
-        value = 1;
+        value = 1.0;
+
     int min = details.value("min", "1").toInt();
-    int max = details.value("max", QString::number(min)).toInt();
+    int max = details.contains("max") ? details.value("max").toInt() : 20;
+    if (max <= 0)
+        max = 20;
 
-    int remaining = severity;
-    while (remaining > 0) {
-        int amount = remaining / value;
-        if (amount < min)
-            amount = min;
-        if (amount > max)
-            amount = max;
+    int totalUnits;
+    if (valueUnit == "once" && !hasValue) {
+        // With ValueUnit=Once and no value specified, punish once
+        totalUnits = qMax(min, 1);
+    } else {
+        double amt = static_cast<double>(severity) / value;
+        totalUnits = qRound(amt);
+        if (totalUnits < min)
+            totalUnits = min;
+    }
 
-        addPunishmentToAssignments(punishmentName, amount);
-        remaining -= amount * value;
+    if (valueUnit == "once") {
+        // max is ignored when ValueUnit=Once
+        addPunishmentToAssignments(punishmentName, totalUnits);
+    } else {
+        while (totalUnits > 0) {
+            int amount = qMin(max, totalUnits);
+            addPunishmentToAssignments(punishmentName, amount);
+            totalUnits -= amount;
+        }
     }
 }
 
