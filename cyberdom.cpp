@@ -1107,7 +1107,10 @@ void CyberDom::setFlag(const QString &flagName, int durationMinutes) {
 
         // Handle groups if defined
         if (flagDefData.contains("Group")) {
-            flagData.groups = flagDefData["Group"].split(",");
+            const QStringList rawGroups = flagDefData["Group"].split(',', Qt::SkipEmptyParts);
+            flagData.groups.clear();
+            for (const QString &grp : rawGroups)
+                flagData.groups.append(grp.trimmed());
         }
     }
 
