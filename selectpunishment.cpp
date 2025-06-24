@@ -152,14 +152,14 @@ void SelectPunishment::on_buttonBox_accepted()
     // Ask for severity if Value and Max are provided
     int severity = 1;
     if (punishmentDetails.contains("value") && punishmentDetails.contains("max")) {
-        int value = punishmentDetails.value("value").toInt();
+        double value = punishmentDetails.value("value").toDouble();
         if (value <= 0)
-            value = 1;
+            value = 1.0;
         int minAmt = punishmentDetails.value("min", "1").toInt();
         int maxAmt = punishmentDetails.value("max").toInt();
 
-        int minSeverity = value * minAmt;
-        int maxSeverity = value * maxAmt;
+        int minSeverity = qRound(value * minAmt);
+        int maxSeverity = qRound(value * maxAmt);
 
         bool ok = false;
         QString label = tr("Enter Severity (%1 - %2)").arg(minSeverity).arg(maxSeverity);
@@ -176,22 +176,36 @@ void SelectPunishment::on_buttonBox_accepted()
     }
 
     // Apply punishment according to severity and details
-    int value = punishmentDetails.value("value", "1").toInt();
+    bool hasValue = punishmentDetails.contains("value");
+    double value = punishmentDetails.value("value", "1").toDouble();
+    QString valueUnit = punishmentDetails.value("ValueUnit").toLower();
+    if (!hasValue && valueUnit == "once")
+        value = 1.0;
     if (value <= 0)
-        value = 1;
+        value = 1.0;
     int minAmt = punishmentDetails.value("min", "1").toInt();
-    int maxAmt = punishmentDetails.value("max", QString::number(minAmt)).toInt();
+    int maxAmt = punishmentDetails.contains("max") ? punishmentDetails.value("max").toInt() : 20;
+    if (maxAmt <= 0)
+        maxAmt = 20;
 
-    int remaining = severity;
-    while (remaining > 0) {
-        int amount = remaining / value;
-        if (amount < minAmt)
-            amount = minAmt;
-        if (amount > maxAmt)
-            amount = maxAmt;
+    int totalUnits;
+    if (valueUnit == "once" && !hasValue) {
+        totalUnits = qMax(minAmt, 1);
+    } else {
+        double amt = static_cast<double>(severity) / value;
+        totalUnits = qRound(amt);
+        if (totalUnits < minAmt)
+            totalUnits = minAmt;
+    }
 
-        mainApp->addPunishmentToAssignments(selectedPunishmentName, amount);
-        remaining -= amount * value;
+    if (valueUnit == "once") {
+        mainApp->addPunishmentToAssignments(selectedPunishmentName, totalUnits);
+    } else {
+        while (totalUnits > 0) {
+            int amount = qMin(maxAmt, totalUnits);
+            mainApp->addPunishmentToAssignments(selectedPunishmentName, amount);
+            totalUnits -= amount;
+        }
     }
 
     // Display Punishment Information
