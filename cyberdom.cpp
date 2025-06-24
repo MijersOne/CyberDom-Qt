@@ -38,6 +38,8 @@
 #include <QAudioOutput>
 #include <QInputDialog>
 #include <QRegularExpression>
+#include <QDir>
+#include <QStandardPaths>
 #include <QUrl>
 #include <QCoreApplication>
 
@@ -126,7 +128,18 @@ CyberDom::CyberDom(QWidget *parent)
 
     // Update UI with loaded settings
 
-    sessionFilePath = QCoreApplication::applicationDirPath() + "/session.cdt";
+    QString appDataDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    QDir dir(appDataDir);
+    if (!dir.exists()) {
+        dir.mkpath(".");
+    }
+    QString newSessionPath = dir.filePath("session.cdt");
+    QString oldSessionPath = QCoreApplication::applicationDirPath() + "/session.cdt";
+    if (QFile::exists(oldSessionPath) && !QFile::exists(newSessionPath)) {
+        QFile::rename(oldSessionPath, newSessionPath);
+    }
+
+    sessionFilePath = newSessionPath;
     bool sessionLoaded = loadSessionData(sessionFilePath);
 
     // Initialize the .ini file if no session was loaded
