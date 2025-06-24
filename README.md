@@ -31,7 +31,8 @@ make
 
 ### Tests
 
-Unit tests use the Qt Test framework. Build them with:
+Unit tests use the Qt Test framework and rely on `qmake6`. Make sure the
+`qmake6` package is installed before building:
 
 ```bash
 qmake6 tests/tests.pro && make

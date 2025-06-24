@@ -1,6 +1,11 @@
 QT += core gui widgets multimedia testlib
 CONFIG += c++17 console
 
+# Ensure this project is processed with Qt 6's qmake tool
+!equals(QT_MAJOR_VERSION, 6) {
+    error("tests.pro requires qmake6 from Qt 6. Please install the qmake6 package and invoke qmake6.")
+}
+
 INCLUDEPATH += ..
 
 SOURCES += \
