@@ -1092,17 +1092,19 @@ void CyberDom::setFlag(const QString &flagName, int durationMinutes) {
     flagData.name = flagName;
     flagData.setTime = internalClock;
 
-    // Set expiry time if duration is specified
-    if (durationMinutes > 0) {
-        flagData.expiryTime = internalClock.addSecs(durationMinutes * 60);
-    }
-
-    // Add flag text if defined in the script
+    // Add flag text and metadata if defined in the script
     QString flagKey = "flag-" + flagName;
     if (iniData.contains(flagKey)) {
         QMap<QString, QString> flagDefData = iniData[flagKey];
-        if (flagDefData.contains("text")) {
+
+        if (flagDefData.contains("text"))
             flagData.text = flagDefData["text"];
+
+        // Automatically set expiry from Duration if no explicit duration provided
+        if (durationMinutes == 0 && flagDefData.contains("Duration")) {
+            int secs = parseTimeRangeToSeconds(flagDefData["Duration"]);
+            if (secs > 0)
+                flagData.expiryTime = internalClock.addSecs(secs);
         }
 
         // Handle groups if defined
@@ -1114,8 +1116,19 @@ void CyberDom::setFlag(const QString &flagName, int durationMinutes) {
         }
     }
 
+    // Explicit duration overrides definition
+    if (durationMinutes > 0)
+        flagData.expiryTime = internalClock.addSecs(durationMinutes * 60);
+
     // Store the flag
     flags[flagName] = flagData;
+
+    // Run SetProcedure if specified
+    if (iniData.contains(flagKey)) {
+        QString proc = iniData[flagKey].value("SetProcedure");
+        if (!proc.isEmpty())
+            runProcedure(proc);
+    }
 
     // Update UI
     updateStatusText();
@@ -1124,6 +1137,13 @@ void CyberDom::setFlag(const QString &flagName, int durationMinutes) {
 
 void CyberDom::removeFlag(const QString &flagName) {
     if (flags.contains(flagName)) {
+        QString flagKey = "flag-" + flagName;
+        if (iniData.contains(flagKey)) {
+            QString proc = iniData[flagKey].value("RemoveProcedure");
+            if (!proc.isEmpty())
+                runProcedure(proc);
+        }
+
         flags.remove(flagName);
         updateStatusText(); // Update text as flag might have added text
         qDebug() << "Flag removed: " << flagName;
@@ -1226,6 +1246,26 @@ QString CyberDom::replaceVariables(const QString &input) const {
     for (auto it = questionAnswers.begin(); it != questionAnswers.end(); ++it) {
         QString var = "{$" + it.key() + "}";
         result.replace(var, it.value());
+    }
+
+    QString onText = getIniValue("General", "FlagOnText");
+    QString offText = getIniValue("General", "FlagOffText");
+
+    if (!onText.isEmpty() && !offText.isEmpty()) {
+        QRegularExpression rx("\\{([^\\$#][^}]*)\\}");
+        QRegularExpressionMatchIterator i = rx.globalMatch(result);
+        QString processed;
+        int lastIndex = 0;
+        while (i.hasNext()) {
+            QRegularExpressionMatch match = i.next();
+            processed += result.mid(lastIndex, match.capturedStart() - lastIndex);
+            QString name = match.captured(1).trimmed();
+            QString replacement = isFlagSet(name) ? onText : offText;
+            processed += replacement;
+            lastIndex = match.capturedEnd();
+        }
+        processed += result.mid(lastIndex);
+        result = processed;
     }
 
     return result;
@@ -2161,26 +2201,22 @@ void CyberDom::checkFlagExpiry() {
         i.next();
         if (i.value().expiryTime.isValid() && i.value().expiryTime <= now) {
             QString flagName = i.key();
-
-            // Call any expire procedures defined in the script
             QString flagKey = "flag-" + flagName;
+
             if (iniData.contains(flagKey)) {
                 QString expireProcedure = iniData[flagKey].value("ExpireProcedure");
-                if (!expireProcedure.isEmpty()) {
-                    // Call the procedure (needs to be implemented)
-                }
+                if (!expireProcedure.isEmpty())
+                    runProcedure(expireProcedure);
 
                 // Show expiry message if defined
-                QString expireMessage = getIniValue("flag=" + flagName, "ExpireMessage");
-                if (!expireMessage.isEmpty()) {
+                QString expireMessage = getIniValue(flagKey, "ExpireMessage");
+                if (!expireMessage.isEmpty())
                     QMessageBox::information(this, "Flag Expired", expireMessage);
-                }
             }
 
-            // Remove the flag
+            // Directly remove the flag without triggering RemoveProcedure
             i.remove();
-            updateStatusText(); // Update the UI if needed
-
+            updateStatusText();
             qDebug() << "Flag expired and removed: " << flagName;
         }
     }
@@ -2401,6 +2437,52 @@ void CyberDom::deleteAssignment(const QString &assignmentName, bool isPunishment
 
 bool CyberDom::isFlagSet(const QString &flagName) const {
     return flags.contains(flagName);
+}
+
+QStringList CyberDom::getFlagsByGroup(const QString &groupName) const {
+    QStringList result;
+    QString target = groupName.trimmed().toLower();
+
+    for (auto it = flags.constBegin(); it != flags.constEnd(); ++it) {
+        const QString &flagName = it.key();
+        const FlagData &data = it.value();
+
+        for (const QString &grp : data.groups) {
+            if (grp.trimmed().toLower() == target) {
+                result.append(flagName);
+                break;
+            }
+        }
+    }
+
+    return result;
+}
+
+void CyberDom::setFlagGroup(const QString &groupName) {
+    QString target = groupName.trimmed().toLower();
+
+    for (auto it = iniData.constBegin(); it != iniData.constEnd(); ++it) {
+        const QString &section = it.key();
+        if (!section.startsWith("flag-", Qt::CaseInsensitive))
+            continue;
+
+        QString groups = it.value().value("Group");
+        if (groups.isEmpty())
+            continue;
+
+        for (const QString &grp : groups.split(',')) {
+            if (grp.trimmed().toLower() == target) {
+                setFlag(section.mid(5));
+                break;
+            }
+        }
+    }
+}
+
+void CyberDom::removeFlagGroup(const QString &groupName) {
+    const QStringList activeFlags = getFlagsByGroup(groupName);
+    for (const QString &flag : activeFlags)
+        removeFlag(flag);
 }
 
 QString CyberDom::getClothingReportPrompt() const
