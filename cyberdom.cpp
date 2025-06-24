@@ -1910,6 +1910,7 @@ void CyberDom::checkPunishments() {
 
 void CyberDom::addPunishmentToAssignments(const QString &punishmentName, int amount)
 {
+    punishmentAmounts[punishmentName] = amount;
     if (!activeAssignments.contains(punishmentName)) {
         activeAssignments.insert(punishmentName);
         qDebug() << "[DEBUG] Punishment added to active assignments: " << punishmentName;
@@ -2202,6 +2203,8 @@ void CyberDom::markAssignmentDone(const QString &assignmentName, bool isPunishme
 
     // Remove from active assignments
     activeAssignments.remove(assignmentName);
+    if (isPunishment)
+        punishmentAmounts.remove(assignmentName);
 
     // Remove from deadlines and tracking
     jobDeadlines.remove(assignmentName);
@@ -2304,6 +2307,8 @@ void CyberDom::deleteAssignment(const QString &assignmentName, bool isPunishment
     }
 
     activeAssignments.remove(assignmentName);
+    if (isPunishment)
+        punishmentAmounts.remove(assignmentName);
     jobDeadlines.remove(assignmentName);
     jobExpiryTimes.remove(assignmentName);
     jobRemindIntervals.remove(assignmentName);
@@ -2810,6 +2815,13 @@ bool CyberDom::loadSessionData(const QString &path) {
         jobLateMerits[key] = session.value(key).toInt();
     }
     session.endGroup();
+
+    session.beginGroup("Amounts");
+    const QStringList amtKeys = session.childKeys();
+    for (const QString &key : amtKeys) {
+        punishmentAmounts[key] = session.value(key).toInt();
+    }
+    session.endGroup();
     session.endGroup(); // Assignments
 
     session.beginGroup("Flags");
@@ -2923,6 +2935,11 @@ void CyberDom::saveSessionData(const QString &path) const {
     session.endGroup();
     session.beginGroup("LateMerits");
     for (auto it = jobLateMerits.constBegin(); it != jobLateMerits.constEnd(); ++it) {
+        session.setValue(it.key(), it.value());
+    }
+    session.endGroup();
+    session.beginGroup("Amounts");
+    for (auto it = punishmentAmounts.constBegin(); it != punishmentAmounts.constEnd(); ++it) {
         session.setValue(it.key(), it.value());
     }
     session.endGroup();
