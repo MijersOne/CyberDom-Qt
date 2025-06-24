@@ -2400,6 +2400,52 @@ bool CyberDom::isFlagSet(const QString &flagName) const {
     return flags.contains(flagName);
 }
 
+QStringList CyberDom::getFlagsByGroup(const QString &groupName) const {
+    QStringList result;
+    QString target = groupName.trimmed().toLower();
+
+    for (auto it = flags.constBegin(); it != flags.constEnd(); ++it) {
+        const QString &flagName = it.key();
+        const FlagData &data = it.value();
+
+        for (const QString &grp : data.groups) {
+            if (grp.trimmed().toLower() == target) {
+                result.append(flagName);
+                break;
+            }
+        }
+    }
+
+    return result;
+}
+
+void CyberDom::setFlagGroup(const QString &groupName) {
+    QString target = groupName.trimmed().toLower();
+
+    for (auto it = iniData.constBegin(); it != iniData.constEnd(); ++it) {
+        const QString &section = it.key();
+        if (!section.startsWith("flag-", Qt::CaseInsensitive))
+            continue;
+
+        QString groups = it.value().value("Group");
+        if (groups.isEmpty())
+            continue;
+
+        for (const QString &grp : groups.split(',')) {
+            if (grp.trimmed().toLower() == target) {
+                setFlag(section.mid(5));
+                break;
+            }
+        }
+    }
+}
+
+void CyberDom::removeFlagGroup(const QString &groupName) {
+    const QStringList activeFlags = getFlagsByGroup(groupName);
+    for (const QString &flag : activeFlags)
+        removeFlag(flag);
+}
+
 QString CyberDom::getClothingReportPrompt() const
 {
     // Get the clothing report prompt from the current status or script
