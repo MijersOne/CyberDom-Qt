@@ -2168,7 +2168,7 @@ void CyberDom::checkFlagExpiry() {
                 }
 
                 // Show expiry message if defined
-                QString expireMessage = getIniValue("flag=" + flagName, "ExpireMessage");
+                QString expireMessage = getIniValue("flag-" + flagName, "ExpireMessage");
                 if (!expireMessage.isEmpty()) {
                     QMessageBox::information(this, "Flag Expired", expireMessage);
                 }
