@@ -9,7 +9,7 @@ private slots:
 
 void SigninIntervalTest::parseMixedCase() {
     ScriptParser parser;
-    QVERIFY(parser.parseScript("mixedcase_script.ini"));
+    QVERIFY(parser.parseScript("tests/mixedcase_script.ini"));
 
     auto s1 = parser.getStatus("test1");
     QCOMPARE(s1.signinIntervalMin, QString("1"));
