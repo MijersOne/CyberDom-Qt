@@ -29,6 +29,16 @@ qmake6 CyberDom.pro
 make
 ```
 
+### Tests
+
+Unit tests use the Qt Test framework. Build them with:
+
+```bash
+qmake6 tests/tests.pro && make
+```
+
+Run the resulting `runtests` executable to execute all tests.
+
 You can also open `CyberDom.pro` in Qt Creator and build directly from the IDE.
 
 ## Run

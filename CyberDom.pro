@@ -87,3 +87,8 @@ FORMS += \
 qnx: target.path = /tmp/$${TARGET}/bin
 else: unix:!android: target.path = /opt/$${TARGET}/bin
 !isEmpty(target.path): INSTALLS += target
+
+# Unit test target
+unit_test.target = runtests
+unit_test.commands = cd tests && qmake6 tests.pro && $(MAKE)
+QMAKE_EXTRA_TARGETS += unit_test
