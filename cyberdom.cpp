@@ -1248,6 +1248,26 @@ QString CyberDom::replaceVariables(const QString &input) const {
         result.replace(var, it.value());
     }
 
+    QString onText = getIniValue("General", "FlagOnText");
+    QString offText = getIniValue("General", "FlagOffText");
+
+    if (!onText.isEmpty() && !offText.isEmpty()) {
+        QRegularExpression rx("\\{([^\\$#][^}]*)\\}");
+        QRegularExpressionMatchIterator i = rx.globalMatch(result);
+        QString processed;
+        int lastIndex = 0;
+        while (i.hasNext()) {
+            QRegularExpressionMatch match = i.next();
+            processed += result.mid(lastIndex, match.capturedStart() - lastIndex);
+            QString name = match.captured(1).trimmed();
+            QString replacement = isFlagSet(name) ? onText : offText;
+            processed += replacement;
+            lastIndex = match.capturedEnd();
+        }
+        processed += result.mid(lastIndex);
+        result = processed;
+    }
+
     return result;
 }
 
