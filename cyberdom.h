@@ -232,6 +232,7 @@ private:
     int parseTimeToSeconds(const QString &timeStr) const;
     int parseTimeRangeToSeconds(const QString &range) const;
     int randomIntFromRange(const QString &range) const;
+    void incrementUsageCount(const QString &key);
 private slots:
     void applyTimeToClock(int days, int hours, int minutes, int seconds);
     void openAboutDialog();
@@ -250,6 +251,8 @@ private slots:
     void openListFlagsDialog();
     void openSetFlagsDialog();
     void openDeleteAssignmentsDialog();
+    void openAskPermissionDialog();
+    void openPermission(const QString &name);
     void openConfession(const QString &name);
     void resetApplication();
     void updateMerits(int newMerits);

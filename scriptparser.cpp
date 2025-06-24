@@ -3683,6 +3683,10 @@ QList<PunishmentSection> ScriptParser::getPunishmentSections() const {
     return scriptData.punishments.values();
 }
 
+QList<PermissionDefinition> ScriptParser::getPermissionSections() const {
+    return scriptData.permissions.values();
+}
+
 QList<ClothTypeSection> ScriptParser::getClothTypeSections() const {
     return scriptData.clothingTypes.values();
 }
