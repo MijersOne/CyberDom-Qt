@@ -109,10 +109,9 @@ void Assignments::populateJobList() {
             int amt = mainApp->getPunishmentAmount(assignmentName);
             QMap<QString, QString> details = iniData.value("punishment-" + assignmentName);
             if (displayName.contains('#')) {
-                double val = details.value("value", "1").toDouble();
-                QString unit = details.value("ValueUnit").toLower();
-                int total = qRound(val * amt);
-                displayName.replace('#', QString::number(total));
+                // Use the punishment amount directly when replacing '#'
+                // The old logic multiplied the base value by 'amt'
+                displayName.replace('#', QString::number(amt));
             }
             if (!displayName.isEmpty()) {
                 displayName[0] = displayName[0].toUpper();
