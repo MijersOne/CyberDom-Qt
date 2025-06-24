@@ -1910,8 +1910,13 @@ void CyberDom::checkPunishments() {
 
 void CyberDom::addPunishmentToAssignments(const QString &punishmentName, int amount)
 {
-    punishmentAmounts[punishmentName] = amount;
-    if (!activeAssignments.contains(punishmentName)) {
+    if (amount <= 0)
+        return;
+
+    bool alreadyActive = activeAssignments.contains(punishmentName);
+    punishmentAmounts[punishmentName] += amount;
+
+    if (!alreadyActive) {
         activeAssignments.insert(punishmentName);
         qDebug() << "[DEBUG] Punishment added to active assignments: " << punishmentName;
 
@@ -1987,6 +1992,44 @@ void CyberDom::addPunishmentToAssignments(const QString &punishmentName, int amo
         qDebug() << "[DEBUG] jobListUpdated Signal Emitted!";
     } else {
         qDebug() << "[DEBUG] Punishment already exists in active assignments: " << punishmentName;
+
+        QString punishmentKey = "punishment-" + punishmentName;
+        QMap<QString, QString> punishmentDetails;
+        for (auto it = iniData.constBegin(); it != iniData.constEnd(); ++it) {
+            if (it.key().toLower() == punishmentKey.toLower()) {
+                punishmentDetails = it.value();
+                break;
+            }
+        }
+
+        QDateTime deadline = jobDeadlines.value(punishmentName, internalClock);
+        bool extended = false;
+        if (punishmentDetails.contains("ValueUnit")) {
+            QString valueUnit = punishmentDetails["ValueUnit"];
+            double value = punishmentDetails.value("value", "0").toDouble();
+            int total = qRound(value * amount);
+
+            if (valueUnit.compare("minute", Qt::CaseInsensitive) == 0) {
+                deadline = deadline.addSecs(total * 60);
+                if (jobExpiryTimes.contains(punishmentName))
+                    jobExpiryTimes[punishmentName] = jobExpiryTimes[punishmentName].addSecs(total * 60);
+            } else if (valueUnit.compare("hour", Qt::CaseInsensitive) == 0) {
+                deadline = deadline.addSecs(total * 3600);
+                if (jobExpiryTimes.contains(punishmentName))
+                    jobExpiryTimes[punishmentName] = jobExpiryTimes[punishmentName].addSecs(total * 3600);
+            } else if (valueUnit.compare("day", Qt::CaseInsensitive) == 0) {
+                deadline = deadline.addDays(total);
+                if (jobExpiryTimes.contains(punishmentName))
+                    jobExpiryTimes[punishmentName] = jobExpiryTimes[punishmentName].addDays(total);
+            }
+            extended = true;
+        }
+
+        if (extended) {
+            jobDeadlines[punishmentName] = deadline;
+            emit jobListUpdated();
+            qDebug() << "[DEBUG] jobListUpdated Signal Emitted!";
+        }
     }
 }
 
