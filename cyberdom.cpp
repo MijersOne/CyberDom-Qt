@@ -1776,7 +1776,7 @@ void CyberDom::assignScheduledJobs() {
         // Run Daily Jobs
         if (jobDetails.contains("Run") && jobDetails["Run"] == "Daily") {
             if (!activeAssignments.contains(jobName)) {
-                activeAssignments.insert(jobName);
+                addJobToAssignments(jobName);
                 qDebug() << "[DEBUG] Job Auto-Assigned (Daily Run): " << jobName;
             }
         }
@@ -1785,7 +1785,7 @@ void CyberDom::assignScheduledJobs() {
         if (jobDetails.contains("FirstInterval")) {
             QTime jobStartTime = QTime::fromString(jobDetails["FirstInterval"], "hh:mm");
             if (currentTime.time() >= jobStartTime && !activeAssignments.contains(jobName)) {
-                activeAssignments.insert(jobName);
+                addJobToAssignments(jobName);
                 qDebug() << "[DEBUG] Job Auto-Assigned (First Interval): " << jobName;
             }
         }
@@ -1800,33 +1800,7 @@ void CyberDom::assignJobFromTrigger(QString section) {
     if (sectionData.contains("Job")) {
         QString jobName = sectionData["Job"].trimmed();
         if (!activeAssignments.contains(jobName)) {
-            activeAssignments.insert(jobName);
-
-
-            // Extract EndTime if available
-            if (iniData.contains("job-" + jobName)) {
-                QMap<QString, QString> jobDetails = iniData["job-" + jobName];
-
-                if (jobDetails.contains("EndTime")) {
-                    // Extract EndTime (HH:MM format)
-                    QString endTimeStr = jobDetails["EndTime"];
-                    QTime endTime = QTime::fromString(endTimeStr, "HH:mm");
-
-                    if (endTime.isValid()) {
-                        // Create deadline datetime using current date initially
-                        QDateTime deadline = QDateTime(internalClock.date(), endTime);
-
-                        // If the deadline time has already passed today, move to tomorrow
-                        if (deadline <= internalClock) {
-                            deadline = deadline.addDays(1);
-                        }
-
-                        jobDeadlines[jobName] = deadline;
-                        qDebug() << "[DEBUG] Job deadline set: " << jobName << " - " << deadline.toString("MM-dd-yyyy hh:mm AP");
-                    }
-                }
-            }
-
+            addJobToAssignments(jobName);
             qDebug() << "[DEBUG] Assigned Job: " << jobName;
         }
     }
@@ -1838,44 +1812,47 @@ void CyberDom::addJobToAssignments(QString jobName)
         activeAssignments.insert(jobName);
         qDebug() << "[DEBUG] Job added to active assignments: " << jobName;
 
-        // Process the deadline based on EndTime
+        QDateTime deadline;
+        bool deadlineSet = false;
         if (iniData.contains("job-" + jobName)) {
             QMap<QString, QString> jobDetails = iniData["job-" + jobName];
 
             if (jobDetails.contains("EndTime")) {
-                // Extract EndTime (HH:MM format)
                 QString endTimeStr = jobDetails["EndTime"];
                 QTime endTime = QTime::fromString(endTimeStr, "HH:mm");
-
                 if (endTime.isValid()) {
-                    // Create deadline datetime using the current date initially
-                    QDateTime deadline = QDateTime(internalClock.date(), endTime);
-
-                    // If the deadline time has already passed today, move to tomorrow
-                    if (deadline <= internalClock) {
+                    deadline = QDateTime(internalClock.date(), endTime);
+                    if (deadline <= internalClock)
                         deadline = deadline.addDays(1);
-                    }
-
-                    jobDeadlines[jobName] = deadline;
-                    qDebug() << "[DEBUG] Job deadline set: " << jobName << " - " << deadline.toString("MM-dd-yyyy hh:mm AP");
-
-                    if (jobDetails.contains("ExpireAfter")) {
-                        int expireSec = parseTimeRangeToSeconds(jobDetails["ExpireAfter"]);
-                        if (expireSec > 0)
-                            jobExpiryTimes[jobName] = deadline.addSecs(expireSec);
-                    }
-                    if (jobDetails.contains("RemindInterval")) {
-                        int intervalSec = parseTimeRangeToSeconds(jobDetails["RemindInterval"]);
-                        if (intervalSec > 0)
-                            jobRemindIntervals[jobName] = intervalSec;
-                    }
-                    if (jobDetails.contains("LateMerits")) {
-                        jobLateMerits[jobName] = randomIntFromRange(jobDetails["LateMerits"]);
-                    }
+                    deadlineSet = true;
                 } else {
                     qDebug() << "[DEBUG] Invalid EndTime format for job: " << jobName;
                 }
             }
+
+            if (!deadlineSet) {
+                deadline = QDateTime(internalClock.date(), QTime(23, 59, 59));
+            }
+
+            jobDeadlines[jobName] = deadline;
+            qDebug() << "[DEBUG] Job deadline set: " << jobName << " - "
+                     << deadline.toString("MM-dd-yyyy hh:mm AP");
+
+            if (jobDetails.contains("ExpireAfter")) {
+                int expireSec = parseTimeRangeToSeconds(jobDetails["ExpireAfter"]);
+                if (expireSec > 0)
+                    jobExpiryTimes[jobName] = deadline.addSecs(expireSec);
+            }
+            if (jobDetails.contains("RemindInterval")) {
+                int intervalSec = parseTimeRangeToSeconds(jobDetails["RemindInterval"]);
+                if (intervalSec > 0)
+                    jobRemindIntervals[jobName] = intervalSec;
+            }
+            if (jobDetails.contains("LateMerits")) {
+                jobLateMerits[jobName] = randomIntFromRange(jobDetails["LateMerits"]);
+            }
+        } else {
+            setDefaultDeadlineForJob(jobName);
         }
 
         emit jobListUpdated();
@@ -3216,4 +3193,11 @@ void CyberDom::incrementUsageCount(const QString &key) {
     int count = settings.value(QStringLiteral("Usage/%1").arg(key), 0).toInt();
     settings.setValue(QStringLiteral("Usage/%1").arg(key), count + 1);
     settings.sync();
+}
+
+void CyberDom::setDefaultDeadlineForJob(const QString &jobName) {
+    QDateTime deadline(internalClock.date(), QTime(23, 59, 59));
+    jobDeadlines[jobName] = deadline;
+    qDebug() << "[DEBUG] Job default deadline set: " << jobName << " - "
+             << deadline.toString("MM-dd-yyyy hh:mm AP");
 }

@@ -16,6 +16,7 @@ private slots:
     void initTestCase();
     void severityToAmount();
     void assignmentDeadline();
+    void jobDefaultDeadline();
 
 private:
     QString sessionPath;
@@ -40,6 +41,8 @@ void PunishmentTest::initTestCase() {
     out << "Group=testgrp\n";
     out << "[status-Normal]\n";
     out << "Text=Ready\n";
+    out << "[job-feedfish]\n";
+    out << "Text=Feed the fish\n";
     script.close();
 
     sessionPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/session.cdt";
@@ -55,6 +58,7 @@ void PunishmentTest::initTestCase() {
 }
 
 void PunishmentTest::severityToAmount() {
+    QFile::remove(sessionPath);
     CyberDom app;
     mainApp = &app;
     app.applyPunishment(30, "testgrp");
@@ -62,6 +66,7 @@ void PunishmentTest::severityToAmount() {
 }
 
 void PunishmentTest::assignmentDeadline() {
+    QFile::remove(sessionPath);
     CyberDom app;
     mainApp = &app;
     app.applyPunishment(30, "testgrp");
@@ -74,6 +79,16 @@ void PunishmentTest::assignmentDeadline() {
     QVERIFY(deadlines.contains("test"));
     QString expected = deadlines["test"].toString("MM-dd-yyyy h:mm AP");
     QCOMPARE(displayed, expected);
+}
+
+void PunishmentTest::jobDefaultDeadline() {
+    QFile::remove(sessionPath);
+    CyberDom app;
+    mainApp = &app;
+    app.addJobToAssignments("feedfish");
+    QMap<QString, QDateTime> deadlines = app.getJobDeadlines();
+    QVERIFY(deadlines.contains("feedfish"));
+    QCOMPARE(deadlines["feedfish"].time(), QTime(23, 59, 59));
 }
 
 QTEST_MAIN(PunishmentTest)
