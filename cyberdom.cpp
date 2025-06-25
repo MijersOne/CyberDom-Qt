@@ -1129,6 +1129,34 @@ void CyberDom::updateStatusText() {
         statusText += "\n" + iniData["General"]["BottomText"];
     }
 
+    // Gather Text= lines from active punishments
+    QStringList punishmentTexts;
+    for (auto it = punishmentAmounts.constBegin(); it != punishmentAmounts.constEnd(); ++it) {
+        QString sectionKey = "punishment-" + it.key();
+
+        // Prefer raw data from ScriptParser to get all Text lines
+        QStringList texts;
+        if (scriptParser) {
+            QMap<QString, QStringList> rawData = scriptParser->getRawSectionData(sectionKey);
+            if (rawData.contains("Text"))
+                texts = rawData.value("Text");
+        }
+
+        // Fallback to iniData if needed
+        if (texts.isEmpty() && iniData.contains(sectionKey) && iniData[sectionKey].contains("Text"))
+            texts << iniData[sectionKey]["Text"];
+
+        for (const QString &txt : texts) {
+            if (!txt.trimmed().isEmpty())
+                punishmentTexts << txt.trimmed();
+        }
+    }
+
+    if (!punishmentTexts.isEmpty()) {
+        statusText += "\n\nPunishments\n";
+        statusText += punishmentTexts.join("\n");
+    }
+
     // Set the completed text in the UI
     ui->textBrowser->setText(statusText);
 }
