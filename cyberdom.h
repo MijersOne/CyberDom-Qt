@@ -55,6 +55,7 @@ public:
     QStringList getAvailableJobs();
     QMap<QString, QDateTime> getJobDeadlines() const { return jobDeadlines; }
     int getPunishmentAmount(const QString &name) const { return punishmentAmounts.value(name, 0); }
+    bool isPermissionForbidden(const QString &name) const;
     QSet<QString> activeAssignments;
 
     void assignJobFromTrigger(QString section);

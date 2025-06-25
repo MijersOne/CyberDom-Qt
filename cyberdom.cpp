@@ -450,6 +450,19 @@ void CyberDom::openPermission(const QString &name)
     const PermissionDefinition &perm = perms.value(name);
     incrementUsageCount(QString("Permission/%1").arg(name));
 
+    if (isPermissionForbidden(name)) {
+        QString title = perm.title.isEmpty() ? perm.name : perm.title;
+        QMessageBox::information(this, tr("Permission"),
+                                 tr("No %1 you may not %2")
+                                     .arg(subNameVariable, title));
+        if (!perm.denyProcedure.isEmpty())
+            runProcedure(perm.denyProcedure);
+        QString eventProc = scriptParser->getScriptData().eventHandlers.permissionDenied;
+        if (!eventProc.isEmpty())
+            runProcedure(eventProc);
+        return;
+    }
+
     if (!perm.beforeProcedure.isEmpty())
         runProcedure(perm.beforeProcedure);
 
@@ -473,6 +486,23 @@ void CyberDom::openPermission(const QString &name)
         if (!eventProc.isEmpty())
             runProcedure(eventProc);
     }
+}
+
+bool CyberDom::isPermissionForbidden(const QString &name) const {
+    if (!scriptParser)
+        return false;
+
+    const auto &puns = scriptParser->getScriptData().punishments;
+    for (auto it = puns.constBegin(); it != puns.constEnd(); ++it) {
+        const PunishmentDefinition &p = it.value();
+        if (!activeAssignments.contains(p.name))
+            continue;
+        for (const QString &forbid : p.forbids) {
+            if (forbid.trimmed().compare(name, Qt::CaseInsensitive) == 0)
+                return true;
+        }
+    }
+    return false;
 }
 
 void CyberDom::openConfession(const QString &name)

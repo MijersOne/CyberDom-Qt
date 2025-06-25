@@ -17,6 +17,7 @@ private slots:
     void severityToAmount();
     void assignmentDeadline();
     void jobDefaultDeadline();
+    void forbidPermission();
 
 private:
     QString sessionPath;
@@ -43,6 +44,11 @@ void PunishmentTest::initTestCase() {
     out << "Text=Ready\n";
     out << "[job-feedfish]\n";
     out << "Text=Feed the fish\n";
+    out << "[permission-shower]\n";
+    out << "Text=Take a hot bath/shower\n";
+    out << "[punishment-nohot]\n";
+    out << "ValueUnit=once\n";
+    out << "Forbid=shower\n";
     script.close();
 
     sessionPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/session.cdt";
@@ -89,6 +95,14 @@ void PunishmentTest::jobDefaultDeadline() {
     QMap<QString, QDateTime> deadlines = app.getJobDeadlines();
     QVERIFY(deadlines.contains("feedfish"));
     QCOMPARE(deadlines["feedfish"].time(), QTime(23, 59, 59));
+}
+
+void PunishmentTest::forbidPermission() {
+    QFile::remove(sessionPath);
+    CyberDom app;
+    mainApp = &app;
+    app.addPunishmentToAssignments("nohot");
+    QVERIFY(app.isPermissionForbidden("shower"));
 }
 
 QTEST_MAIN(PunishmentTest)
