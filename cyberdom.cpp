@@ -1082,22 +1082,32 @@ void CyberDom::updateStatusText() {
         statusText += iniData["General"]["TopText"] + "\n\n";
     }
 
-    // Get text from the current status definition
+    // Get Text lines from the current status definition
     QString statusKey = "status-" + currentStatus;
-    if (iniData.contains(statusKey)) {
-        QMap<QString, QString> statusData = iniData[statusKey];
+    QStringList textLines;
 
-        // Collect all text= lines
-        QStringList textLines;
-        for (auto it = statusData.begin(); it != statusData.end(); ++it) {
-            if (it.key().toLower() == "text") {
+    // Prefer raw script data to preserve multiple Text entries
+    if (scriptParser) {
+        QMap<QString, QStringList> rawData = scriptParser->getRawSectionData(statusKey);
+        for (auto it = rawData.constBegin(); it != rawData.constEnd(); ++it) {
+            if (it.key().compare("Text", Qt::CaseInsensitive) == 0) {
                 textLines.append(it.value());
             }
         }
+    }
 
-        if (!textLines.isEmpty()) {
-            statusText += textLines.join("\n") + "\n\n";
-        }
+    // Fallback to iniData if needed
+    if (textLines.isEmpty() && iniData.contains(statusKey)) {
+        QMap<QString, QString> statusData = iniData[statusKey];
+        if (statusData.contains("Text"))
+            textLines << statusData.value("Text");
+    }
+
+    if (!textLines.isEmpty()) {
+        QStringList replaced;
+        for (const QString &line : textLines)
+            replaced << replaceVariables(line);
+        statusText += replaced.join("\n") + "\n\n";
     }
 
     // Process special placeholders
