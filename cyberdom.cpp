@@ -365,7 +365,7 @@ void CyberDom::openAboutDialog()
 
 void CyberDom::openAskClothingDialog()
 {
-    AskClothing askclothingDialog(this); // Create the AskClothing dialog, passing the parent
+    AskClothing askclothingDialog(this, scriptParser); // Create the AskClothing dialog with parser
     askclothingDialog.exec(); // Show the dialog modally
 }
 
