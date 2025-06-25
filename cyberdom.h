@@ -190,6 +190,7 @@ private:
     bool testMenuEnabled = false;
     QMenu *reportMenu = nullptr;
     QMenu *confessMenu = nullptr;
+    QMenu *permissionMenu = nullptr;
 
     bool isPunishment = false;
 
@@ -230,6 +231,7 @@ private:
 
     void populateReportMenu();
     void populateConfessMenu();
+    void populatePermissionMenu();
 
     int parseTimeToSeconds(const QString &timeStr) const;
     int parseTimeRangeToSeconds(const QString &range) const;
