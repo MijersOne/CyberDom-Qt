@@ -235,6 +235,7 @@ private:
     int parseTimeRangeToSeconds(const QString &range) const;
     int randomIntFromRange(const QString &range) const;
     void incrementUsageCount(const QString &key);
+    void setDefaultDeadlineForJob(const QString &jobName);
 private slots:
     void applyTimeToClock(int days, int hours, int minutes, int seconds);
     void openAboutDialog();
