@@ -72,6 +72,10 @@ CyberDom::CyberDom(QWidget *parent)
     if (confessMenu)
         connect(this, &CyberDom::destroyed, confessMenu, &QMenu::clear);
 
+    permissionMenu = ui->menuAskPermission;
+    if (permissionMenu)
+        connect(this, &CyberDom::destroyed, permissionMenu, &QMenu::clear);
+
     // Connect the menuAssignments action to the slot function
     connect(ui->actionAssignments, &QAction::triggered, this, &CyberDom::openAssignmentsWindow);
 
@@ -117,8 +121,6 @@ CyberDom::CyberDom(QWidget *parent)
     // Connect the DeleteAssignments action to a slot function
     connect(ui->actionList_and_Delete_Assignments, &QAction::triggered, this, &CyberDom::openDeleteAssignmentsDialog);
 
-    // Connect asking for permissions
-    connect(ui->actionAsk_Permission, &QAction::triggered, this, &CyberDom::openAskPermissionDialog);
 
     // Connect the Delete_Status_File action to a slot function
     connect(ui->actionDelete_Status_File, &QAction::triggered, this, &CyberDom::resetApplication);
@@ -586,6 +588,31 @@ void CyberDom::populateConfessMenu()
         confessMenu->addAction(act);
         connect(act, &QAction::triggered, this, [this, name = conf.name]() {
             openConfession(name);
+        });
+    }
+}
+
+void CyberDom::populatePermissionMenu()
+{
+    permissionMenu = ui->menuAskPermission;
+    if (!permissionMenu)
+        return;
+
+    permissionMenu->clear();
+
+    if (!scriptParser)
+        return;
+
+    const auto perms = scriptParser->getPermissionSections();
+    for (const auto &perm : perms) {
+        QString label = perm.title.isEmpty() ? perm.name : perm.title;
+        label = label.trimmed();
+        if (!label.isEmpty())
+            label[0] = label[0].toUpper();
+        QAction *act = new QAction(label, permissionMenu);
+        permissionMenu->addAction(act);
+        connect(act, &QAction::triggered, this, [this, name = perm.name]() {
+            openPermission(name);
         });
     }
 }
@@ -1496,6 +1523,7 @@ void CyberDom::applyScriptSettings() {
 
     populateReportMenu();
     populateConfessMenu();
+    populatePermissionMenu();
 }
 
 void CyberDom::setupInitialStatus() {

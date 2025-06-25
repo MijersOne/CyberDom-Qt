@@ -163,7 +163,12 @@
       <string>Confess</string>
      </property>
     </widget>
-    <addaction name="actionAsk_Permission"/>
+    <widget class="QMenu" name="menuAskPermission">
+     <property name="title">
+      <string>Ask Permission</string>
+     </property>
+    </widget>
+    <addaction name="menuAskPermission"/>
     <addaction name="actionReport_Clothing"/>
     <addaction name="menuConfess"/>
     <addaction name="actionAsk_for_Clothing_Instructions"/>
@@ -246,11 +251,6 @@
   <action name="actionExit">
    <property name="text">
     <string>Exit</string>
-   </property>
-  </action>
-  <action name="actionAsk_Permission">
-   <property name="text">
-    <string>Ask Permission</string>
    </property>
   </action>
   <action name="actionReport_Clothing">
