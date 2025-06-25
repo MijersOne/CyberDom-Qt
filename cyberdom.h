@@ -81,7 +81,7 @@ public:
     bool isInStatusGroup(const QString &groupName);
 
     void startAssignment(const QString &assignmentName, bool isPunishment, const QString &newStatus);
-    void markAssignmentDone(const QString &assignmentName, bool isPunishment);
+    bool markAssignmentDone(const QString &assignmentName, bool isPunishment);
     void abortAssignment(const QString &assignmentName, bool isPunishment);
     void deleteAssignment(const QString &assignmentName, bool isPunishment);
 
@@ -236,6 +236,7 @@ private:
 
     int parseTimeToSeconds(const QString &timeStr) const;
     int parseTimeRangeToSeconds(const QString &range) const;
+    QString formatDuration(int seconds) const;
     int randomIntFromRange(const QString &range) const;
     void incrementUsageCount(const QString &key);
     void setDefaultDeadlineForJob(const QString &jobName);

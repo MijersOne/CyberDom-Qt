@@ -286,7 +286,11 @@ void Assignments::on_btn_Done_clicked()
     }
 
     // Call the markAssignmentDone method in CyberDom
-    mainApp->markAssignmentDone(assignmentName, isPunishment);
+    bool completed = mainApp->markAssignmentDone(assignmentName, isPunishment);
+
+    if (!completed) {
+        return; // user finished too quickly
+    }
 
     // Select a new row if available after the refresh
     if (ui->table_Assignments->rowCount() > 0) {

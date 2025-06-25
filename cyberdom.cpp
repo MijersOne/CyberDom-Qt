@@ -2351,7 +2351,7 @@ void CyberDom::startAssignment(const QString &assignmentName, bool isPunishment,
     emit jobListUpdated();
 }
 
-void CyberDom::markAssignmentDone(const QString &assignmentName, bool isPunishment)
+bool CyberDom::markAssignmentDone(const QString &assignmentName, bool isPunishment)
 {
     // Prefix for section lookup
     QString sectionPrefix = isPunishment ? "punishment-" : "job-";
@@ -2371,7 +2371,42 @@ void CyberDom::markAssignmentDone(const QString &assignmentName, bool isPunishme
     
     if (!sectionFound) {
         qDebug() << "[WARNING] Section not found for completed assignment: " << sectionName;
-        return;
+        return false;
+    }
+
+    if (!isPunishment && details.contains("MinTime")) {
+        QSettings settings(settingsFile, QSettings::IniFormat);
+        QDateTime start = settings.value("Assignments/" + assignmentName + "_start_time").toDateTime();
+        int elapsed = start.isValid() ? static_cast<int>(start.secsTo(internalClock)) : 0;
+        int required = parseTimeRangeToSeconds(details.value("MinTime"));
+        if (required > 0 && elapsed < required) {
+            int penalty = 0;
+            if (details.contains("QuickPenalty1"))
+                penalty += details.value("QuickPenalty1").toInt();
+            if (details.contains("QuickPenalty2")) {
+                double ratio = details.value("QuickPenalty2").toDouble();
+                int minsEarly = static_cast<int>(std::ceil((required - elapsed) / 60.0));
+                penalty += qRound(ratio * minsEarly);
+            }
+            QString grp = details.value("QuickPenaltyGroup");
+            if (penalty > 0)
+                applyPunishment(penalty, grp);
+
+            bool showMsg = details.contains("QuickMessage") || details.contains("QuickPenalty1") || details.contains("QuickPenalty2");
+            if (showMsg) {
+                QString msg = details.value("QuickMessage");
+                if (msg.isEmpty())
+                    msg = assignmentName + ": How can you finish in %?";
+                msg.replace("#", formatDuration(required - elapsed));
+                msg.replace("%", formatDuration(elapsed));
+                QMessageBox::information(this, "Too Quick", replaceVariables(msg));
+            }
+
+            if (details.contains("QuickProcedure"))
+                runProcedure(details.value("QuickProcedure"));
+
+            return false;
+        }
     }
 
     // Remove from active assignments
@@ -2439,6 +2474,7 @@ void CyberDom::markAssignmentDone(const QString &assignmentName, bool isPunishme
     // Update UI
     updateStatusText();
     emit jobListUpdated();
+    return true;
 }
 
 void CyberDom::playSoundSafe(const QString &filePath) {
@@ -3272,6 +3308,19 @@ int CyberDom::parseTimeRangeToSeconds(const QString &range) const {
         return ScriptUtils::randomInRange(minSec, maxSec, false);
     }
     return parseTimeToSeconds(range);
+}
+
+QString CyberDom::formatDuration(int seconds) const {
+    if (seconds < 0)
+        seconds = 0;
+    if (seconds < 60)
+        return QString::number(seconds) + " Second" + (seconds == 1 ? "" : "s");
+    if (seconds < 3600) {
+        int mins = (seconds + 59) / 60;
+        return QString::number(mins) + " Minute" + (mins == 1 ? "" : "s");
+    }
+    int hours = (seconds + 3599) / 3600;
+    return QString::number(hours) + " Hour" + (hours == 1 ? "" : "s");
 }
 
 int CyberDom::randomIntFromRange(const QString &range) const {
