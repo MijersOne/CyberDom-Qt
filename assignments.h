@@ -25,6 +25,7 @@ public slots:
     void on_btn_Done_clicked();
     void on_btn_Abort_clicked();
     void on_btn_Delete_clicked();
+    void updateStartButtonState();
 
 private:
     Ui::Assignments *ui;

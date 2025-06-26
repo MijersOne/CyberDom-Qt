@@ -6,6 +6,7 @@
 #include <QSettings>
 #include <QStandardPaths>
 #include <QDebug>
+#include <QSet>
 #include <QtMath>
 
 // extern CyberDom *mainApp;
@@ -16,6 +17,9 @@ Assignments::Assignments(QWidget *parent, CyberDom *app)
     , mainApp(app)
 {
     ui->setupUi(this);
+
+    connect(ui->table_Assignments, &QTableWidget::itemSelectionChanged,
+            this, &Assignments::updateStartButtonState);
     
     // Initialize settingsFile variable
     settingsFile = mainApp ? mainApp->getSettingsFilePath() : QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/settings.ini";
@@ -133,6 +137,8 @@ void Assignments::populateJobList() {
     }
 
     qDebug() << "[DEBUG] Displayed Active Jobs and Punishments in UI.";
+
+    updateStartButtonState();
 }
 
 void Assignments::on_btn_Start_clicked()
@@ -217,6 +223,8 @@ void Assignments::on_btn_Start_clicked()
             break;
         }
     }
+
+    updateStartButtonState();
 }
 
 void Assignments::on_btn_Done_clicked()
@@ -297,6 +305,8 @@ void Assignments::on_btn_Done_clicked()
         int newRow = qMin(selectedRow, ui->table_Assignments->rowCount() - 1);
         ui->table_Assignments->selectRow(newRow);
     }
+
+    updateStartButtonState();
 
     QMessageBox::information(this, assignmentType + " Completed", assignmentType + " " + assignmentName + " has been marked as completed.");
 }
@@ -393,6 +403,8 @@ void Assignments::on_btn_Abort_clicked()
             break;
         }
     }
+
+    updateStartButtonState();
 }
 
 void Assignments::on_btn_Delete_clicked()
@@ -471,4 +483,47 @@ void Assignments::on_btn_Delete_clicked()
         int newRow = qMin(selectedRow, ui->table_Assignments->rowCount() - 1);
         ui->table_Assignments->selectRow(newRow);
     }
+
+    updateStartButtonState();
+}
+
+void Assignments::updateStartButtonState()
+{
+    if (!mainApp) {
+        ui->btn_Start->setEnabled(false);
+        return;
+    }
+
+    int row = ui->table_Assignments->currentRow();
+    if (row < 0) {
+        ui->btn_Start->setEnabled(false);
+        return;
+    }
+
+    QTableWidgetItem *item = ui->table_Assignments->item(row, 1);
+    QString assignmentName = item->data(Qt::UserRole).toString();
+    if (assignmentName.isEmpty())
+        assignmentName = item->text();
+
+    QString type = ui->table_Assignments->item(row, 2)->text();
+    bool isPunishment = (type.toLower() == "punishment");
+
+    QString flag = (isPunishment ? "punishment_" : "job_") + assignmentName + "_started";
+    if (mainApp->isFlagSet(flag)) {
+        ui->btn_Start->setEnabled(false);
+        return;
+    }
+
+    QSet<QString> used = mainApp->getResourcesInUse();
+    QStringList needed = mainApp->getAssignmentResources(assignmentName, isPunishment);
+
+    bool conflict = false;
+    for (const QString &r : needed) {
+        if (used.contains(r)) {
+            conflict = true;
+            break;
+        }
+    }
+
+    ui->btn_Start->setEnabled(!conflict);
 }

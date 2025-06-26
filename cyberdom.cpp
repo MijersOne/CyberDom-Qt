@@ -3416,3 +3416,64 @@ void CyberDom::setDefaultDeadlineForJob(const QString &jobName) {
     qDebug() << "[DEBUG] Job default deadline set: " << jobName << " - "
              << deadline.toString("MM-dd-yyyy hh:mm AP");
 }
+
+QStringList CyberDom::getAssignmentResources(const QString &name, bool isPunishment) const
+{
+    if (!scriptParser)
+        return {};
+
+    const auto &data = scriptParser->getScriptData();
+    QString key = name.toLower();
+    if (isPunishment) {
+        for (auto it = data.punishments.constBegin(); it != data.punishments.constEnd(); ++it) {
+            if (it.key().toLower() == key)
+                return it.value().resources;
+        }
+    } else {
+        for (auto it = data.jobs.constBegin(); it != data.jobs.constEnd(); ++it) {
+            if (it.key().toLower() == key)
+                return it.value().resources;
+        }
+    }
+    return {};
+}
+
+bool CyberDom::isAssignmentLongRunning(const QString &name, bool isPunishment) const
+{
+    if (!scriptParser)
+        return false;
+
+    const auto &data = scriptParser->getScriptData();
+    QString key = name.toLower();
+    if (isPunishment) {
+        for (auto it = data.punishments.constBegin(); it != data.punishments.constEnd(); ++it) {
+            if (it.key().toLower() == key)
+                return it.value().longRunning;
+        }
+    } else {
+        for (auto it = data.jobs.constBegin(); it != data.jobs.constEnd(); ++it) {
+            if (it.key().toLower() == key)
+                return it.value().longRunning;
+        }
+    }
+    return false;
+}
+
+QSet<QString> CyberDom::getResourcesInUse() const
+{
+    QSet<QString> used;
+    if (!scriptParser)
+        return used;
+
+    for (const QString &name : activeAssignments) {
+        bool isPun = iniData.contains("punishment-" + name);
+        QString flag = (isPun ? "punishment_" : "job_") + name + "_started";
+        if (!isFlagSet(flag))
+            continue;
+        if (!isAssignmentLongRunning(name, isPun))
+            continue;
+        for (const QString &res : getAssignmentResources(name, isPun))
+            used.insert(res);
+    }
+    return used;
+}
