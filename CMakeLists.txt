@@ -40,6 +40,7 @@ set(SOURCES
     setflags.cpp
     timeadd.cpp
     assignments.cpp
+    linewriter.cpp
 )
 
 # Define header files
@@ -67,6 +68,7 @@ set(HEADERS
     setflags.h
     timeadd.h
     assignments.h
+    linewriter.h
 )
 
 # Define UI files
@@ -92,6 +94,7 @@ set(UIS
     selectpunishment.ui
     setflags.ui
     timeadd.ui
+    linewriter.ui
 )
 
 # Create executable
