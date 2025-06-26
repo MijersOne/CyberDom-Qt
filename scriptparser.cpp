@@ -363,6 +363,8 @@ void ScriptParser::parseInitSection(const QMap<QString, QStringList>& section) {
         int value = section["Merits"].value(0).toInt(&ok);
         if (ok) i.merits = value;
     }
+    if (section.contains("Procedure"))
+        i.procedure = section["Procedure"].value(0);
 }
 
 void ScriptParser::parseEventsSection(const QMap<QString, QStringList>& section) {

@@ -456,6 +456,7 @@ struct GeneralSettings {
 struct InitSettings {
     QString newStatus;
     int merits = -1;
+    QString procedure;
 };
 
 struct EventSettings {

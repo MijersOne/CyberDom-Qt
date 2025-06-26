@@ -1819,14 +1819,21 @@ void CyberDom::initializeUiWithIniFile() {
     }
 
     if (iniData.contains("init")) {
-        int initialMerits = iniData["init"]["Merits"].toInt();
+        int initialMerits = 0;
+        if (iniData["init"].contains("Merits")) {
+            initialMerits = iniData["init"]["Merits"].toInt();
+        } else if (iniData["general"].contains("MaxMerits")) {
+            initialMerits = iniData["general"]["MaxMerits"].toInt() / 2;
+        }
         currentStatus = iniData["init"]["NewStatus"];
         updateMerits(initialMerits);
         updateStatus(currentStatus);
     }
 
     if (isFirstRun) {
-        QString firstRunProcedure = getIniValue("events", "FirstRun");
+        QString firstRunProcedure = getIniValue("init", "Procedure");
+        if (firstRunProcedure.isEmpty())
+            firstRunProcedure = getIniValue("events", "FirstRun");
         if (!firstRunProcedure.isEmpty()) {
             qDebug() << "[FirstRun] Executing startup procedure:" << firstRunProcedure;
             runProcedure(firstRunProcedure);
