@@ -50,6 +50,9 @@ public:
     QSet<QString> assignedJobs;
     QSet<QString> getActiveJobs() { return activeAssignments; }
 
+    QStringList getAssignmentResources(const QString &name, bool isPunishment) const;
+    QSet<QString> getResourcesInUse() const;
+
     const QMap<QString, QMap<QString, QString>>& getIniData() const { return iniData; }
 
     QStringList getAvailableJobs();
@@ -123,6 +126,8 @@ private:
 
     // Save variables from the script parser to a .cds file
     void saveVariablesToCDS(const QString &cdsPath);
+
+    bool isAssignmentLongRunning(const QString &name, bool isPunishment) const;
 
     // Session management
     bool loadSessionData(const QString &path);
