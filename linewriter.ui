@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>LineWriter</class>
+ <widget class="QDialog" name="LineWriter">
+  <property name="windowTitle">
+   <string>Write Lines</string>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout">
+   <item>
+    <widget class="QLabel" name="label_Line"/>
+   </item>
+   <item>
+    <widget class="QLineEdit" name="line_Input"/>
+   </item>
+   <item>
+    <widget class="QPlainTextEdit" name="text_Submitted">
+     <property name="readOnly">
+      <bool>true</bool>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QPushButton" name="btn_Submit">
+     <property name="text">
+      <string>Submit</string>
+     </property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

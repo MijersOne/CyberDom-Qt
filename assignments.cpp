@@ -1,6 +1,8 @@
 #include "assignments.h"
 #include "ui_assignments.h"
 #include "cyberdom.h"
+#include "linewriter.h"
+#include "scriptparser.h"
 
 #include <QMessageBox>
 #include <QSettings>
@@ -210,7 +212,27 @@ void Assignments::on_btn_Start_clicked()
     mainApp->startAssignment(assignmentName, isPunishment, newStatus);
 
     // Show the success message
-    QMessageBox::information(this, "Starting " + assignmentType, assignmentType + " " + assignmentName + " has been started.\n\n" + "Instructions: " + instructions);
+    QMessageBox::information(this,
+                             "Starting " + assignmentType,
+                             assignmentType + " " + assignmentName +
+                                 " has been started.\n\n" + "Instructions: " + instructions);
+
+    // Launch line writing UI for line punishments
+    if (isPunishment) {
+        ScriptParser *parser = mainApp->getScriptParser();
+        if (parser) {
+            for (const PunishmentSection &p : parser->getPunishmentSections()) {
+                if (p.name.compare(assignmentName, Qt::CaseInsensitive) == 0 &&
+                    p.isLineWriting) {
+                    int count = mainApp->getPunishmentAmount(assignmentName);
+                    LineWriter dlg(p.lines, count, this);
+                    if (dlg.exec() == QDialog::Accepted)
+                        mainApp->markAssignmentDone(assignmentName, true);
+                    break;
+                }
+            }
+        }
+    }
 
     // Reselect the same assignment in the refreshed table
     for (int i = 0; i < ui->table_Assignments->rowCount(); i++) {

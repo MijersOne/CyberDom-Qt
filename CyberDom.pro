@@ -35,6 +35,8 @@ SOURCES += \
     changestatus.cpp \
     askpunishment.cpp
 
+    linewriter.cpp
+
 HEADERS += \
     ScriptData.h \
     ScriptUtils.h \
@@ -59,7 +61,8 @@ HEADERS += \
     selectpopup.h \
     listflags.h \
     setflags.h \
-    deleteassignments.h
+    deleteassignments.h \
+    linewriter.h
 
 FORMS += \
     about.ui \
@@ -81,7 +84,8 @@ FORMS += \
     selectpopup.ui \
     listflags.ui \
     setflags.ui \
-    deleteassignments.ui
+    deleteassignments.ui \
+    linewriter.ui
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin
