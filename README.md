@@ -7,7 +7,7 @@ CyberDom-Qt is a Qt-based graphical interface for running CyberDom training scri
 Install the following Qt packages on Debian/Ubuntu:
 
 ```bash
-sudo apt-get install qt6-base-dev qt6-multimedia-dev qmake6
+sudo apt-get install qt6-base-dev qt6-multimedia-dev qt6-tools-dev qmake6
 ```
 
 A helper script `setup-debian.sh` is provided to automate this. After installing the packages, rerun `cmake ..` in the `build` directory if you configured the project before installing dependencies.
@@ -35,7 +35,8 @@ Unit tests use the Qt Test framework and rely on `qmake6`. Make sure the
 `qmake6` package is installed before building:
 
 ```bash
-qmake6 tests/tests.pro && make
+qmake6 tests/tests.pro
+make -C tests
 ```
 
 Run the resulting `runtests` executable to execute all tests.
