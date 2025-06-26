@@ -32,6 +32,7 @@ SOURCES += \
     ../changemerits.cpp \
     ../changestatus.cpp \
     ../askpunishment.cpp \
+    ../linewriter.cpp \
     punishmenttest.cpp
 
 HEADERS += \
@@ -58,7 +59,8 @@ HEADERS += \
     ../selectpopup.h \
     ../listflags.h \
     ../setflags.h \
-    ../deleteassignments.h
+    ../deleteassignments.h \
+    ../linewriter.h
 
 FORMS += \
     ../about.ui \
@@ -80,7 +82,8 @@ FORMS += \
     ../selectpopup.ui \
     ../listflags.ui \
     ../setflags.ui \
-    ../deleteassignments.ui
+    ../deleteassignments.ui \
+    ../linewriter.ui
 
 TARGET = runtests
 
