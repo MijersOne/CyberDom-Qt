@@ -525,5 +525,8 @@ void Assignments::updateStartButtonState()
         }
     }
 
-    ui->btn_Start->setEnabled(!conflict);
+    if (conflict || mainApp->hasActiveBlockingPunishment())
+        ui->btn_Start->setEnabled(false);
+    else
+        ui->btn_Start->setEnabled(true);
 }

@@ -52,6 +52,7 @@ public:
 
     QStringList getAssignmentResources(const QString &name, bool isPunishment) const;
     QSet<QString> getResourcesInUse() const;
+    bool hasActiveBlockingPunishment() const;
 
     const QMap<QString, QMap<QString, QString>>& getIniData() const { return iniData; }
 

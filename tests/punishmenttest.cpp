@@ -18,6 +18,8 @@ private slots:
     void assignmentDeadline();
     void jobDefaultDeadline();
     void forbidPermission();
+    void longRunningByDay();
+    void shortPunishmentBlocks();
 
 private:
     QString sessionPath;
@@ -49,6 +51,12 @@ void PunishmentTest::initTestCase() {
     out << "[punishment-nohot]\n";
     out << "ValueUnit=once\n";
     out << "Forbid=shower\n";
+    out << "[punishment-longday]\n";
+    out << "ValueUnit=day\n";
+    out << "LongRunning=0\n";
+    out << "[punishment-short]\n";
+    out << "ValueUnit=minute\n";
+    out << "LongRunning=0\n";
     script.close();
 
     sessionPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/session.cdt";
@@ -103,6 +111,32 @@ void PunishmentTest::forbidPermission() {
     mainApp = &app;
     app.addPunishmentToAssignments("nohot");
     QVERIFY(app.isPermissionForbidden("shower"));
+}
+
+void PunishmentTest::longRunningByDay()
+{
+    QFile::remove(sessionPath);
+    CyberDom app;
+    mainApp = &app;
+    app.addPunishmentToAssignments("longday");
+    app.startAssignment("longday", true, QString());
+    QVERIFY(app.isFlagSet("punishment_longday_started"));
+    app.addJobToAssignments("feedfish");
+    app.startAssignment("feedfish", false, QString());
+    QVERIFY(app.isFlagSet("job_feedfish_started"));
+}
+
+void PunishmentTest::shortPunishmentBlocks()
+{
+    QFile::remove(sessionPath);
+    CyberDom app;
+    mainApp = &app;
+    app.addPunishmentToAssignments("short");
+    app.startAssignment("short", true, QString());
+    QVERIFY(app.isFlagSet("punishment_short_started"));
+    app.addJobToAssignments("feedfish");
+    app.startAssignment("feedfish", false, QString());
+    QVERIFY(!app.isFlagSet("job_feedfish_started"));
 }
 
 QTEST_MAIN(PunishmentTest)
