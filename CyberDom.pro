@@ -33,10 +33,8 @@ SOURCES += \
     selectpopup.cpp \
     changemerits.cpp \
     changestatus.cpp \
-    askpunishment.cpp
-
+    askpunishment.cpp \
     linewriter.cpp
-
 HEADERS += \
     ScriptData.h \
     ScriptUtils.h \
