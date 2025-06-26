@@ -240,6 +240,10 @@ private:
     int randomIntFromRange(const QString &range) const;
     void incrementUsageCount(const QString &key);
     void setDefaultDeadlineForJob(const QString &jobName);
+
+    bool isTimeAllowed(const QStringList &notBefore,
+                       const QStringList &notAfter,
+                       const QList<QPair<QString, QString>> &notBetween) const;
 private slots:
     void applyTimeToClock(int days, int hours, int minutes, int seconds);
     void openAboutDialog();

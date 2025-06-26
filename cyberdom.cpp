@@ -332,6 +332,14 @@ void CyberDom::updateInternalClock()
     for (TimerInstance &timer : activeTimers) {
         QTime now = internalClock.time();
         if (!timer.triggered && now >= timer.start && now <= timer.end) {
+            if (scriptParser) {
+                const auto &defs = scriptParser->getScriptData().timers;
+                if (defs.contains(timer.name)) {
+                    const TimerDefinition &td = defs.value(timer.name);
+                    if (!isTimeAllowed(td.notBeforeTimes, td.notAfterTimes, td.notBetweenTimes))
+                        continue;
+                }
+            }
             qDebug() << "[Timer Triggered]:" << timer.name;
 
             if (!timer.message.isEmpty()) {
@@ -401,6 +409,16 @@ void CyberDom::openReport(const QString &name)
         return;
     }
 
+    const auto &reports = scriptParser->getScriptData().reports;
+    if (reports.contains(name)) {
+        const ReportDefinition &rep = reports.value(name);
+        if (!isTimeAllowed(rep.notBeforeTimes, rep.notAfterTimes, rep.notBetweenTimes)) {
+            QMessageBox::information(this, tr("Report"),
+                                     tr("This report is not available at this time."));
+            return;
+        }
+    }
+
     qDebug() << "[CyberDom] Opening report:" << name;
     executeReport(name);
 }
@@ -448,6 +466,11 @@ void CyberDom::openPermission(const QString &name)
     }
 
     const PermissionDefinition &perm = perms.value(name);
+    if (!isTimeAllowed(perm.notBeforeTimes, perm.notAfterTimes, perm.notBetweenTimes)) {
+        QMessageBox::information(this, tr("Permission"),
+                                 tr("This permission is not available at this time."));
+        return;
+    }
     incrementUsageCount(QString("Permission/%1").arg(name));
 
     if (isPermissionForbidden(name)) {
@@ -517,6 +540,11 @@ void CyberDom::openConfession(const QString &name)
     }
 
     const ConfessionDefinition &conf = confs.value(name);
+    if (!isTimeAllowed(conf.notBeforeTimes, conf.notAfterTimes, conf.notBetweenTimes)) {
+        QMessageBox::information(this, tr("Confession"),
+                                 tr("This confession is not available at this time."));
+        return;
+    }
     incrementUsageCount(QString("Confession/%1").arg(name));
 
     auto showMessage = [this](const QString &m) {
@@ -2702,6 +2730,13 @@ void CyberDom::runProcedure(const QString &procedureName) {
         return;
     }
 
+    const auto &procs = scriptParser->getScriptData().procedures;
+    if (procs.contains(procedureName)) {
+        const ProcedureDefinition &proc = procs.value(procedureName);
+        if (!isTimeAllowed(proc.notBeforeTimes, proc.notAfterTimes, proc.notBetweenTimes))
+            return;
+    }
+
     QMap<QString, QStringList> procedureData = scriptParser->getRawSectionData(sectionName);
 
     if (procedureData.isEmpty()) {
@@ -2956,6 +2991,8 @@ void CyberDom::executeReport(const QString &name) {
     }
 
     const ReportDefinition &rep = reports.value(name);
+    if (!isTimeAllowed(rep.notBeforeTimes, rep.notAfterTimes, rep.notBetweenTimes))
+        return;
 
     int merits = getMeritsFromIni();
     if (rep.merits.set != 0)
@@ -3308,6 +3345,39 @@ int CyberDom::parseTimeRangeToSeconds(const QString &range) const {
         return ScriptUtils::randomInRange(minSec, maxSec, false);
     }
     return parseTimeToSeconds(range);
+}
+
+bool CyberDom::isTimeAllowed(const QStringList &notBefore,
+                             const QStringList &notAfter,
+                             const QList<QPair<QString, QString>> &notBetween) const {
+    QTime now = internalClock.time();
+    int nowSecs = now.hour() * 3600 + now.minute() * 60 + now.second();
+
+    for (const QString &t : notBefore) {
+        int secs = parseTimeToSeconds(t);
+        if (nowSecs < secs)
+            return false;
+    }
+
+    for (const QString &t : notAfter) {
+        int secs = parseTimeToSeconds(t);
+        if (nowSecs > secs)
+            return false;
+    }
+
+    for (const auto &pair : notBetween) {
+        int start = parseTimeToSeconds(pair.first);
+        int end = parseTimeToSeconds(pair.second);
+        if (start <= end) {
+            if (nowSecs >= start && nowSecs <= end)
+                return false;
+        } else {
+            if (nowSecs >= start || nowSecs <= end)
+                return false;
+        }
+    }
+
+    return true;
 }
 
 QString CyberDom::formatDuration(int seconds) const {
