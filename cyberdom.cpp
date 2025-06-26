@@ -2325,6 +2325,12 @@ void CyberDom::checkFlagExpiry() {
 
 void CyberDom::startAssignment(const QString &assignmentName, bool isPunishment, const QString &newStatus)
 {
+    if (hasActiveBlockingPunishment()) {
+        QMessageBox::warning(this,
+                             tr("Punishment Running"),
+                             tr("Finish the current punishment before starting another task."));
+        return;
+    }
     // Remember the previous status if newStatus is specified
     QString previousStatus;
     if (!newStatus.isEmpty()) {
@@ -3447,8 +3453,12 @@ bool CyberDom::isAssignmentLongRunning(const QString &name, bool isPunishment) c
     QString key = name.toLower();
     if (isPunishment) {
         for (auto it = data.punishments.constBegin(); it != data.punishments.constEnd(); ++it) {
-            if (it.key().toLower() == key)
-                return it.value().longRunning;
+            if (it.key().toLower() == key) {
+                bool lr = it.value().longRunning;
+                if (it.value().valueUnit.compare("day", Qt::CaseInsensitive) == 0)
+                    lr = true;
+                return lr;
+            }
         }
     } else {
         for (auto it = data.jobs.constBegin(); it != data.jobs.constEnd(); ++it) {
@@ -3476,4 +3486,35 @@ QSet<QString> CyberDom::getResourcesInUse() const
             used.insert(res);
     }
     return used;
+}
+
+bool CyberDom::hasActiveBlockingPunishment() const
+{
+    if (!scriptParser)
+        return false;
+
+    const auto &data = scriptParser->getScriptData();
+
+    for (const QString &name : activeAssignments) {
+        QString section = "punishment-" + name;
+        if (!iniData.contains(section))
+            continue;
+
+        QString flag = "punishment_" + name + "_started";
+        if (!isFlagSet(flag))
+            continue;
+
+        QString key = name.toLower();
+        for (auto it = data.punishments.constBegin(); it != data.punishments.constEnd(); ++it) {
+            if (it.key().toLower() == key) {
+                bool lr = it.value().longRunning;
+                if (it.value().valueUnit.compare("day", Qt::CaseInsensitive) == 0)
+                    lr = true;
+                if (!lr)
+                    return true;
+                break;
+            }
+        }
+    }
+    return false;
 }
