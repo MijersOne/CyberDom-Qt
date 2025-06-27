@@ -671,8 +671,8 @@ void ScriptParser::parseStatusSections(const QMap<QString, QMap<QString, QString
             status.convertFromCounter += entries["Minutes!"];
         if (entries.contains("Seconds!"))
             status.convertFromCounter += entries["Seconds!"];
-        if (entries.contains("HideTime")) {
-            status.hideTime = (entries["HideTime"].first().trimmed() == "1");
+        if (entries.contains("HideTime") && !entries["HideTime"].isEmpty()) {
+            status.hideTime = entries["HideTime"].first().trimmed() == "1";
         }
 
         parseDurationControl(entries, status.duration);
