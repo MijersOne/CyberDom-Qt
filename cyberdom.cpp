@@ -216,10 +216,24 @@ CyberDom::CyberDom(QWidget *parent)
     QString settingsPath = QCoreApplication::applicationDirPath() + "/cyberdom_settings.ini";
     QSettings::setDefaultFormat(QSettings::IniFormat);
     QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, QCoreApplication::applicationDirPath());
+
+    // Trigger openProgram event handler if defined
+    if (scriptParser) {
+        QString proc = scriptParser->getScriptData().eventHandlers.openProgram;
+        if (!proc.isEmpty())
+            runProcedure(proc);
+    }
 }
 
 CyberDom::~CyberDom()
 {
+    // Trigger closeProgram event handler if defined
+    if (scriptParser) {
+        QString proc = scriptParser->getScriptData().eventHandlers.closeProgram;
+        if (!proc.isEmpty())
+            runProcedure(proc);
+    }
+
     // Save variables to .cds on exit
     if (scriptParser) {
         QString cdsPath = currentIniFile;
@@ -1067,6 +1081,12 @@ void CyberDom::updateStatus(const QString &newStatus) {
         return;
     }
 
+    if (scriptParser) {
+        QString proc = scriptParser->getScriptData().eventHandlers.beforeStatusChange;
+        if (!proc.isEmpty())
+            runProcedure(proc);
+    }
+
     // Store previous status for events (if needed)
     QString previousStatus = currentStatus;
 
@@ -1098,6 +1118,12 @@ void CyberDom::updateStatus(const QString &newStatus) {
 
     StatusSection status = scriptParser->getStatus(currentStatus);
     updateSigninWidgetsVisibility(status);
+
+    if (scriptParser) {
+        QString proc = scriptParser->getScriptData().eventHandlers.afterStatusChange;
+        if (!proc.isEmpty())
+            runProcedure(proc);
+    }
 }
 
 void CyberDom::updateStatusText() {
@@ -1838,6 +1864,11 @@ void CyberDom::initializeUiWithIniFile() {
             qDebug() << "[FirstRun] Executing startup procedure:" << firstRunProcedure;
             runProcedure(firstRunProcedure);
         }
+        if (scriptParser) {
+            QString proc = scriptParser->getScriptData().eventHandlers.firstRun;
+            if (!proc.isEmpty())
+                runProcedure(proc);
+        }
     }
 
     updateStatusText();
@@ -2070,6 +2101,12 @@ void CyberDom::addPunishmentToAssignments(const QString &punishmentName, int amo
     if (!alreadyActive) {
         activeAssignments.insert(punishmentName);
         qDebug() << "[DEBUG] Punishment added to active assignments: " << punishmentName;
+
+        if (scriptParser) {
+            QString proc = scriptParser->getScriptData().eventHandlers.punishmentGiven;
+            if (!proc.isEmpty())
+                runProcedure(proc);
+        }
 
         // Process the deadline based on Respite or other timing parameters
         QString punishmentKey = "punishment-" + punishmentName;
@@ -2370,6 +2407,13 @@ void CyberDom::startAssignment(const QString &assignmentName, bool isPunishment,
     QString startFlagName = (isPunishment ? "punishment_" : "job_") + assignmentName + "_started";
     setFlag(startFlagName);
 
+    if (scriptParser) {
+        const auto &handlers = scriptParser->getScriptData().eventHandlers;
+        QString proc = isPunishment ? handlers.punishmentGiven : handlers.jobAnnounced;
+        if (!proc.isEmpty())
+            runProcedure(proc);
+    }
+
     // Store the previous status if needed for returning later
     if (!newStatus.isEmpty()) {
         QString statusFlagName = (isPunishment ? "punishment_" : "job_") + assignmentName + "_prev_status";
@@ -2510,6 +2554,13 @@ bool CyberDom::markAssignmentDone(const QString &assignmentName, bool isPunishme
     if (details.contains("DoneProcedure")) {
         // Placeholder until procedure handling is implemented
         // executeProcedure(details["DoneProcedure"]);
+    }
+
+    if (scriptParser) {
+        const auto &handlers = scriptParser->getScriptData().eventHandlers;
+        QString proc = isPunishment ? handlers.punishmentDone : handlers.jobDone;
+        if (!proc.isEmpty())
+            runProcedure(proc);
     }
 
     // Update UI
