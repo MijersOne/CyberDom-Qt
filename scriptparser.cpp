@@ -5,6 +5,7 @@
 #include <QDebug>
 #include <QFileInfo>
 #include <QDir>
+#include <QRandomGenerator>
 
 QMap<QString, QMap<QString, QStringList>> ScriptParser::parseIniFile(const QString& path)
 {
@@ -3663,7 +3664,13 @@ QString ScriptParser::getMaster() const {
 }
 
 QString ScriptParser::getSubName() const {
-    return scriptData.general.subNames.isEmpty() ? QString() : scriptData.general.subNames.first();
+    const QStringList &names = scriptData.general.subNames;
+    if (names.isEmpty())
+        return QString();
+    if (names.size() == 1)
+        return names.first();
+    int index = QRandomGenerator::global()->bounded(names.size());
+    return names.at(index);
 }
 
 int ScriptParser::getMinMerits() const { return scriptData.general.minMerits; }
