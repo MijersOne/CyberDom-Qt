@@ -128,8 +128,12 @@ bool ScriptParser::parseScript(const QString& path) {
     parseTimerSections(sections);
     parseQuestionSections(sections);
 
-    if (sections.contains("events"))
+    if (sections.contains("events")) {
+        // Parse basic event settings (FirstRun, Signin) as well as
+        // individual event handlers defined in the [events] section.
         parseEventsSection(sections["events"]);
+        parseEventSection(sections["events"]);
+    }
 
     if (sections.contains("ftp"))
         parseFtpSection(sections["ftp"]);
