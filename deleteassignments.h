@@ -3,6 +3,8 @@
 
 #include <QDialog>
 
+class CyberDom;
+
 namespace Ui {
 class DeleteAssignments;
 }
@@ -15,8 +17,15 @@ public:
     explicit DeleteAssignments(QWidget *parent = nullptr);
     ~DeleteAssignments();
 
+private slots:
+    void populateAssignmentsList();
+    void deleteSelectedAssignments();
+    void selectAllAssignments();
+    void deselectAllAssignments();
+
 private:
     Ui::DeleteAssignments *ui;
+    CyberDom *mainApp = nullptr;
 };
 
 #endif // DELETEASSIGNMENTS_H

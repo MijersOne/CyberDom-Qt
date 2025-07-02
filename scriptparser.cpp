@@ -68,20 +68,52 @@ QMap<QString, QMap<QString, QStringList>> ScriptParser::parseIniFile(const QStri
     return sections;
 }
 
-bool ScriptParser::parseScript(const QString& path) {
-    auto sections = parseIniFile(path);
+QStringList ScriptParser::readIniLines(const QString &path) {
+    QFile file(path);
+    QStringList lines;
 
-    if (!sections.contains("General") || !sections["General"].contains("MinVersion")) {
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        qWarning() << "Failed to open script file:" << path;
+        return lines;
+    }
+
+    QTextStream in(&file);
+    QString basePath = QFileInfo(path).absolutePath();
+
+    while (!in.atEnd()) {
+        QString line = in.readLine().trimmed();
+
+        if (line.startsWith("%include=", Qt::CaseInsensitive)) {
+            QString includedFile = resolveIncludePath(path, line);
+            lines += readIniLines(includedFile);
+            continue;
+        }
+
+        lines << line;
+    }
+
+    file.close();
+    return lines;
+}
+
+bool ScriptParser::parseScript(const QString& path) {
+    scriptFilePath = path;
+    auto sections = parseIniFile(path);
+    scriptData.rawSections = sections;
+
+    // Section names are stored in lower-case by parseIniFile()
+    if (!sections.contains("general") || !sections["general"].contains("MinVersion")) {
         qWarning() << "Script missing required [General] section or MinVersion key.";
         return false;
     }
 
-    if (sections.contains("General"))
-        parseGeneralSection("General", sections["General"]);
+    if (sections.contains("general"))
+        parseGeneralSection("general", sections["general"]);
     if (sections.contains("init"))
         parseInitSection(sections["init"]);
 
-    parseClothingTypes(sections);
+    QStringList iniLines = readIniLines(path);
+    parseClothingTypes(iniLines);
     parseStatusSections(sections);
     parseReportSections(sections);
     parseConfessionSections(sections);
@@ -96,8 +128,12 @@ bool ScriptParser::parseScript(const QString& path) {
     parseTimerSections(sections);
     parseQuestionSections(sections);
 
-    if (sections.contains("events"))
+    if (sections.contains("events")) {
+        // Parse basic event settings (FirstRun, Signin) as well as
+        // individual event handlers defined in the [events] section.
         parseEventsSection(sections["events"]);
+        parseEventSection(sections["events"]);
+    }
 
     if (sections.contains("ftp"))
         parseFtpSection(sections["ftp"]);
@@ -121,6 +157,9 @@ void ScriptParser::parseGeneralSection(const QString &sectionName, const QMap<QS
     for (auto it = section.begin(); it != section.end(); ++it) {
         const QString &key = it.key().trimmed();
         const QStringList &values = it.value();
+
+        if (!values.isEmpty())
+            scriptData.generalSettings[key] = values.first();
 
         if (key.compare("ValidateAll", Qt::CaseInsensitive) == 0) {
             if (!values.isEmpty())
@@ -328,6 +367,8 @@ void ScriptParser::parseInitSection(const QMap<QString, QStringList>& section) {
         int value = section["Merits"].value(0).toInt(&ok);
         if (ok) i.merits = value;
     }
+    if (section.contains("Procedure"))
+        i.procedure = section["Procedure"].value(0);
 }
 
 void ScriptParser::parseEventsSection(const QMap<QString, QStringList>& section) {
@@ -335,6 +376,8 @@ void ScriptParser::parseEventsSection(const QMap<QString, QStringList>& section)
 
     if (section.contains("FirstRun"))
         e.firstRunProcedure = section["FirstRun"].value(0);
+    if (section.contains("Signin"))
+        e.signIn = section["Signin"].value(0);
 }
 
 void ScriptParser::parseStatusSections(const QMap<QString, QMap<QString, QStringList>>& sections) {
@@ -435,8 +478,16 @@ void ScriptParser::parseStatusSections(const QMap<QString, QMap<QString, QString
         if (entries.contains("Question"))
             status.advancedQuestions.append(entries["Question"]);
 
-        if (entries.contains("SigninInterval")) {
-            QStringList parts = entries["SigninInterval"].value(0).split(',', Qt::SkipEmptyParts);
+        QString signinKey;
+        for (auto keyIt = entries.constBegin(); keyIt != entries.constEnd(); ++keyIt) {
+            QString lower = keyIt.key().toLower();
+            if (lower == "signininterval" || lower == "signinininterval") {
+                signinKey = keyIt.key();
+                break;
+            }
+        }
+        if (!signinKey.isEmpty()) {
+            QStringList parts = entries[signinKey].value(0).split(',', Qt::SkipEmptyParts);
             status.signinIntervalMin = parts.value(0).trimmed();
             status.signinIntervalMax = parts.value(1, parts.value(0)).trimmed();
         }
@@ -624,8 +675,8 @@ void ScriptParser::parseStatusSections(const QMap<QString, QMap<QString, QString
             status.convertFromCounter += entries["Minutes!"];
         if (entries.contains("Seconds!"))
             status.convertFromCounter += entries["Seconds!"];
-        if (entries.contains("HideTime")) {
-            status.hideTime = (entries["HideTime"].first().trimmed() == "1");
+        if (entries.contains("HideTime") && !entries["HideTime"].isEmpty()) {
+            status.hideTime = entries["HideTime"].first().trimmed() == "1";
         }
 
         parseDurationControl(entries, status.duration);
@@ -1165,7 +1216,7 @@ void ScriptParser::parsePermissionSections(const QMap<QString, QMap<QString, QSt
             permission.merits.add = entries.value("AddMerit", entries.value("AddMerits")).value(0).toInt();
 
         if (entries.contains("SubtractMerit") || entries.contains("SubtractMerits"))
-            permission.merits.add = entries.value("SubtractMerit", entries.value("SubtractMerits")).value(0).toInt();
+            permission.merits.subtract = entries.value("SubtractMerit", entries.value("SubtractMerits")).value(0).toInt();
 
         if (entries.contains("SetMerit") || entries.contains("SetMerits"))
             permission.merits.set = entries.value("SetMerit", entries.value("SetMerits")).value(0).toInt();
@@ -1552,7 +1603,7 @@ void ScriptParser::parsePunishmentSections(const QMap<QString, QMap<QString, QSt
             p.merits.add = entries.value("AddMerit", entries.value("AddMerits")).value(0).toInt();
 
         if (entries.contains("SubtractMerit") || entries.contains("SubtractMerits"))
-            p.merits.add = entries.value("SubtractMerit", entries.value("SubtractMerits")).value(0).toInt();
+            p.merits.subtract = entries.value("SubtractMerit", entries.value("SubtractMerits")).value(0).toInt();
 
         if (entries.contains("SetMerit") || entries.contains("SetMerits"))
             p.merits.set = entries.value("SetMerit", entries.value("SetMerits")).value(0).toInt();
@@ -2238,6 +2289,8 @@ void ScriptParser::parseInstructionSections(const QMap<QString, QMap<QString, QS
         bool isClothing = false;
         if (sectionName.startsWith("instruction-")) {
             sectionName = sectionName.mid(QString("instruction-").length());
+        } else if (sectionName.startsWith("instructions-")) {
+            sectionName = sectionName.mid(QString("instructions-").length());
         } else if (sectionName.startsWith("clothing-")) {
             isClothing = true;
             sectionName = sectionName.mid(QString("clothing-").length());
@@ -2508,60 +2561,73 @@ void ScriptParser::parseInstructionSets(const QMap<QString, QMap<QString, QStrin
     }
 }
 
-void ScriptParser::parseClothingTypes(const QMap<QString, QMap<QString, QStringList>>& sections) {
-    for (auto it = sections.begin(); it != sections.end(); ++it) {
-        const QString& sectionName = it.key();
-        if (!sectionName.startsWith("clothtype-"))
+void ScriptParser::parseClothingTypes(const QStringList &lines) {
+    QString currentSection;
+    ClothingTypeDefinition type;
+    ClothingAttribute currentAttr;
+    QString currentValue;
+
+    auto finalizeType = [&]() {
+        if (!currentAttr.name.isEmpty()) {
+            type.attributes.append(currentAttr);
+            currentAttr = ClothingAttribute();
+        }
+        if (!type.name.isEmpty())
+            scriptData.clothingTypes.insert(type.name, type);
+        type = ClothingTypeDefinition();
+    };
+
+    for (const QString &rawLine : lines) {
+        QString line = rawLine.trimmed();
+        if (line.isEmpty() || line.startsWith('#') || line.startsWith(';'))
             continue;
 
-        QString typeName = sectionName.mid(QString("clothtype-").length());
-        const QMap<QString, QStringList>& entries = it.value();
-
-        ClothingTypeDefinition type;
-        type.name = typeName;
-
-        ClothingAttribute currentAttr;
-
-        QString currentValue;
-
-        for (auto keyIt = entries.begin(); keyIt != entries.end(); ++keyIt) {
-            const QString& key = keyIt.key();
-            const QStringList& values = keyIt.value();
-
-            for (const QString& rawValue : values) {
-                QString value = rawValue.trimmed();
-
-                if (key == "Check")
-                    type.checks.append(value);
-                else if (key == "Attr") {
-                    // Save last attr
-                    if (!currentAttr.name.isEmpty())
-                        type.attributes.append(currentAttr);
-                    currentAttr = ClothingAttribute();
-                    currentAttr.name = value;
-                    currentValue.clear();
-                }
-                else if (key == "Value") {
-                    currentAttr.values.append(value);
-                    currentValue = value;
-                }
-                else if (key == "Check" && !currentValue.isEmpty()) {
-                    type.valueChecks[currentValue].append(value);
-                }
-                else if (key == "Flag" && currentValue.isEmpty()) {
-                    type.topLevelFlags.append(value);
-                }
-                else if (key == "Flag" && !currentValue.isEmpty()) {
-                    type.valueFlags[currentValue].append(value);
-                }
+        if (line.startsWith('[') && line.endsWith(']')) {
+            finalizeType();
+            currentSection = line.mid(1, line.length() - 2).trimmed().toLower();
+            if (currentSection.startsWith("clothtype-")) {
+                type.name = currentSection.mid(QString("clothtype-").length());
+            } else {
+                currentSection.clear();
             }
+            currentAttr = ClothingAttribute();
+            currentValue.clear();
+            continue;
         }
 
-        if (!currentAttr.name.isEmpty())
-            type.attributes.append(currentAttr);
+        if (!currentSection.startsWith("clothtype-"))
+            continue;
 
-        scriptData.clothingTypes.insert(type.name, type);
+        int eq = line.indexOf('=');
+        if (eq == -1)
+            continue;
+
+        QString key = line.left(eq).trimmed();
+        QString value = line.mid(eq + 1).trimmed();
+
+        if (key.compare("Attr", Qt::CaseInsensitive) == 0) {
+            if (!currentAttr.name.isEmpty())
+                type.attributes.append(currentAttr);
+            currentAttr = ClothingAttribute();
+            currentAttr.name = value;
+            currentValue.clear();
+        } else if (key.compare("Value", Qt::CaseInsensitive) == 0) {
+            currentAttr.values.append(value);
+            currentValue = value;
+        } else if (key.compare("Check", Qt::CaseInsensitive) == 0) {
+            if (currentValue.isEmpty())
+                type.checks.append(value);
+            else
+                type.valueChecks[currentValue].append(value);
+        } else if (key.compare("Flag", Qt::CaseInsensitive) == 0) {
+            if (currentValue.isEmpty())
+                type.topLevelFlags.append(value);
+            else
+                type.valueFlags[currentValue].append(value);
+        }
     }
+
+    finalizeType();
 }
 
 void ScriptParser::parseProcedureSections(const QMap<QString, QMap<QString, QStringList>>& sections) {
@@ -3569,15 +3635,87 @@ bool ScriptParser::loadFromCDS(const QString &cdsPath)
         // Re‐join anything after the first '=' (in case the value contains '=').
         QString varValue = parts.mid(1).join('=').trimmed();
 
-        // 4) Store into your ScriptData. Adjust to match your ScriptData API.
-        //    For example, if ScriptData has a QMap<QString,QString> called savedVariables:
-        //        scriptData.savedVariables[varName] = varValue;
-        //    Or if you have a setter:
-        //        scriptData.setSavedVariable(varName, varValue);
-
-        scriptData.setSavedVariable(varName, varValue);
+        // Store the loaded variable
+        scriptData.stringVariables[varName] = varValue;
     }
 
     file.close();
     return true;
+}
+
+QStringList ScriptParser::getRawSectionNames() const {
+    return scriptData.rawSections.keys();
+}
+
+QMap<QString, QStringList> ScriptParser::getRawSectionData(const QString &section) const {
+    return scriptData.rawSections.value(section.toLower());
+}
+
+QString ScriptParser::getIniValue(const QString &section, const QString &key, const QString &defaultValue) const {
+    QMap<QString, QStringList> sec = scriptData.rawSections.value(section.toLower());
+    if (sec.contains(key) && !sec[key].isEmpty())
+        return sec[key].first();
+    return defaultValue;
+}
+
+QString ScriptParser::getMaster() const {
+    return scriptData.general.masterName;
+}
+
+QString ScriptParser::getSubName() const {
+    return scriptData.general.subNames.isEmpty() ? QString() : scriptData.general.subNames.first();
+}
+
+int ScriptParser::getMinMerits() const { return scriptData.general.minMerits; }
+int ScriptParser::getMaxMerits() const { return scriptData.general.maxMerits; }
+
+bool ScriptParser::isTestMenuEnabled() const {
+    return scriptData.generalSettings.value("TestMenu") == "1";
+}
+
+QList<StatusSection> ScriptParser::getStatusSections() const {
+    return scriptData.statuses.values();
+}
+
+StatusSection ScriptParser::getStatus(const QString &name) const {
+    return scriptData.statuses.value(name, StatusDefinition());
+}
+
+QList<JobSection> ScriptParser::getJobSections() const {
+    return scriptData.jobs.values();
+}
+
+QList<PunishmentSection> ScriptParser::getPunishmentSections() const {
+    return scriptData.punishments.values();
+}
+
+QList<PermissionDefinition> ScriptParser::getPermissionSections() const {
+    return scriptData.permissions.values();
+}
+
+QList<ClothTypeSection> ScriptParser::getClothTypeSections() const {
+    return scriptData.clothingTypes.values();
+}
+
+QList<ConfessionDefinition> ScriptParser::getConfessionSections() const {
+    return scriptData.confessions.values();
+}
+
+QList<InstructionDefinition> ScriptParser::getInstructionSections() const {
+    QList<InstructionDefinition> result;
+    for (auto it = scriptData.instructions.constBegin(); it != scriptData.instructions.constEnd(); ++it) {
+        QString lowerName = it.key().toLower();
+        if (scriptData.rawSections.contains(QString("set-%1").arg(lowerName)))
+            continue;
+        result.append(it.value());
+    }
+    return result;
+}
+
+QuestionSection ScriptParser::getQuestion(const QString &name) const {
+    return scriptData.questions.value(name, QuestionDefinition());
+}
+
+void ScriptParser::setVariable(const QString &name, const QString &value) {
+    scriptData.stringVariables[name] = value;
 }

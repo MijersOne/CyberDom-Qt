@@ -49,7 +49,7 @@
     <string>You are wearing:</string>
    </property>
   </widget>
-  <widget class="QListView" name="lst_Wearing">
+  <widget class="QListWidget" name="lst_Wearing">
    <property name="geometry">
     <rect>
      <x>10</x>

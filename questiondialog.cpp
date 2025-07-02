@@ -17,6 +17,11 @@ QuestionDialog::QuestionDialog(const QList<QuestionDefinition>& questions, QWidg
     showNextQuestion();
 }
 
+QuestionDialog::QuestionDialog(const QuestionDefinition& question, QWidget *parent)
+    : QuestionDialog(QList<QuestionDefinition>{question}, parent)
+{
+}
+
 QuestionDialog::~QuestionDialog()
 {
     delete ui;
@@ -79,4 +84,13 @@ void QuestionDialog::onNextClicked()
 QMap<QString, QString> QuestionDialog::getAnswers() const
 {
     return answers;
+}
+
+QString QuestionDialog::getSelectedAnswer() const
+{
+    if (questions.isEmpty())
+        return QString();
+
+    QString var = questions.first().variable;
+    return answers.value(var);
 }

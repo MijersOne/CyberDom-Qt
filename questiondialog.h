@@ -17,9 +17,11 @@ class QuestionDialog : public QDialog
 
 public:
     explicit QuestionDialog(const QList<QuestionDefinition> &questions, QWidget *parent = nullptr);
+    explicit QuestionDialog(const QuestionDefinition &question, QWidget *parent = nullptr);
     ~QuestionDialog();
 
     QMap<QString, QString> getAnswers() const;
+    QString getSelectedAnswer() const;
 
 private slots:
     void onNextClicked();

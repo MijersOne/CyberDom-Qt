@@ -29,17 +29,15 @@ private:
     Ui::ReportClothing *ui;
     QMap<QString, QList<ClothingItem>> clothingByType; // Map of clothing items by type
     QList<ClothingItem> wearingItems; // List of items currently being worn
-    QMap<QString, QStringList> clothTypeAttributes; // Map of cloth type names to their attributes
+    QMap<QString, QList<ClothingAttribute>> clothTypeAttributes; // Map of cloth type names to their attributes
     
-    void loadClothingTypes(); // Load clothing types from ini file
+    void loadClothingTypes(); // Load clothing types from script data
     void loadClothingItems(); // Load clothing items from settings
     void saveClothingItems(); // Save clothing items to settings
     void updateAvailableItems(); // Update the available items list based on selected type
     void updateWearingItems(); // Update the wearing items list
     
     // Helper methods
-    void parseClothTypeSection(const QString &section, const QString &content);
-    QStringList getClothTypeAttributes(const QString &typeName);
 
     ScriptParser* parser;
 

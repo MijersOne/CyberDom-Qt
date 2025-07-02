@@ -33,8 +33,8 @@ SOURCES += \
     selectpopup.cpp \
     changemerits.cpp \
     changestatus.cpp \
-    askpunishment.cpp
-
+    askpunishment.cpp \
+    linewriter.cpp
 HEADERS += \
     ScriptData.h \
     ScriptUtils.h \
@@ -59,7 +59,8 @@ HEADERS += \
     selectpopup.h \
     listflags.h \
     setflags.h \
-    deleteassignments.h
+    deleteassignments.h \
+    linewriter.h
 
 FORMS += \
     about.ui \
@@ -81,9 +82,15 @@ FORMS += \
     selectpopup.ui \
     listflags.ui \
     setflags.ui \
-    deleteassignments.ui
+    deleteassignments.ui \
+    linewriter.ui
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin
 else: unix:!android: target.path = /opt/$${TARGET}/bin
 !isEmpty(target.path): INSTALLS += target
+
+# Unit test target
+unit_test.target = runtests
+unit_test.commands = cd tests && qmake6 tests.pro && $(MAKE)
+QMAKE_EXTRA_TARGETS += unit_test

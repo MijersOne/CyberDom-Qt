@@ -7,6 +7,7 @@
 #include <QLineEdit>
 #include <QLabel>
 #include "clothingitem.h"
+#include "ScriptData.h"
 
 namespace Ui {
 class AddClothing;
@@ -18,23 +19,24 @@ class AddClothing : public QDialog
 
 public:
     // Constructor for creating a new clothing item
-    explicit AddClothing(const QString &clothingType, QWidget *parent = nullptr);
+    explicit AddClothing(QWidget *parent,
+                         const QString &clothingType);
     
     // Constructor with attributes list
-    // explicit AddClothing(QWidget *parent, const QString &selectedType, const QStringList &attributes);
-    
-    // // Constructor for editing an existing clothing item
-    // AddClothing(QWidget *parent, const QString &selectedType, const ClothingItem &item);
-    
-    // // Constructor for editing with provided attributes
-    // AddClothing(QWidget *parent, const QString &selectedType, const ClothingItem &item, const QStringList &attributes);
+    AddClothing(QWidget *parent,
+                const QString &selectedType,
+                const QList<ClothingAttribute> &attributes);
+
+    // Constructor for editing an existing clothing item with attributes
+    AddClothing(QWidget *parent,
+                const QString &selectedType,
+                const ClothingItem &item,
+                const QList<ClothingAttribute> &attributes);
     
     ~AddClothing();
 
 signals:
-    void clothingItemAddedItem(const ClothingItem &item); // New signal with unique name
     void clothingItemEdited(const ClothingItem &item); // Signal to emit when an item is edited
-    void clothingItemAddedName(const QString &itemName); // Renamed for uniqueness
     void clothingItemAdded(const ClothingItem &item);
 
 private slots:
@@ -43,9 +45,8 @@ private slots:
 
 private:
     Ui::AddClothing *ui;
-    QMap<QString, QStringList> clothingTypes;
+    bool isEditMode = false; // True when editing an existing item
     // QString clothingType;
-    // bool isEditMode;
     // ClothingItem existingItem;
     // QLineEdit *nameEdit; // Line edit for clothing item name
     // QStringList providedAttributes; // Attributes provided from outside
@@ -53,6 +54,9 @@ private:
     
     void initializeUI(); // Helper to set up the UI
     void loadAttributes();
+    void setupTable(const QString &clothingType,
+                    const QList<ClothingAttribute> &attributes,
+                    const ClothingItem *existingItem = nullptr);
 };
 
 #endif // ADDCLOTHING_H

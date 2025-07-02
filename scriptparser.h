@@ -4,12 +4,41 @@
 #include "ScriptData.h"
 #include <QString>
 #include <QMap>
+#include <QStringList>
+
+using StatusSection = StatusDefinition;
+using PunishmentSection = PunishmentDefinition;
+using JobSection = JobDefinition;
+using ClothTypeSection = ClothingTypeDefinition;
+using QuestionSection = QuestionDefinition;
 
 class ScriptParser {
 public:
     bool parseScript(const QString& path);
 
     const ScriptData& getScriptData() const { return scriptData; };
+
+    // Access parsed data
+    QStringList getRawSectionNames() const;
+    QMap<QString, QStringList> getRawSectionData(const QString &section) const;
+    QString getIniValue(const QString &section, const QString &key, const QString &defaultValue = QString()) const;
+
+    QString getMaster() const;
+    QString getSubName() const;
+    int getMinMerits() const;
+    int getMaxMerits() const;
+    bool isTestMenuEnabled() const;
+
+    QList<StatusDefinition> getStatusSections() const;
+    StatusDefinition getStatus(const QString &name) const;
+    QList<JobDefinition> getJobSections() const;
+    QList<PunishmentDefinition> getPunishmentSections() const;
+    QList<PermissionDefinition> getPermissionSections() const;
+    QList<ClothingTypeDefinition> getClothTypeSections() const;
+    QList<ConfessionDefinition> getConfessionSections() const;
+    QList<InstructionDefinition> getInstructionSections() const;
+    QuestionDefinition getQuestion(const QString &name) const;
+    void setVariable(const QString &name, const QString &value);
 
     void parseGeneralSection(const QString &sectionName, const QMap<QString, QStringList>& section);
     void parseInitSection(const QMap<QString, QStringList>& section);
@@ -24,7 +53,7 @@ public:
     void parseAssignmentBehavior(const QMap<QString, QStringList>& entries, AssignmentBehavior& a);
     void parseInstructionSections(const QMap<QString, QMap<QString, QStringList>>& sections);
     void parseInstructionSets(const QMap<QString, QMap<QString, QStringList>>& sections);
-    void parseClothingTypes(const QMap<QString, QMap<QString, QStringList>>& sections);
+    void parseClothingTypes(const QStringList &lines);
     void parseProcedureSections(const QMap<QString, QMap<QString, QStringList>>& sections);
     void parsePopupSections(const QMap<QString, QMap<QString, QStringList>>& sections);
     void parsePopupGroupSections(const QMap<QString, QMap<QString, QStringList>>& sections);
@@ -51,6 +80,8 @@ public:
     MeritAdjustment merits;
 
 private:
+    QStringList readIniLines(const QString &path);
+    QString scriptFilePath;
     ScriptData scriptData;
 };
 

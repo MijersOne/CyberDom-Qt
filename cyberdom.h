@@ -4,10 +4,12 @@
 #include <QMainWindow>
 #include <QTimer>
 #include <QDateTime>
+#include <QMenu>
 #include <QMap>
 #include <QString>
 #include <QStringList>
 #include <QStack>
+#include <QSet>
 #include "rules.h"
 #include "assignments.h"
 #include "scriptparser.h"
@@ -35,6 +37,7 @@ QT_END_NAMESPACE
 class CyberDom : public QMainWindow
 {
     Q_OBJECT
+    friend class SessionSaveLoadTest;
 
 public:
     CyberDom(QWidget *parent = nullptr);
@@ -47,14 +50,22 @@ public:
     QSet<QString> assignedJobs;
     QSet<QString> getActiveJobs() { return activeAssignments; }
 
+    QStringList getAssignmentResources(const QString &name, bool isPunishment) const;
+    QSet<QString> getResourcesInUse() const;
+    bool hasActiveBlockingPunishment() const;
+
+    const QMap<QString, QMap<QString, QString>>& getIniData() const { return iniData; }
+
     QStringList getAvailableJobs();
     QMap<QString, QDateTime> getJobDeadlines() const { return jobDeadlines; }
+    int getPunishmentAmount(const QString &name) const { return punishmentAmounts.value(name, 0); }
+    bool isPermissionForbidden(const QString &name) const;
     QSet<QString> activeAssignments;
 
     void assignJobFromTrigger(QString section);
     void assignScheduledJobs();
     void addJobToAssignments(QString assignmentName);
-    void addPunishmentToAssignments(QString punishmentName);
+    void addPunishmentToAssignments(const QString &punishmentName, int amount = 1);
     void applyPunishment(int severity, const QString &group = QString());
 
     QString selectPunishmentFromGroup(int severity, const QString &group);
@@ -74,7 +85,7 @@ public:
     bool isInStatusGroup(const QString &groupName);
 
     void startAssignment(const QString &assignmentName, bool isPunishment, const QString &newStatus);
-    void markAssignmentDone(const QString &assignmentName, bool isPunishment);
+    bool markAssignmentDone(const QString &assignmentName, bool isPunishment);
     void abortAssignment(const QString &assignmentName, bool isPunishment);
     void deleteAssignment(const QString &assignmentName, bool isPunishment);
 
@@ -114,6 +125,15 @@ private:
     QString loadIniFilePath();
     void initializeIniFile();
 
+    // Save variables from the script parser to a .cds file
+    void saveVariablesToCDS(const QString &cdsPath);
+
+    bool isAssignmentLongRunning(const QString &name, bool isPunishment) const;
+
+    // Session management
+    bool loadSessionData(const QString &path);
+    void saveSessionData(const QString &path) const;
+
     // Script initialization
     void loadAndParseScript(const QString &filePath);
     void applyScriptSettings();
@@ -123,7 +143,6 @@ private:
     void initializeUiWithIniFile();
     void initializeProgressBarRange();
     void updateProgressBarValue();
-    void loadIniFile();
 
     // Get values from parsed script data
     QString getIniValue(const QString &section, const QString &key, const QString &defaultValue = "") const;
@@ -139,6 +158,7 @@ private:
     QDateTime internalClock;
     QString currentIniFile;
     QString settingsFile;
+    QString sessionFilePath;
     QString currentStatus;
 
     Rules *rulesDialog;
@@ -156,6 +176,13 @@ private:
 
     QMap<QString, FlagData> flags;
     QMap<QString, QDateTime> jobDeadlines;
+    QMap<QString, QDateTime> jobExpiryTimes;
+    QMap<QString, int> jobRemindIntervals; // seconds
+    QMap<QString, QDateTime> jobNextReminds;
+    QMap<QString, int> jobLateMerits;
+    QMap<QString, int> punishmentAmounts; // amount units for each punishment
+    QSet<QString> expiredAssignments;
+    QMap<QString, QMap<QString, QString>> iniData;
 
     // Status tracking
     QStack<QString> statusHistory;
@@ -164,14 +191,21 @@ private:
     // Timers
     QTimer *punishmentTimer;
     QTimer *flagTimer;
+    QTimer *signinTimer;
+    int signinRemainingSecs = 0;
 
     bool testMenuEnabled = false;
+    QMenu *reportMenu = nullptr;
+    QMenu *confessMenu = nullptr;
+    QMenu *permissionMenu = nullptr;
+
     bool isPunishment = false;
 
     QList<ClothingItem> clothingInventory;
 
     // Procedure handling
     void runProcedure(const QString &procedureName);
+    void executeReport(const QString &name);
 
     struct TimerInstance {
         QString name;
@@ -188,6 +222,10 @@ private:
     void loadQuestionAnswers();
     void saveQuestionAnswers();
 
+    QMap<QString, int> reportCounts;
+    QMap<QString, int> confessionCounts;
+    QMap<QString, int> permissionCounts;
+
     // UI update methods
     void updateStatusText();
     void updateInstructions(const QString &instructions);
@@ -195,15 +233,33 @@ private:
     void updateAvailableActions();
     void executeStatusEntryProcedures(const QString &statusName);
     void updateStatusDisplay();
+    void updateSigninWidgetsVisibility(const StatusSection &status);
+    void playSoundSafe(const QString &filePath);
 
+    void populateReportMenu();
+    void populateConfessMenu();
+    void populatePermissionMenu();
+
+    int parseTimeToSeconds(const QString &timeStr) const;
+    int parseTimeRangeToSeconds(const QString &range) const;
+    QString formatDuration(int seconds) const;
+    int randomIntFromRange(const QString &range) const;
+    void incrementUsageCount(const QString &key);
+    void setDefaultDeadlineForJob(const QString &jobName);
+
+    bool isTimeAllowed(const QStringList &notBefore,
+                       const QStringList &notAfter,
+                       const QList<QPair<QString, QString>> &notBetween) const;
 private slots:
     void applyTimeToClock(int days, int hours, int minutes, int seconds);
     void openAboutDialog();
     void openAskClothingDialog();
     void openAskInstructionsDialog();
     void openReportClothingDialog();
+    void openAddClothingDialog();
     void setupMenuConnections();
     void openAskPunishmentDialog();
+    void openReport(const QString &name);
     void openChangeMeritsDialog();
     void openChangeStatusDialog();
     void openLaunchJobDialog();
@@ -212,10 +268,15 @@ private slots:
     void openListFlagsDialog();
     void openSetFlagsDialog();
     void openDeleteAssignmentsDialog();
+    void openAskPermissionDialog();
+    void openPermission(const QString &name);
+    void openConfession(const QString &name);
     void resetApplication();
     void updateMerits(int newMerits);
     void checkPunishments();
     void checkFlagExpiry();
+    void updateSigninTimer();
+    void onResetSigninTimer();
 };
 
 #endif // CYBERDOM_H

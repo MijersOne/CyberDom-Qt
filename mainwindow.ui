@@ -393,7 +393,7 @@
      <string>Communication</string>
     </property>
     <addaction name="actionAsk_Permission"/>
-    <addaction name="actionReport"/>
+    <addaction name="menuReport"/>
     <addaction name="actionReport_Clothing"/>
     <addaction name="actionConfess"/>
     <addaction name="actionAsk_for_Clothing_Instruction"/>
@@ -456,6 +456,12 @@
     <addaction name="actionSet_Flags"/>
     <addaction name="actionList_and_Delete_Assignments"/>
    </widget>
+   <widget class="QMenu" name="menuReport">
+   <property name="title">
+    <string>Report</string>
+   </property>
+   <addaction name="actionAdd_Clothing"/>
+  </widget>
    <widget class="QMenu" name="menuHelp">
     <property name="title">
      <string>Help</string>
@@ -500,9 +506,9 @@
     <string>Ask Permission</string>
    </property>
   </action>
-  <action name="actionReport">
+  <action name="actionAdd_Clothing">
    <property name="text">
-    <string>Report</string>
+    <string>Add Clothing</string>
    </property>
   </action>
   <action name="actionReport_Clothing">

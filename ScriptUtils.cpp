@@ -5,6 +5,8 @@
 #include <QDateTime>
 #include <QDebug>
 
+namespace ScriptUtils {
+
 int randomInRange(int min, int max, bool centerRandom) {
     if (!centerRandom) {
         return QRandomGenerator::global()->bounded(min, max + 1);
@@ -14,6 +16,8 @@ int randomInRange(int min, int max, bool centerRandom) {
         return (a + b) / 2;
     }
 }
+
+} // namespace ScriptUtils
 
 bool ScriptUtils::evaluateCondition(const QString& expr, const QMap<QString, QString>& stringVars, const QMap<QString, int>& counters, const QMap<QString, QDateTime>& timeVars)
 {

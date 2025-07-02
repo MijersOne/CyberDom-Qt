@@ -6,6 +6,7 @@
 #include <QMap>
 #include <QDateTime>
 #include <QStack>
+#include <QSet>
 
 enum class CaseMode {
     All,
@@ -455,10 +456,12 @@ struct GeneralSettings {
 struct InitSettings {
     QString newStatus;
     int merits = -1;
+    QString procedure;
 };
 
 struct EventSettings {
     QString firstRunProcedure;
+    QString signIn;
 };
 
 struct StatusDefinition {
@@ -1273,6 +1276,7 @@ struct PopupGroupDefinition {
 struct ScriptData {
     GeneralSettings general;
     QMap<QString, QString> generalSettings;
+    QMap<QString, QMap<QString, QStringList>> rawSections;
     InitSettings init;
     EventSettings events;
     QMap<QString, StatusDefinition> statuses;
