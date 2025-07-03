@@ -2794,6 +2794,32 @@ void CyberDom::addClothingItem(const ClothingItem& item) {
     clothingInventory.append(item);
 }
 
+QMap<QDate, QStringList> CyberDom::getHolidays() const {
+    QMap<QDate, QStringList> result;
+    for (auto it = iniData.constBegin(); it != iniData.constEnd(); ++it) {
+        if (!it.key().toLower().startsWith("holiday-"))
+            continue;
+        QString name = it.key().mid(QString("holiday-").length());
+        QMap<QString, QString> entries = it.value();
+        QString dateStr = entries.value("Date");
+        if (!dateStr.isEmpty()) {
+            QDate d = QDate::fromString(dateStr, "MM-dd-yyyy");
+            if (d.isValid())
+                result[d].append(name);
+            continue;
+        }
+        QString startStr = entries.value("StartDate");
+        QString endStr = entries.value("EndDate");
+        QDate s = QDate::fromString(startStr, "MM-dd-yyyy");
+        QDate e = QDate::fromString(endStr, "MM-dd-yyyy");
+        if (s.isValid() && e.isValid()) {
+            for (QDate d = s; d <= e; d = d.addDays(1))
+                result[d].append(name);
+        }
+    }
+    return result;
+}
+
 void CyberDom::runProcedure(const QString &procedureName) {
     QString sectionName = "procedure-" + procedureName;
 

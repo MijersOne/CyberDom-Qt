@@ -116,6 +116,7 @@ public:
     ScriptParser* getScriptParser() const { return scriptParser; }
     const QList<ClothingItem>& getClothingInventory() const { return clothingInventory; }
     void addClothingItem(const ClothingItem& item);
+    QMap<QDate, QStringList> getHolidays() const;
 
 signals:
     void jobListUpdated();

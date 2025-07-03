@@ -5,6 +5,7 @@
 #include <QMenu>
 #include "assignments.h" // Include the Assignments header
 #include "addclothing.h"
+#include "calendarview.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -23,11 +24,13 @@ public:
 private slots:
     void openAssignments();
     void openAddClothingDialog();
+    void openCalendar();
     void populateReportMenu();
 
 private:
     Ui::MainWindow *ui;
     Assignments *assignments;
+    CalendarView *calendarWindow = nullptr;
     QMenu *reportMenu = nullptr;
 };
 #endif // MAINWINDOW_H
