@@ -18,6 +18,7 @@
 #include "listflags.h" // Include the header for the ListFlags UI
 #include "setflags.h" // Include the header for the SetFlags UI
 #include "deleteassignments.h" // Include the header for DeleteAssignments UI
+#include "calendarview.h"
 #include "clothingitem.h"
 #include "questiondialog.h"
 #include "ScriptUtils.h"
@@ -105,6 +106,7 @@ CyberDom::CyberDom(QWidget *parent)
 
     // Connect the Select_Job action to a slot function
     connect(ui->actionJob_Launch, &QAction::triggered, this, &CyberDom::openLaunchJobDialog);
+    connect(ui->actionCalendar, &QAction::triggered, this, &CyberDom::openCalendarView);
 
     // Connect the Select_Punishment action to a slot function
     connect(ui->actionPunish, &QAction::triggered, this, &CyberDom::openSelectPunishmentDialog);
@@ -833,6 +835,12 @@ void CyberDom::openLaunchJobDialog()
     
     JobLaunch launchJobDialog(this); // Create the SelectJob dialog, passing the parent
     launchJobDialog.exec(); // Show the dialog modally
+}
+
+void CyberDom::openCalendarView()
+{
+    CalendarView view(this);
+    view.exec();
 }
 
 void CyberDom::openSelectPunishmentDialog()
@@ -3551,6 +3559,52 @@ bool CyberDom::isAssignmentLongRunning(const QString &name, bool isPunishment) c
         }
     }
     return false;
+}
+
+QList<CalendarEvent> CyberDom::getCalendarEvents()
+{
+    QList<CalendarEvent> events;
+    // Jobs and punishments stored in jobDeadlines
+    for (auto it = jobDeadlines.constBegin(); it != jobDeadlines.constEnd(); ++it) {
+        const QString &name = it.key();
+        QDateTime deadline = it.value();
+        CalendarEvent ev;
+        ev.title = name;
+        bool isPun = iniData.contains(QStringLiteral("punishment-") + name);
+        ev.type = isPun ? QStringLiteral("Punishment") : QStringLiteral("Job");
+        if (isPun && isAssignmentLongRunning(name, true)) {
+            QSettings settings(settingsFile, QSettings::IniFormat);
+            QDateTime start = settings.value(QStringLiteral("Assignments/%1_start_time").arg(name)).toDateTime();
+            if (!start.isValid())
+                start = internalClock;
+            ev.start = start;
+            ev.end = deadline;
+        } else {
+            ev.start = deadline;
+            ev.end = deadline;
+        }
+        events.append(ev);
+    }
+
+    // Add holidays if available in script
+    if (scriptParser) {
+        QMap<QString, QStringList> holSec = scriptParser->getRawSectionData(QStringLiteral("holidays"));
+        for (auto it = holSec.constBegin(); it != holSec.constEnd(); ++it) {
+            for (const QString &dateStr : it.value()) {
+                QDate date = QDate::fromString(dateStr.trimmed(), Qt::ISODate);
+                if (!date.isValid())
+                    continue;
+                CalendarEvent ev;
+                ev.start = QDateTime(date, QTime(0,0));
+                ev.end = QDateTime(date, QTime(23,59,59));
+                ev.title = it.key();
+                ev.type = QStringLiteral("Holiday");
+                events.append(ev);
+            }
+        }
+    }
+
+    return events;
 }
 
 QSet<QString> CyberDom::getResourcesInUse() const

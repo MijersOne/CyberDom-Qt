@@ -1,35 +1,30 @@
 #ifndef CALENDARVIEW_H
 #define CALENDARVIEW_H
 
-#include <QMainWindow>
-#include <QCalendarWidget>
-#include <QTableWidget>
-#include <QMap>
-#include <QDate>
 
-class CyberDom;
+#include <QDialog>
+#include "cyberdom.h"
 
 namespace Ui {
 class CalendarView;
 }
 
-class CalendarView : public QMainWindow
+class CalendarView : public QDialog
 {
     Q_OBJECT
-
 public:
-    explicit CalendarView(QWidget *parent = nullptr, CyberDom *app = nullptr);
+    explicit CalendarView(CyberDom *app, QWidget *parent = nullptr);
     ~CalendarView();
 
 private slots:
-    void onDateClicked(const QDate &date);
+    void onDateSelected(const QDate &date);
 
 private:
-    void populateEventsForDate(const QDate &date);
+    void populateList(const QDate &date);
 
     Ui::CalendarView *ui;
     CyberDom *mainApp;
-    QMap<QDate, QStringList> holidays;
+    QList<CalendarEvent> events;
 };
 
 #endif // CALENDARVIEW_H

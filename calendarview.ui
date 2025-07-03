@@ -1,20 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
  <class>CalendarView</class>
- <widget class="QMainWindow" name="CalendarView">
-  <property name="windowTitle">
-   <string>Calendar</string>
-  </property>
-  <widget class="QWidget" name="centralwidget">
-   <layout class="QVBoxLayout" name="verticalLayout">
-    <item>
-     <widget class="QCalendarWidget" name="calendarWidget"/>
-    </item>
-    <item>
-     <widget class="QTableWidget" name="tableWidget"/>
-    </item>
-   </layout>
-  </widget>
+ <widget class="QDialog" name="CalendarView">
+  <layout class="QVBoxLayout" name="verticalLayout">
+   <item>
+    <widget class="QCalendarWidget" name="calendarWidget"/>
+   </item>
+   <item>
+    <widget class="QListWidget" name="listWidget"/>
+   </item>
+  </layout>
  </widget>
  <resources/>
  <connections/>

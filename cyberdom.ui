@@ -180,8 +180,9 @@
     <property name="title">
      <string>Assignments</string>
     </property>
-    <addaction name="actionAssignments"/>
-   </widget>
+   <addaction name="actionAssignments"/>
+   <addaction name="actionCalendar"/>
+  </widget>
    <widget class="QMenu" name="menuRules">
     <property name="title">
      <string>Rules</string>
@@ -369,6 +370,11 @@
    </property>
    <property name="menuRole">
     <enum>QAction::MenuRole::TextHeuristicRole</enum>
+   </property>
+  </action>
+  <action name="actionCalendar">
+   <property name="text">
+    <string>Calendar</string>
    </property>
   </action>
   <action name="actionTimeAdd">
