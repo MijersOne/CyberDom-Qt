@@ -44,6 +44,45 @@
 #include <QUrl>
 #include <QCoreApplication>
 
+static QDate nthWeekdayOfMonth(int year, int month, Qt::DayOfWeek weekday, int n)
+{
+    QDate date(year, month, 1);
+    if (n > 0) {
+        int delta = (weekday - date.dayOfWeek() + 7) % 7;
+        return date.addDays(delta + 7 * (n - 1));
+    }
+
+    QDate last(year, month, date.daysInMonth());
+    int delta = (last.dayOfWeek() - weekday + 7) % 7;
+    return last.addDays(-delta);
+}
+
+static QList<CalendarEvent> generateUSHolidays(int year)
+{
+    QList<CalendarEvent> list;
+    auto add = [&](const QDate &d, const QString &name) {
+        CalendarEvent ev;
+        ev.start = QDateTime(d, QTime(0, 0));
+        ev.end = QDateTime(d, QTime(23, 59, 59));
+        ev.title = name;
+        ev.type = QStringLiteral("Holiday");
+        list.append(ev);
+    };
+
+    add(QDate(year, 1, 1), QObject::tr("New Year's Day"));
+    add(nthWeekdayOfMonth(year, 1, Qt::Monday, 3), QObject::tr("Martin Luther King Jr. Day"));
+    add(nthWeekdayOfMonth(year, 2, Qt::Monday, 3), QObject::tr("Washington's Birthday"));
+    add(nthWeekdayOfMonth(year, 5, Qt::Monday, -1), QObject::tr("Memorial Day"));
+    add(QDate(year, 6, 19), QObject::tr("Juneteenth"));
+    add(QDate(year, 7, 4), QObject::tr("Independence Day"));
+    add(nthWeekdayOfMonth(year, 9, Qt::Monday, 1), QObject::tr("Labor Day"));
+    add(nthWeekdayOfMonth(year, 10, Qt::Monday, 2), QObject::tr("Columbus Day"));
+    add(QDate(year, 11, 11), QObject::tr("Veterans Day"));
+    add(nthWeekdayOfMonth(year, 11, Qt::Thursday, 4), QObject::tr("Thanksgiving Day"));
+    add(QDate(year, 12, 25), QObject::tr("Christmas Day"));
+
+    return list;
+}
 CyberDom::CyberDom(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::CyberDom)
@@ -107,6 +146,16 @@ CyberDom::CyberDom(QWidget *parent)
     // Connect the Select_Job action to a slot function
     connect(ui->actionJob_Launch, &QAction::triggered, this, &CyberDom::openLaunchJobDialog);
     connect(ui->actionCalendar, &QAction::triggered, this, &CyberDom::openCalendarView);
+
+    if (ui->menuAssignments) {
+        ui->menuAssignments->removeAction(ui->actionCalendar);
+        QList<QAction*> acts = ui->menuAssignments->actions();
+        int idx = acts.indexOf(ui->actionAssignments);
+        QAction *pos = nullptr;
+        if (idx >= 0 && idx + 1 < acts.size())
+            pos = acts.at(idx + 1);
+        ui->menuAssignments->insertAction(pos, ui->actionCalendar);
+    }
 
     // Connect the Select_Punishment action to a slot function
     connect(ui->actionPunish, &QAction::triggered, this, &CyberDom::openSelectPunishmentDialog);
@@ -3603,6 +3652,10 @@ QList<CalendarEvent> CyberDom::getCalendarEvents()
             }
         }
     }
+
+    int year = internalClock.date().year();
+    for (int y = year - 1; y <= year + 1; ++y)
+        events.append(generateUSHolidays(y));
 
     return events;
 }
