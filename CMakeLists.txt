@@ -41,6 +41,7 @@ set(SOURCES
     timeadd.cpp
     assignments.cpp
     linewriter.cpp
+    calendarview.cpp
 )
 
 # Define header files
@@ -69,6 +70,7 @@ set(HEADERS
     timeadd.h
     assignments.h
     linewriter.h
+    calendarview.h
 )
 
 # Define UI files
@@ -95,6 +97,7 @@ set(UIS
     setflags.ui
     timeadd.ui
     linewriter.ui
+    calendarview.ui
 )
 
 # Create executable

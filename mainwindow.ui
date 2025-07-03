@@ -399,11 +399,12 @@
     <addaction name="actionAsk_for_Clothing_Instruction"/>
     <addaction name="actionAsk_for_Other_Instructions"/>
    </widget>
-   <widget class="QMenu" name="menuAssignments">
-    <property name="title">
-     <string>Assignments</string>
-    </property>
-   </widget>
+  <widget class="QMenu" name="menuAssignments">
+   <property name="title">
+    <string>Assignments</string>
+   </property>
+   <addaction name="actionCalendar"/>
+  </widget>
    <widget class="QMenu" name="menuRules">
     <property name="title">
      <string>Rules</string>
@@ -709,6 +710,11 @@
   <action name="action7_Days">
    <property name="text">
     <string>7 Days</string>
+   </property>
+  </action>
+  <action name="actionCalendar">
+   <property name="text">
+    <string>Calendar</string>
    </property>
   </action>
   <action name="actionAbout">
