@@ -28,6 +28,13 @@ struct FlagData {
     QString text;
 };
 
+struct CalendarEvent {
+    QDateTime start;
+    QDateTime end;
+    QString title;
+    QString type;
+};
+
 QT_BEGIN_NAMESPACE
 namespace Ui {
 class CyberDom;
@@ -60,6 +67,7 @@ public:
     QMap<QString, QDateTime> getJobDeadlines() const { return jobDeadlines; }
     int getPunishmentAmount(const QString &name) const { return punishmentAmounts.value(name, 0); }
     bool isPermissionForbidden(const QString &name) const;
+    QList<CalendarEvent> getCalendarEvents();
     QSet<QString> activeAssignments;
 
     void assignJobFromTrigger(QString section);
@@ -263,6 +271,7 @@ private slots:
     void openChangeMeritsDialog();
     void openChangeStatusDialog();
     void openLaunchJobDialog();
+    void openCalendarView();
     void openSelectPunishmentDialog();
     void openSelectPopupDialog();
     void openListFlagsDialog();

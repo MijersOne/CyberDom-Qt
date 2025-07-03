@@ -34,7 +34,8 @@ SOURCES += \
     changemerits.cpp \
     changestatus.cpp \
     askpunishment.cpp \
-    linewriter.cpp
+    linewriter.cpp \
+    calendarview.cpp
 HEADERS += \
     ScriptData.h \
     ScriptUtils.h \
@@ -60,7 +61,8 @@ HEADERS += \
     listflags.h \
     setflags.h \
     deleteassignments.h \
-    linewriter.h
+    linewriter.h \
+    calendarview.h
 
 FORMS += \
     about.ui \
@@ -83,7 +85,8 @@ FORMS += \
     listflags.ui \
     setflags.ui \
     deleteassignments.ui \
-    linewriter.ui
+    linewriter.ui \
+    calendarview.ui
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin
