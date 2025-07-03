@@ -33,6 +33,7 @@ SOURCES += \
     ../changestatus.cpp \
     ../askpunishment.cpp \
     ../linewriter.cpp \
+    ../calendarview.cpp \
     punishmenttest.cpp
 
 HEADERS += \
@@ -60,7 +61,8 @@ HEADERS += \
     ../listflags.h \
     ../setflags.h \
     ../deleteassignments.h \
-    ../linewriter.h
+    ../linewriter.h \
+    ../calendarview.h
 
 FORMS += \
     ../about.ui \
@@ -83,7 +85,8 @@ FORMS += \
     ../listflags.ui \
     ../setflags.ui \
     ../deleteassignments.ui \
-    ../linewriter.ui
+    ../linewriter.ui \
+    ../calendarview.ui
 
 TARGET = runtests
 
