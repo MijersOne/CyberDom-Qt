@@ -16,6 +16,9 @@ public:
     explicit CalendarView(CyberDom *app, QWidget *parent = nullptr);
     ~CalendarView();
 
+protected:
+    void showEvent(QShowEvent *event) override;
+
 private:
     Ui::CalendarView *ui;
     CyberDom *mainApp;

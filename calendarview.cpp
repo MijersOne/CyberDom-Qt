@@ -16,4 +16,11 @@ CalendarView::~CalendarView()
     delete ui;
 }
 
+void CalendarView::showEvent(QShowEvent *event)
+{
+    QDialog::showEvent(event);
+    if (mainApp)
+        ui->calendarWidget->setEvents(mainApp->getCalendarEvents());
+}
+
 

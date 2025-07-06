@@ -78,6 +78,9 @@ Date=2025-03-14
 
 Birthday entries show up in the calendar view as events of type **Birthday**.
 
+The Calendar view now highlights the current day and displays color coded bars
+for multiple events similar to Google Calendar.
+
 ## Debugging
 
 Runtime messages are written to `debug_output.log` in the application directory. Use this log when diagnosing crashes or other issues.
