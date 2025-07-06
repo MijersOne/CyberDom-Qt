@@ -4,15 +4,15 @@
  <widget class="QDialog" name="CalendarView">
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
-    <widget class="EventCalendarWidget" name="calendarWidget"/>
+    <widget class="GoogleCalendarWidget" name="calendarWidget"/>
    </item>
   </layout>
  </widget>
  <customwidgets>
   <customwidget>
-   <class>EventCalendarWidget</class>
-   <extends>QCalendarWidget</extends>
-   <header>eventcalendarwidget.h</header>
+   <class>GoogleCalendarWidget</class>
+   <extends>QWidget</extends>
+   <header>googlecalendarwidget.h</header>
   </customwidget>
  </customwidgets>
  <resources/>

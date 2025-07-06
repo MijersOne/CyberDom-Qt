@@ -36,7 +36,8 @@ SOURCES += \
     askpunishment.cpp \
     linewriter.cpp \
     calendarview.cpp \
-    eventcalendarwidget.cpp
+    eventcalendarwidget.cpp \
+    googlecalendarwidget.cpp
 
 HEADERS += \
     ScriptData.h \
@@ -65,7 +66,8 @@ HEADERS += \
     deleteassignments.h \
     linewriter.h \
     calendarview.h \
-    eventcalendarwidget.h
+    eventcalendarwidget.h \
+    googlecalendarwidget.h
 
 FORMS += \
     about.ui \
