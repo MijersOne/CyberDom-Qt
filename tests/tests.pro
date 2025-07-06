@@ -90,3 +90,9 @@ FORMS += \
 
 TARGET = runtests
 
+# Convenience target to execute the tests in headless mode
+test.target = check
+test.depends = all
+test.commands = QT_QPA_PLATFORM=offscreen ./runtests
+QMAKE_EXTRA_TARGETS += test
+
