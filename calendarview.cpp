@@ -1,7 +1,7 @@
 #include "calendarview.h"
 #include "ui_calendarview.h"
-#include <QCalendarWidget>
 #include <QSizePolicy>
+#include <QDate>
 
 CalendarView::CalendarView(CyberDom *app, QWidget *parent)
     : QDialog(parent), ui(new Ui::CalendarView), mainApp(app)
@@ -19,8 +19,10 @@ CalendarView::~CalendarView()
 void CalendarView::showEvent(QShowEvent *event)
 {
     QDialog::showEvent(event);
-    if (mainApp)
+    if (mainApp) {
+        ui->calendarWidget->setMonth(QDate::currentDate());
         ui->calendarWidget->setEvents(mainApp->getCalendarEvents());
+    }
 }
 
 
