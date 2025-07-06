@@ -34,6 +34,7 @@ SOURCES += \
     ../askpunishment.cpp \
     ../linewriter.cpp \
     ../calendarview.cpp \
+    ../eventcalendarwidget.cpp \
     punishmenttest.cpp
 
 HEADERS += \
@@ -62,7 +63,8 @@ HEADERS += \
     ../setflags.h \
     ../deleteassignments.h \
     ../linewriter.h \
-    ../calendarview.h
+    ../calendarview.h \
+    ../eventcalendarwidget.h
 
 FORMS += \
     ../about.ui \

@@ -4,10 +4,17 @@
  <widget class="QDialog" name="CalendarView">
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
-    <widget class="QCalendarWidget" name="calendarWidget"/>
+    <widget class="EventCalendarWidget" name="calendarWidget"/>
    </item>
   </layout>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>EventCalendarWidget</class>
+   <extends>QCalendarWidget</extends>
+   <header>eventcalendarwidget.h</header>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections/>
 </ui>
