@@ -56,6 +56,22 @@ After compiling, execute the generated binary:
 - Dynamic **Report** submenu under Communication. Items are populated on startup.
 - The submenu includes **Add Clothing** which opens a popup to create clothing items.
 
+### Birthday sections
+
+Define birthdays in the training script using `[birthday-*]` sections. The part after
+`birthday-` becomes the default title unless a `Title` key is provided. Each section
+requires one or more `Date` lines in `YYYY-MM-DD` format.
+
+Example:
+
+```ini
+[birthday-jane]
+Title=Jane Doe
+Date=2025-03-14
+```
+
+Birthday entries show up in the calendar view as events of type **Birthday**.
+
 ## Debugging
 
 Runtime messages are written to `debug_output.log` in the application directory. Use this log when diagnosing crashes or other issues.

@@ -3651,6 +3651,30 @@ QList<CalendarEvent> CyberDom::getCalendarEvents()
                 events.append(ev);
             }
         }
+
+        QStringList secs = scriptParser->getRawSectionNames();
+        for (const QString &sec : secs) {
+            if (!sec.startsWith(QStringLiteral("birthday-")))
+                continue;
+            QMap<QString, QStringList> data = scriptParser->getRawSectionData(sec);
+            QString title = sec.mid(QStringLiteral("birthday-").length());
+            if (data.contains(QStringLiteral("Title")))
+                title = data[QStringLiteral("Title")].value(0);
+            QStringList dates = data.value(QStringLiteral("Date"));
+            if (dates.isEmpty())
+                dates = data.value(QStringLiteral("date"));
+            for (const QString &dateStr : dates) {
+                QDate date = QDate::fromString(dateStr.trimmed(), Qt::ISODate);
+                if (!date.isValid())
+                    continue;
+                CalendarEvent ev;
+                ev.start = QDateTime(date, QTime(0,0));
+                ev.end = QDateTime(date, QTime(23,59,59));
+                ev.title = title;
+                ev.type = QStringLiteral("Birthday");
+                events.append(ev);
+            }
+        }
     }
 
     int year = internalClock.date().year();
