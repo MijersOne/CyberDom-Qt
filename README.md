@@ -39,7 +39,13 @@ qmake6 tests/tests.pro
 make -C tests
 ```
 
-Run the resulting `runtests` executable to execute all tests.
+Execute the tests in a headless environment:
+
+```bash
+QT_QPA_PLATFORM=offscreen ./tests/runtests
+```
+
+Alternatively you can run `make -C tests test` to build and execute the tests in one step.
 
 You can also open `CyberDom.pro` in Qt Creator and build directly from the IDE.
 

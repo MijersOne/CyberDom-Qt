@@ -1,0 +1,24 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Install Qt
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          qt6-base-dev qt6-multimedia-dev qt6-tools-dev qmake6
+    - name: Build tests
+      run: |
+        qmake6 tests/tests.pro
+        make -C tests
+    - name: Run tests
+      run: QT_QPA_PLATFORM=offscreen ./tests/runtests
