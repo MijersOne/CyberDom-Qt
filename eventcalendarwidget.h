@@ -16,6 +16,7 @@ protected:
     void paintCell(QPainter *painter, const QRect &rect, QDate date) const override;
 
 private:
+    QColor colorForType(const QString &type) const;
     QList<CalendarEvent> m_events;
 };
 
