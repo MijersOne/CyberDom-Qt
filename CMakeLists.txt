@@ -43,6 +43,7 @@ set(SOURCES
     linewriter.cpp
     calendarview.cpp
     eventcalendarwidget.cpp
+    googlecalendarwidget.cpp
 )
 
 # Define header files
@@ -73,6 +74,7 @@ set(HEADERS
     linewriter.h
     calendarview.h
     eventcalendarwidget.h
+    googlecalendarwidget.h
 )
 
 # Define UI files
