@@ -1,6 +1,6 @@
 #include "calendarview.h"
 #include "ui_calendarview.h"
-#include <QCalendarWidget>
+#include "eventcalendarwidget.h"
 #include <QListWidget>
 
 CalendarView::CalendarView(CyberDom *app, QWidget *parent)
@@ -9,10 +9,13 @@ CalendarView::CalendarView(CyberDom *app, QWidget *parent)
     ui->setupUi(this);
     if (mainApp)
         events = mainApp->getCalendarEvents();
-    connect(ui->calendarWidget, &QCalendarWidget::selectionChanged, this, [this]() {
-        onDateSelected(ui->calendarWidget->selectedDate());
+
+    auto *cal = ui->calendarWidget;
+    cal->setEvents(events);
+    connect(cal, &QCalendarWidget::selectionChanged, this, [this, cal]() {
+        onDateSelected(cal->selectedDate());
     });
-    onDateSelected(ui->calendarWidget->selectedDate());
+    onDateSelected(cal->selectedDate());
 }
 
 CalendarView::~CalendarView()

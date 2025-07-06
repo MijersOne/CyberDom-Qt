@@ -35,7 +35,8 @@ SOURCES += \
     changestatus.cpp \
     askpunishment.cpp \
     linewriter.cpp \
-    calendarview.cpp
+    calendarview.cpp \
+    eventcalendarwidget.cpp
 
 HEADERS += \
     ScriptData.h \
@@ -63,7 +64,8 @@ HEADERS += \
     setflags.h \
     deleteassignments.h \
     linewriter.h \
-    calendarview.h
+    calendarview.h \
+    eventcalendarwidget.h
 
 FORMS += \
     about.ui \

@@ -42,6 +42,7 @@ set(SOURCES
     assignments.cpp
     linewriter.cpp
     calendarview.cpp
+    eventcalendarwidget.cpp
 )
 
 # Define header files
@@ -71,6 +72,7 @@ set(HEADERS
     assignments.h
     linewriter.h
     calendarview.h
+    eventcalendarwidget.h
 )
 
 # Define UI files
