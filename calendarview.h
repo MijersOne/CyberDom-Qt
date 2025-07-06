@@ -16,15 +16,9 @@ public:
     explicit CalendarView(CyberDom *app, QWidget *parent = nullptr);
     ~CalendarView();
 
-private slots:
-    void onDateSelected(const QDate &date);
-
 private:
-    void populateList(const QDate &date);
-
     Ui::CalendarView *ui;
     CyberDom *mainApp;
-    QList<CalendarEvent> events;
 };
 
 #endif // CALENDARVIEW_H

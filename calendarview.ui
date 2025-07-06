@@ -6,9 +6,6 @@
    <item>
     <widget class="EventCalendarWidget" name="calendarWidget"/>
    </item>
-   <item>
-    <widget class="QListWidget" name="listWidget"/>
-   </item>
   </layout>
  </widget>
  <customwidgets>
