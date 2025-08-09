@@ -2,6 +2,14 @@
 <ui version="4.0">
  <class>LineWriter</class>
  <widget class="QDialog" name="LineWriter">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>626</width>
+    <height>381</height>
+   </rect>
+  </property>
   <property name="windowTitle">
    <string>Write Lines</string>
   </property>

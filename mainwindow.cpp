@@ -1,7 +1,7 @@
 #include "mainwindow.h"
 #include "assignments.h"
 #include "addclothing.h"
-#include "calendarview.h"
+// #include "calendarview.h"
 #include "ui_mainwindow.h"
 #include <QTimer>
 
@@ -41,12 +41,12 @@ void MainWindow::openAddClothingDialog()
     dlg.exec();
 }
 
-void MainWindow::openCalendar()
-{
-    if (!calendarWindow)
-        calendarWindow = new CalendarView(this);
-    calendarWindow->show();
-}
+// void MainWindow::openCalendar()
+// {
+//     if (!calendarWindow)
+//         calendarWindow = new CalendarView(this);
+//     calendarWindow->show();
+// }
 
 void MainWindow::populateReportMenu()
 {
