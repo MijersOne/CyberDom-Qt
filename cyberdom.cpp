@@ -386,6 +386,17 @@ void CyberDom::updateInternalClock()
     if (previousTime.date() != internalClock.date()) {
         qDebug() << "Date changed from: " << previousTime.toString("MM-dd-yyyy") << "to: " << internalClock.toString("MM-dd-yyyy");
 
+        // Assign jobs for the new day
+        assignScheduledJobs();
+
+        // Trigger the NewDay event
+        if (scriptParser) {
+            QString newDayProcedure = scriptParser->getScriptData().eventHandlers.newDay;
+            if (!newDayProcedure.isEmpty()) {
+                runProcedure(newDayProcedure);
+            }
+        }
+
         // Save the current date and time to settings
         QSettings settings(settingsFile, QSettings::IniFormat);
         settings.setValue("System/CurrentDate",
@@ -1983,30 +1994,39 @@ QStringList CyberDom::getAvailableJobs() {
 }
 
 void CyberDom::assignScheduledJobs() {
-    QDateTime currentTime = QDateTime::currentDateTime();
+    if (!scriptParser) return;
 
-    for (const QString &job : iniData.keys()) {
-        if (!job.startsWith("job-"))
-            continue;
+    QDate today = internalClock.date();
+    QString currentDayName = today.toString("dddd");
 
-        const QString jobName = job.mid(4); // strip "job-" prefix
-        QMap<QString, QString> jobDetails = iniData[job];
+    const auto& jobs = scriptParser->getScriptData().jobs;
+    for (const JobDefinition &job : jobs) {
+        bool shouldRunToday = false;
 
-        // Run Daily Jobs
-        if (jobDetails.contains("Run") && jobDetails["Run"] == "Daily") {
-            if (!activeAssignments.contains(jobName)) {
-                addJobToAssignments(jobName);
-                qDebug() << "[DEBUG] Job Auto-Assigned (Daily Run): " << jobName;
+        // Check the Run rules
+        if (job.runDays.contains("Daily", Qt::CaseInsensitive)) {
+            shouldRunToday = true;
+        } else {
+            for (const QString &runDay : job.runDays) {
+                if (currentDayName.compare(runDay, Qt::CaseInsensitive) == 0) {
+                    shouldRunToday = true;
+                    break;
+                }
             }
         }
 
-        // Run Jobs at Specific Intervals
-        if (jobDetails.contains("FirstInterval")) {
-            QTime jobStartTime = QTime::fromString(jobDetails["FirstInterval"], "hh:mm");
-            if (currentTime.time() >= jobStartTime && !activeAssignments.contains(jobName)) {
-                addJobToAssignments(jobName);
-                qDebug() << "[DEBUG] Job Auto-Assigned (First Interval): " << jobName;
+        // Check the NoRun rules
+        for (const QString &noRunDay : job.noRunDays) {
+            if (currentDayName.compare(noRunDay, Qt::CaseInsensitive) == 0) {
+                shouldRunToday = false;
+                break;
             }
+        }
+
+        // If the job should run today and is not already assigned, add it.
+        if (shouldRunToday && !activeAssignments.contains(job.name)) {
+            addJobToAssignments(job.name);
+            qDebug() << "[DEBUG] Job Auto-Assigned (" << currentDayName << "): " << job.name;
         }
     }
 }
@@ -2036,7 +2056,19 @@ void CyberDom::addJobToAssignments(QString jobName)
         if (iniData.contains("job-" + jobName)) {
             QMap<QString, QString> jobDetails = iniData["job-" + jobName];
 
-            if (jobDetails.contains("EndTime")) {
+            if (jobDetails.contains("Respite")) {
+                QString respiteStr = jobDetails["Respite"];
+                QStringList respiteParts = respiteStr.split(":");
+                if (respiteParts.size() >= 2) {
+                    int hours = respiteParts[0].toInt();
+                    int minutes = respiteParts[1].toInt();
+                    deadline = internalClock.addSecs(hours * 3600 + minutes * 60);
+                    deadlineSet = true;
+                    qDebug() << "[DEBUG] Job deadline set from Respite: " << deadline.toString("MM-dd-yyyy hh:mm AP");
+                }
+            }
+
+            if (!deadlineSet && jobDetails.contains("EndTime")) {
                 QString endTimeStr = jobDetails["EndTime"];
                 QTime endTime = QTime::fromString(endTimeStr, "HH:mm");
                 if (endTime.isValid()) {
