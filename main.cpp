@@ -5,6 +5,9 @@
 #include <QTextStream>
 #include <QFile>
 #include <csignal>
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+#include <QStringConverter>
+#endif
 
 #ifndef _WIN32
 #include <execinfo.h>
@@ -21,6 +24,11 @@ void customMessageHandler(QtMsgType type, const QMessageLogContext &context, con
     if (logFile.open(QIODevice::WriteOnly | QIODevice::Append))
     {
         QTextStream out(&logFile);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+        out.setEncoding(QStringConverter::Utf8);
+#else
+        out.setCodec("UTF-8");
+#endif
         out << msg << Qt::endl;
     }
 }
@@ -35,6 +43,11 @@ static void crashHandler(int signum)
     QFile file("crash.log");
     if (file.open(QIODevice::WriteOnly | QIODevice::Append)) {
         QTextStream out(&file);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+        out.setEncoding(QStringConverter::Utf8);
+#else
+        out.setCodec("UTF-8");
+#endif
         out << "Signal " << signum << " received\n";
         char **symbols = backtrace_symbols(array, size);
         for (int i = 0; i < size; ++i) {
@@ -54,6 +67,11 @@ LONG WINAPI winCrashHandler(struct _EXCEPTION_POINTERS* ExceptionInfo)
     QFile file("crash.log");
     if (file.open(QIODevice::WriteOnly | QIODevice::Append)) {
         QTextStream out(&file);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+        out.setEncoding(QStringConverter::Utf8);
+#else
+        out.setCodec("UTF-8");
+#endif
         out << "Unhandled exception caught! Code: 0x"
             << QString::number(ExceptionInfo->ExceptionRecord->ExceptionCode, 16).toUpper()
             <<"\n";

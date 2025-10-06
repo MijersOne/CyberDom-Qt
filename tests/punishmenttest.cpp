@@ -6,6 +6,9 @@
 #include <QSettings>
 #include <QFile>
 #include <QTextStream>
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+#include <QStringConverter>
+#endif
 
 CyberDom *mainApp = nullptr;
 
@@ -34,6 +37,11 @@ void PunishmentTest::initTestCase() {
     QFile script(scriptPath);
     QVERIFY(script.open(QIODevice::WriteOnly | QIODevice::Text));
     QTextStream out(&script);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    out.setEncoding(QStringConverter::Utf8);
+#else
+    out.setCodec("UTF-8");
+#endif
     out << "[General]\n";
     out << "MinVersion=1\n";
     out << "[punishment-test]\n";

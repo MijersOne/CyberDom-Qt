@@ -6,6 +6,9 @@
 #include <QFileInfo>
 #include <QDir>
 #include <QRandomGenerator>
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+#include <QStringConverter>
+#endif
 
 QMap<QString, QMap<QString, QStringList>> ScriptParser::parseIniFile(const QString& path)
 {
@@ -18,6 +21,11 @@ QMap<QString, QMap<QString, QStringList>> ScriptParser::parseIniFile(const QStri
     }
 
     QTextStream in(&file);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    in.setEncoding(QStringConverter::Utf8);
+#else
+    in.setCodec("UTF-8");
+#endif
     QStringList lines;
 
     QString basePath = QFileInfo(path).absolutePath();
@@ -79,6 +87,11 @@ QStringList ScriptParser::readIniLines(const QString &path) {
     }
 
     QTextStream in(&file);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    in.setEncoding(QStringConverter::Utf8);
+#else
+    in.setCodec("UTF-8");
+#endif
     QString basePath = QFileInfo(path).absolutePath();
 
     while (!in.atEnd()) {
@@ -3621,6 +3634,11 @@ bool ScriptParser::loadFromCDS(const QString &cdsPath)
 
     // 3) Read line by line. Assume each line is “variableName=value”.
     QTextStream in(&file);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    in.setEncoding(QStringConverter::Utf8);
+#else
+    in.setCodec("UTF-8");
+#endif
     while (!in.atEnd()) {
         QString line = in.readLine().trimmed();
         // Skip blank lines or comments ("#"/";").
