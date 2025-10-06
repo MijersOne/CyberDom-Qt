@@ -3613,10 +3613,6 @@ CaseBlock ScriptParser::parseCaseBlock(const QStringList &lines, int &index) {
     return block;
 }
 
-#include <QFile>
-#include <QTextStream>
-#include <QDebug>    // if you want to emit qWarning()/qDebug()
-
 bool ScriptParser::loadFromCDS(const QString &cdsPath)
 {
     // 1) If there is no .cds file, return false (nothing to load).
