@@ -8,6 +8,8 @@
 
 #ifndef _WIN32
 #include <execinfo.h>
+#else
+#include <windows.h>
 #endif
 
 void customMessageHandler(QtMsgType type, const QMessageLogContext &context, const QString &msg)
@@ -46,6 +48,20 @@ static void crashHandler(int signum)
     signal(signum, SIG_DFL);
     raise(signum);
 }
+#else
+LONG WINAPI winCrashHandler(struct _EXCEPTION_POINTERS* ExceptionInfo)
+{
+    QFile file("crash.log");
+    if (file.open(QIODevice::WriteOnly | QIODevice::Append)) {
+        QTextStream out(&file);
+        out << "Unhandled exception caught! Code: 0x"
+            << QString::number(ExceptionInfo->ExceptionRecord->ExceptionCode, 16).toUpper()
+            <<"\n";
+        file.close();
+    }
+    // Optional: call abort() or exit() if you want immediate termination
+    return EXCEPTION_EXECUTE_HANDLER;
+}
 #endif
 
 int main(int argc, char *argv[])
@@ -54,6 +70,8 @@ int main(int argc, char *argv[])
 #ifndef _WIN32
     std::signal(SIGSEGV, crashHandler);
     std::signal(SIGABRT, crashHandler);
+#else
+    SetUnhandledExceptionFilter(winCrashHandler);
 #endif
     qInstallMessageHandler(customMessageHandler);
     CyberDom w;
