@@ -43,6 +43,9 @@
 #include <QStandardPaths>
 #include <QUrl>
 #include <QCoreApplication>
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+#include <QStringConverter>
+#endif
 
 static QDate nthWeekdayOfMonth(int year, int month, Qt::DayOfWeek weekday, int n)
 {
@@ -846,6 +849,11 @@ void CyberDom::openChangeStatusDialog()
         QFile file(currentIniFile);
         if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
             QTextStream in(&file);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+            in.setEncoding(QStringConverter::Utf8);
+#else
+            in.setCodec("UTF-8");
+#endif
             while (!in.atEnd()) {
                 QString line = in.readLine().trimmed();
                 if (line.startsWith("[") && line.endsWith("]")) {
@@ -943,6 +951,11 @@ void CyberDom::openSelectPunishmentDialog()
         if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
             qDebug() << "[DEBUG] Successfully opened script file for direct reading";
             QTextStream in(&file);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+            in.setEncoding(QStringConverter::Utf8);
+#else
+            in.setCodec("UTF-8");
+#endif
             bool inPunishmentSection = false;
             QString currentSection;
             QMap<QString, QString> currentSectionData;
@@ -3149,6 +3162,11 @@ void CyberDom::saveVariablesToCDS(const QString &cdsPath) {
     }
 
     QTextStream out(&file);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    out.setEncoding(QStringConverter::Utf8);
+#else
+    out.setCodec("UTF-8");
+#endif
     const auto &vars = scriptParser->getScriptData().stringVariables;
     for (auto it = vars.constBegin(); it != vars.constEnd(); ++it) {
         out << it.key() << "=" << it.value() << "\n";
