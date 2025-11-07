@@ -18,6 +18,7 @@ SOURCES += \
     askinstructions.cpp \
     assignments.cpp \
     clothingitem.cpp \
+    datainspectordialog.cpp \
     deleteassignments.cpp \
     main.cpp \
     cyberdom.cpp \
@@ -50,6 +51,7 @@ HEADERS += \
     assignments.h \
     clothingitem.h \
     cyberdom.h \
+    datainspectordialog.h \
     questiondialog.h \
     reportclothing.h \
     rules.h \
@@ -77,6 +79,8 @@ FORMS += \
     askinstructions.ui \
     assignments.ui \
     cyberdom.ui \
+    cyberdom_copy.ui.bak \
+    datainspectordialog.ui \
     questiondialog.ui \
     reportclothing.ui \
     rules.ui \

@@ -54,7 +54,7 @@ public:
     void parseInstructionSections(const QMap<QString, QMap<QString, QStringList>>& sections);
     void parseInstructionSets(const QMap<QString, QMap<QString, QStringList>>& sections);
     void parseClothingTypes(const QStringList &lines);
-    void parseProcedureSections(const QMap<QString, QMap<QString, QStringList>>& sections);
+    void parseProcedureSections(const QStringList& lines);
     void parsePopupSections(const QMap<QString, QMap<QString, QStringList>>& sections);
     void parsePopupGroupSections(const QMap<QString, QMap<QString, QStringList>>& sections);
     void parseTimerSections(const QMap<QString, QMap<QString, QStringList>>& sections);
@@ -78,6 +78,8 @@ public:
     QMap<QString, QMap<QString, QStringList>> parseIniFile(const QString& path);
 
     MeritAdjustment merits;
+
+    QString getVariable(const QString &varName) const;
 
 private:
     QStringList readIniLines(const QString &path);

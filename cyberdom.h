@@ -14,6 +14,7 @@
 #include "assignments.h"
 #include "scriptparser.h"
 #include "clothingitem.h"
+#include "datainspectordialog.h"
 
 // Forward declarations
 class Assignments;
@@ -215,6 +216,12 @@ private:
     // Procedure handling
     void runProcedure(const QString &procedureName);
     void executeReport(const QString &name);
+    void executeQuestion(const QString &questionKey, const QString &title);
+
+    // Condition Handling
+    bool evaluateCondition(const QString &condition);
+
+    QString lastDisplayedStatusText;
 
     struct TimerInstance {
         QString name;
@@ -259,6 +266,12 @@ private:
     bool isTimeAllowed(const QStringList &notBefore,
                        const QStringList &notAfter,
                        const QList<QPair<QString, QString>> &notBetween) const;
+
+    QList<ClothingItem> clothingIventory;
+
+    QDate lastScheduledJobsRun;
+
+    void performCounterOperation(const QString &opString, const QString &opType);
 private slots:
     void applyTimeToClock(int days, int hours, int minutes, int seconds);
     void openAboutDialog();
@@ -287,6 +300,7 @@ private slots:
     void checkFlagExpiry();
     void updateSigninTimer();
     void onResetSigninTimer();
+    void openDataInspector();
 };
 
 #endif // CYBERDOM_H

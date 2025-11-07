@@ -75,7 +75,7 @@ void QuestionDialog::onNextClicked()
     const QuestionAnswerBlock& selectedAnswer = question.answers[id];
 
     // Store the selected value into the result map
-    answers.insert(question.variable, selectedAnswer.variableValue);
+    answers.insert(question.variable, selectedAnswer.answerText);
 
     ++currentIndex;
     showNextQuestion();

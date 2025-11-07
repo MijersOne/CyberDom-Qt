@@ -194,6 +194,8 @@ struct TimerDefinition {
     QStringList subMailLines;
 
     QList<CaseBlock> cases;
+
+    QStringList procedures;
 };
 
 enum class MessageSelectMode {
@@ -217,96 +219,59 @@ enum class ProcedureSelectMode {
     Random
 };
 
+enum class ScriptActionType {
+    ProcedureCall,
+    If,
+    NotIf,
+    SetFlag,
+    RemoveFlag,
+    ClearFlag,
+    SetCounterVar,
+    SetString,
+    SetTimeVar,
+    AddCounter,
+    SubtractCounter,
+    MultiplyCounter,
+    DivideCounter,
+    Message,
+    Question,
+    Input,
+    Clothing,
+    NewStatus,
+    NewSubStatus,
+    Timer
+};
+
+struct ScriptAction {
+    ScriptActionType type;
+    QString value;
+};
+
 struct ProcedureDefinition {
+    // --- Properties ---
     QString name;
     QString title;
-
     ProcedureSelectMode selectMode = ProcedureSelectMode::All;
-    QList<ProcedureCall> calls;
 
+    // --- Conditions ---
     QStringList preStatuses;
     QStringList notBefore;
     QStringList notAfter;
     QList<QPair<QString, QString>> notBetween;
-
-    QStringList statusTexts;
-    QList<MessageGroup> messages;
-
-    QStringList inputQuestions;
-    QString noInputProcedure;
-    QStringList advancedQuestions;
-
-    TimeWindowControl timeWindow;
-
     QStringList notBeforeTimes;
     QStringList notAfterTimes;
     QList<QPair<QString, QString>> notBetweenTimes;
 
+    // --- Other Properties ---
+    TimeWindowControl timeWindow;
     QString autoAssignMode;
     QString autoAssignValue;
     bool stopAutoAssign = false;
-
-    QString clothingInstruction;
     bool clearClothingCheck = false;
-
-    QString masterMailSubject;
-    QStringList masterAttachments;
-    QStringList subMailLines;
-
-    QStringList clearFlags;
-    QStringList setStringVars;
-    QStringList setCounterVars;
-    QStringList incrementCounters;
-    QStringList decrementCounters;
-    QStringList randomCounters;
-    QStringList randomStrings;
-    QStringList setCounters;
-    QStringList addCounters;
-    QStringList subtractCounters;
-    QStringList multiplyCounters;
-    QStringList divideCounters;
-    QStringList dropCounters;
-    QStringList inputCounters;
-    QStringList inputNegCounters;
-
-    QStringList setFlags;
-    QStringList removeFlags;
-    QStringList setFlagGroups;
-    QStringList removeFlagGroups;
-    QStringList ifFlags;
-    QStringList notIfFlags;
-    QStringList denyIfFlags;
-    QStringList permitIfFlags;
-
-    QStringList setStrings;
-    QStringList inputStrings;
-    QStringList inputLongStrings;
-    QStringList dropStrings;
-
-    QStringList setTimeVars;
-    QStringList addTimeVars;
-    QStringList subtractTimeVars;
-    QStringList multiplyTimeVars;
-    QStringList divideTimeVars;
-    QStringList roundTimeVars;
-    QStringList dropTimeVars;
-    QStringList inputDateVars;
-    QStringList inputTimeVars;
-    QStringList inputIntervalVars;
-    QStringList inputDateDefVars;
-    QStringList inputTimeDefVars;
-    QStringList randomTimeVars;
-    QStringList addDaysVars;
-    QStringList subtractDaysVars;
-    QStringList extractToCounter; // e.g. Days#=#counter,!timevar
-    QStringList convertFromCounter; // e.g. Days!=!timevar,#counter
-
-    QStringList ifConditions;
-    QStringList notIfConditions;
-    QStringList denyIfConditions;
-    QStringList permitIfConditions;
-
     QList<CaseBlock> cases;
+
+    // --- Actions ---
+    QList<ScriptAction> actions;
 };
 
 struct QuestionAnswerBlock {
@@ -328,6 +293,8 @@ struct QuestionDefinition {
     QList<QuestionAnswerBlock> answers;
     QString variable;
     QString text;
+    QStringList ifConditions;
+    QStringList notIfConditions;
 };
 
 struct AssignmentBehavior {
@@ -350,6 +317,8 @@ struct AssignmentBehavior {
     QString beforeDeleteProcedure;
 
     bool deleteAllowed = false;
+
+    QString nextSubStatus;
 
     QList<MessageGroup> messages;
     QStringList statusTexts;
@@ -451,6 +420,8 @@ struct GeneralSettings {
     QString flagOffText;
 
     bool hideTimeGlobal = false;
+
+    QString defaultStatus;
 };
 
 struct InitSettings {
@@ -891,6 +862,7 @@ struct PermissionDefinition {
 
     QMap<QString, QStringList> lists;
     QMultiMap<QString, QStringList> listCommands;
+    QStringList preStatuses;
 };
 
 struct PunishmentDefinition : public AssignmentBehavior {

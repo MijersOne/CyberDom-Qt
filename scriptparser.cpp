@@ -56,7 +56,7 @@ QMap<QString, QMap<QString, QStringList>> ScriptParser::parseIniFile(const QStri
     file.close();
 
     // Now parse the combined lines
-    QString currentSection;
+    QString currentSection = "general";
     for (const QString& line : lines) {
         if (line.isEmpty() || line.startsWith("#") || line.startsWith(";"))
             continue;
@@ -67,7 +67,7 @@ QMap<QString, QMap<QString, QStringList>> ScriptParser::parseIniFile(const QStri
         }
 
         int equalsIndex = line.indexOf('=');
-        if (equalsIndex != -1 && !currentSection.isEmpty()) {
+        if (equalsIndex != -1) {
             QString key = line.left(equalsIndex).trimmed();
             QString value = line.mid(equalsIndex + 1).trimmed();
             sections[currentSection][key].append(value);
@@ -136,7 +136,7 @@ bool ScriptParser::parseScript(const QString& path) {
     parseJobSections(sections);
     parseInstructionSets(sections);
     parseInstructionSections(sections);
-    parseProcedureSections(sections);
+    parseProcedureSections(iniLines);
     parsePopupGroupSections(sections);
     parsePopupSections(sections);
     parseTimerSections(sections);
@@ -168,6 +168,7 @@ bool ScriptParser::parseScript(const QString& path) {
 void ScriptParser::parseGeneralSection(const QString &sectionName, const QMap<QString, QStringList>& section) {
     auto& g = scriptData.general;
 
+    // This loop populates generalSettings and handles a few specific loops
     for (auto it = section.begin(); it != section.end(); ++it) {
         const QString &key = it.key().trimmed();
         const QStringList &values = it.value();
@@ -185,189 +186,192 @@ void ScriptParser::parseGeneralSection(const QString &sectionName, const QMap<QS
                 if (ok) minVersion = version;
             }
         }
+    }
 
-        if (section.contains("Master"))
-            g.masterName = section["Master"].value(0);
-        if (section.contains("SubName"))
-            g.subNames = section["SubName"];
-        if (section.contains("MinVersion"))
-            g.minVersion = section["MinVersion"].value(0);
-        if (section.contains("Version"))
-            g.version = section["Version"].value(0);
-        if (section.contains("ReportTimeFormat")) {
-            QString val = section["ReportTimeFormat"].value(0).trimmed();
-            if (val == "12") g.reportTimeFormat = 12;
-            else g.reportTimeFormat = 24;
+    if (section.contains("Master"))
+        g.masterName = section["Master"].value(0);
+    if (section.contains("SubName"))
+        g.subNames = section["SubName"];
+    if (section.contains("MinVersion"))
+        g.minVersion = section["MinVersion"].value(0);
+    if (section.contains("Version"))
+        g.version = section["Version"].value(0);
+    if (section.contains("ReportTimeFormat")) {
+        QString val = section["ReportTimeFormat"].value(0).trimmed();
+        if (val == "12") g.reportTimeFormat = 12;
+        else g.reportTimeFormat = 24;
+    }
+    if (section.contains("ForgetConfession"))
+        g.forgetConfessionEnabled = section["ForgetConfession"].value(0).trimmed() != "0";
+    if (section.contains("IgnoreConfession"))
+        g.ignoreConfessionEnabled = section["IgnoreConfession"].value(0).trimmed() != "0";
+    if (section.contains("ForgetPenalty")) {
+        QStringList range = section["ForgetPenalty"].value(0).split(',', Qt::SkipEmptyParts);
+        if (range.size() == 2) {
+            g.forgetPenaltyMin = range[0].toInt();
+            g.forgetPenaltyMax = range[1].toInt();
+        } else if (range.size() == 1) {
+            g.forgetPenaltyMin = g.forgetPenaltyMax = range[0].toInt();
         }
-        if (section.contains("ForgetConfession"))
-            g.forgetConfessionEnabled = section["ForgetConfession"].value(0).trimmed() != "0";
-        if (section.contains("IgnoreConfession"))
-            g.ignoreConfessionEnabled = section["IgnoreConfession"].value(0).trimmed() != "0";
-        if (section.contains("ForgetPenalty")) {
-            QStringList range = section["ForgetPenalty"].value(0).split(',', Qt::SkipEmptyParts);
-            if (range.size() == 2) {
-                g.forgetPenaltyMin = range[0].toInt();
-                g.forgetPenaltyMax = range[1].toInt();
-            } else if (range.size() == 1) {
-                g.forgetPenaltyMin = g.forgetPenaltyMax = range[0].toInt();
-            }
+    }
+
+    if (section.contains("IgnorePenalty")) {
+        QStringList range = section["IgnorePenalty"].value(0).split(',', Qt::SkipEmptyParts);
+        if (range.size() == 2) {
+            g.ignorePenaltyMin = range[0].toInt();
+            g.ignorePenaltyMax = range[1].toInt();
+        } else if (range.size() == 1) {
+            g.ignorePenaltyMin = g.ignorePenaltyMax = range[0].toInt();
         }
+    }
 
-        if (section.contains("IgnorePenalty")) {
-            QStringList range = section["IgnorePenalty"].value(0).split(',', Qt::SkipEmptyParts);
-            if (range.size() == 2) {
-                g.ignorePenaltyMin = range[0].toInt();
-                g.ignorePenaltyMax = range[1].toInt();
-            } else if (range.size() == 1) {
-                g.ignorePenaltyMin = g.ignorePenaltyMax = range[0].toInt();
-            }
-        }
+    if (section.contains("ForgetPenaltyGroup"))
+        g.forgetPenaltyGroup = section["ForgetPenaltyGroup"].value(0);
+    if (section.contains("IgnorePenaltyGroup"))
+        g.ignorePenaltyGroup = section["IgnorePenaltyGroup"].value(0);
 
-        if (section.contains("ForgetPenaltyGroup"))
-            g.forgetPenaltyGroup = section["ForgetPenaltyGroup"].value(0);
-        if (section.contains("IgnorePenaltyGroup"))
-            g.ignorePenaltyGroup = section["IgnorePenaltyGroup"].value(0);
+    if (section.contains("InterruptStatus")) {
+        for (const QString& val : section["InterruptStatus"])
+            g.interruptStatuses += val.split(',', Qt::SkipEmptyParts);
+    }
 
-        if (section.contains("InterruptStatus")) {
-            for (const QString& val : section["InterruptStatus"])
-                g.interruptStatuses += val.split(',', Qt::SkipEmptyParts);
-        }
+    if (section.contains("MinMerits"))
+        g.minMerits = section["MinMerits"].value(0).toInt();
 
-        if (section.contains("MinMerits"))
-            g.minMerits = section["MinMerits"].value(0).toInt();
+    if (section.contains("MaxMerits"))
+        g.maxMerits = section["MaxMerits"].value(0).toInt();
 
-        if (section.contains("MaxMerits"))
-            g.maxMerits = section["MaxMerits"].value(0).toInt();
+    if (section.contains("Yellow"))
+        g.yellowMerits = section["Yellow"].value(0).toInt();
 
-        if (section.contains("Yellow"))
-            g.yellowMerits = section["Yellow"].value(0).toInt();
+    if (section.contains("Red"))
+        g.redMerits = section["Red"].value(0).toInt();
 
-        if (section.contains("Red"))
-            g.redMerits = section["Red"].value(0).toInt();
+    if (section.contains("DayMerits"))
+        g.dayMerits = section["DayMerits"].value(0).toInt();
 
-        if (section.contains("DayMerits"))
-            g.dayMerits = section["DayMerits"].value(0).toInt();
+    if (section.contains("HideMerits"))
+        g.hideMerits = section["HideMerits"].value(0).trimmed() == "1";
 
-        if (section.contains("HideMerits"))
-            g.hideMerits = section["HideMerits"].value(0).trimmed() == "1";
+    if (section.contains("ReportPassword"))
+        g.reportPassword = section["ReportPassword"].value(0);
 
-        if (section.contains("ReportPassword"))
-            g.reportPassword = section["ReportPassword"].value(0);
+    if (section.contains("Restrict"))
+        g.restrictMode = section["Restrict"].value(0).trimmed() == "1";
 
-        if (section.contains("Restrict"))
-            g.restrictMode = section["Restrict"].value(0).trimmed() == "1";
+    if (section.contains("AutoEncrypt"))
+        g.autoEncrypt = section["AutoEncrypt"].value(0).trimmed() == "1";
 
-        if (section.contains("AutoEncrypt"))
-            g.autoEncrypt = section["AutoEncrypt"].value(0).trimmed() == "1";
+    if (section.contains("CenterRandom"))
+        g.centerRandom = section["CenterRandom"].value(0).trimmed() == "1";
 
-        if (section.contains("CenterRandom"))
-            g.centerRandom = section["CenterRandom"].value(0).trimmed() == "1";
+    if (section.contains("ClothExport"))
+        g.allowClothExport = section["ClothExport"].value(0).trimmed() == "1";
 
-        if (section.contains("ClothExport"))
-            g.allowClothExport = section["ClothExport"].value(0).trimmed() == "1";
+    if (section.contains("ClothReport"))
+        g.allowClothReport = section["ClothReport"].value(0).trimmed() != "0";
 
-        if (section.contains("ClothReport"))
-            g.allowClothReport = section["ClothReport"].value(0).trimmed() != "0";
+    if (section.contains("Alarm"))
+        g.popupAlarm = section["Alarm"].value(0);
 
-        if (section.contains("Alarm"))
-            g.popupAlarm = section["Alarm"].value(0);
+    if (section.contains("TopText"))
+        g.topText += section["TopText"];
 
-        if (section.contains("TopText"))
-            g.topText += section["TopText"];
+    if (section.contains("BottomText"))
+        g.bottomText += section["BottomText"];
 
-        if (section.contains("BottomText"))
-            g.bottomText += section["BottomText"];
+    if (section.contains("PopupMessage"))
+        g.popupMessage = section["PopupMessage"].value(0);
 
-        if (section.contains("PopupMessage"))
-            g.popupMessage = section["PopupMessage"].value(0);
+    if (section.contains("SigninPenalty1"))
+        g.signinPenalty1 = section["SigninPenalty1"].value(0).toInt();
 
-        if (section.contains("SigninPenalty1"))
-            g.signinPenalty1 = section["SigninPenalty1"].value(0).toInt();
+    if (section.contains("SigninPenalty2"))
+        g.signinPenalty2 = section["SigninPenalty2"].value(0).toInt();
 
-        if (section.contains("SigninPenalty2"))
-            g.signinPenalty2 = section["SigninPenalty2"].value(0).toInt();
+    if (section.contains("SigninPenaltyGroup"))
+        g.signinPenaltyGroup = section["SigninPenaltyGroup"].value(0);
 
-        if (section.contains("SigninPenaltyGroup"))
-            g.signinPenaltyGroup = section["SigninPenaltyGroup"].value(0);
+    if (section.contains("AutoClothFlags"))
+        g.autoClothFlags = section["AutoClothFlags"].value(0).trimmed() == "1";
 
-        if (section.contains("AutoClothFlags"))
-            g.autoClothFlags = section["AutoClothFlags"].value(0).trimmed() == "1";
+    if (section.contains("smtp")) g.smtpServer = section["smtp"].value(0);
 
-        if (section.contains("smtp")) g.smtpServer = section["smtp"].value(0);
+    if (section.contains("smtpUser")) g.smtpUser = section["smtpUser"].value(0);
 
-        if (section.contains("smtpUser")) g.smtpUser = section["smtpUser"].value(0);
+    if (section.contains("smtpPassword")) g.smtpPassword = section["smtpPassword"].value(0);
 
-        if (section.contains("smtpPassword")) g.smtpPassword = section["smtpPassword"].value(0);
+    if (section.contains("senderEmail")) g.senderEmail = section["senderEmail"].value(0);
 
-        if (section.contains("senderEmail")) g.senderEmail = section["senderEmail"].value(0);
+    if (section.contains("subEmail")) g.subEmail = section["subEmail"].value(0);
 
-        if (section.contains("subEmail")) g.subEmail = section["subEmail"].value(0);
+    if (section.contains("masterEmail")) g.masterEmail = section["masterEmail"].value(0);
 
-        if (section.contains("masterEmail")) g.masterEmail = section["masterEmail"].value(0);
+    if (section.contains("masterEmail2")) g.masterEmail2 = section["masterEmail2"].value(0);
 
-        if (section.contains("masterEmail2")) g.masterEmail2 = section["masterEmail2"].value(0);
+    if (section.contains("smtpPort")) g.smtpPort = section["smtpPort"].value(0).toInt();
 
-        if (section.contains("smtpPort")) g.smtpPort = section["smtpPort"].value(0).toInt();
+    if (section.contains("tlsPort")) g.tlsPort = section["tlsPort"].value(0).toInt();
 
-        if (section.contains("tslPort")) g.tlsPort = section["tlsPort"].value(0).toInt();
+    if (section.contains("AutoMailReport")) g.autoMailReport = section["AutoMailReport"].value(0).toInt() == 1;
 
-        if (section.contains("AutoMailReport")) g.autoMailReport = section["AutoMailReport"].value(0).toInt() == 1;
+    if (section.contains("ShowMailWindow")) g.showMailWindow = section["ShowMailWindow"].value(0).toInt() != 0;
 
-        if (section.contains("ShowMailWindow")) g.showMailWindow = section["ShowMailWindow"].value(0).toInt() != 0;
+    if (section.contains("TestMail")) g.testMail = section["TestMail"].value(0).toInt() == 1;
 
-        if (section.contains("TestMail")) g.testMail = section["TestMail"].value(0).toInt() == 1;
+    if (section.contains("MailLog")) g.mailLog = section["MailLog"].value(0).toInt() == 1;
 
-        if (section.contains("MailLog")) g.mailLog = section["MailLog"].value(0).toInt() == 1;
+    if (section.contains("MaxLineBreak"))
+        g.maxLineBreak = section["MaxLineBreak"].value(0);
 
-        if (section.contains("MaxLineBreak"))
-            g.maxLineBreak = section["MaxLineBreak"].value(0);
+    if (section.contains("DirectShow"))
+        g.directShow = section["DirectShow"].value(0).toInt() == 1;
 
-        if (section.contains("DirectShow"))
-            g.directShow = section["DirectShow"].value(0).toInt() == 1;
+    if (section.contains("CameraFolder"))
+        g.cameraFolder = section["CameraFolder"].value(0);
 
-        if (section.contains("CameraFolder"))
-            g.cameraFolder = section["CameraFolder"].value(0);
+    if (section.contains("SavePictures"))
+        g.savePictures = section["SavePictures"].value(0).trimmed();
 
-        if (section.contains("SavePictures"))
-            g.savePictures = section["SavePictures"].value(0).trimmed();
+    if (section.contains("OpenPassword"))
+        g.openPassword = section["OpenPassword"].value(0);
 
-        if (section.contains("OpenPassword"))
-            g.openPassword = section["OpenPassword"].value(0);
+    if (section.contains("UseIcon"))
+        g.useIcon = section["UseIcon"].value(0).toInt() == 1;
 
-        if (section.contains("UseIcon"))
-            g.useIcon = section["UseIcon"].value(0).toInt() == 1;
+    if (section.contains("StartMinimized"))
+        g.startMinimized = section["StartMinimized"].value(0).toInt() == 1;
 
-        if (section.contains("StartMinimized"))
-            g.startMinimized = section["StartMinimized"].value(0).toInt() == 1;
+    if (section.contains("MinimizePopup"))
+        g.minimizePopup = section["MinimizePopup"].value(0).trimmed();
 
-        if (section.contains("MinimizePopup"))
-            g.minimizePopup = section["MinimizePopup"].value(0).trimmed();
+    if (section.contains("Rules"))
+        g.rulesEnabled = section["Rules"].value(0).toInt() != 0;
 
-        if (section.contains("Rules"))
-            g.rulesEnabled = section["Rules"].value(0).toInt() != 0;
+    if (section.contains("QuickReport"))
+        g.quickReport = section["QuickReport"].value(0).trimmed();
 
-        if (section.contains("QuickReport"))
-            g.quickReport = section["QuickReport"].value(0).trimmed();
+    if (section.contains("QuickLabel"))
+        g.quickLabel = section["QuickLabel"].value(0).trimmed();
 
-        if (section.contains("QuickLabel"))
-            g.quickLabel = section["QuickLabel"].value(0).trimmed();
+    if (section.contains("AutoMailReport"))
+        g.autoMailReport = section["AutoMailReport"].value(0).toInt() == 1;
 
-        if (section.contains("AutoMailReport"))
-            g.autoMailReport = section["AutoMailReport"].value(0).toInt() == 1;
+    if (section.contains("FlagOnText"))
+        g.flagOnText = section["FlagOnText"].value(0);
 
-        if (section.contains("FlagOnText"))
-            g.flagOnText = section["FlagOnText"].value(0);
+    if (section.contains("FlagOffText"))
+        g.flagOffText = section["FlagOffText"].value(0);
 
-        if (section.contains("FlagOffText"))
-            g.flagOffText = section["FlagOffText"].value(0);
+    if (section.contains("DefaultStatus"))
+        g.defaultStatus = section["DefaultStatus"].value(0);
 
-        if (section.contains("HideTime")) {
-            g.hideTimeGlobal = !section["HideTime"].isEmpty() && section["HideTime"].first().trimmed() == "1";
-        }
+    if (section.contains("HideTime")) {
+        g.hideTimeGlobal = !section["HideTime"].isEmpty() && section["HideTime"].first().trimmed() == "1";
+    }
 
-        if (!section.contains("ValidateAll")) {
-            validateAll = (minVersion >= 3.4f);
-        }
+    if (!section.contains("ValidateAll")) {
+        validateAll = (minVersion >= 3.4f);
     }
 }
 
@@ -2389,6 +2393,8 @@ void ScriptParser::parseInstructionSections(const QMap<QString, QMap<QString, QS
                 } else if (key == "OptionSet") {
                     if (inChoice && !currentChoice.options.isEmpty()) {
                         currentChoice.options.last().optionSet = value;
+                    } else {
+                        qWarning() << "parseInstructionSections: 'OptionSet' without Option in choice for" << instr.name;
                     }
                 }
             }
@@ -2520,7 +2526,11 @@ void ScriptParser::parseInstructionSets(const QMap<QString, QMap<QString, QStrin
                             bool isWeight = false;
                             int weight = opt.toInt(&isWeight);
                             if (isWeight && i > 0) {
-                                currentChoice.options.last().weight = weight;
+                                if (!currentChoice.options.isEmpty()) {
+                                    currentChoice.options.last().weight = weight;
+                                } else {
+                                    qWarning() << "parseInstructionSets: legacy weight found but no previous Option for set" << setName;
+                                }
                                 continue;
                             } else {
                                 o.text = opt;
@@ -2550,12 +2560,22 @@ void ScriptParser::parseInstructionSets(const QMap<QString, QMap<QString, QStrin
                     set.ifNotChosen.append(value.split(',', Qt::SkipEmptyParts));
                 } else if (key == "Flag")
                     set.setFlags.append(value);
-                else if (key == "OptionFlag" && !currentChoice.options.isEmpty())
-                    currentChoice.options.last().optionFlags.append(value);
-                else if (key == "Check")
-                    currentChoice.options.last().check.append(value);
-                else if (key == "CheckOff")
-                    currentChoice.options.last().checkOff.append(value);
+                else if (key == "OptionFlag") {
+                    if (!currentChoice.options.isEmpty())
+                        currentChoice.options.last().optionFlags.append(value);
+                    else
+                        qWarning() << "parseInstructionSets: 'OptionFlag' without Option in choice for set" << setName;
+                } else if (key == "Check") {
+                    if (!currentChoice.options.isEmpty())
+                        currentChoice.options.last().check.append(value);
+                    else
+                        qWarning() << "parseInstructionSets: 'Check' without Option in choice for set" << setName;
+                } else if (key == "CheckOff") {
+                    if (!currentChoice.options.isEmpty())
+                        currentChoice.options.last().checkOff.append(value);
+                    else
+                        qWarning() << "parseInstructionSets: 'CheckOff' without Option in choice for set" << setName;
+                }
             }
         }
 
@@ -2644,277 +2664,101 @@ void ScriptParser::parseClothingTypes(const QStringList &lines) {
     finalizeType();
 }
 
-void ScriptParser::parseProcedureSections(const QMap<QString, QMap<QString, QStringList>>& sections) {
-    for (auto it = sections.begin(); it != sections.end(); ++it) {
-        QString sectionName = it.key();
-        if (!sectionName.startsWith("procedure-"))
+void ScriptParser::parseProcedureSections(const QStringList& lines) {
+    ProcedureDefinition currentProc;
+    bool inProcSection = false;
+    QString currentSectionName;
+
+    // Loop through every single line from the .ini in its original order
+    for (const QString& line : lines) {
+        if (line.isEmpty() || line.startsWith("#") || line.startsWith(";"))
             continue;
 
-        QString procName = sectionName.mid(QString("procedure-").length());
-        const QMap<QString, QStringList>& entries = it.value();
-
-        ProcedureDefinition proc;
-        proc.name = procName;
-
-        for (auto keyIt = entries.begin(); keyIt != entries.end(); ++keyIt) {
-            QString key = keyIt.key();
-            const QStringList& values = keyIt.value();
-
-            for (const QString& rawValue : values) {
-                QString value = rawValue.trimmed();
-
-                if (key == "Title") {
-                    proc.title = value;
-                } else if (key == "Select") {
-                    if (value.compare("first", Qt::CaseInsensitive) == 0)
-                        proc.selectMode = ProcedureSelectMode::First;
-                    else if (value.compare("random", Qt::CaseInsensitive) == 0)
-                        proc.selectMode = ProcedureSelectMode::Random;
-                    else
-                        proc.selectMode = ProcedureSelectMode::All;
-                } else if (key == "Procedure") {
-                    ProcedureCall call;
-                    if (value.contains(',')) {
-                        QStringList parts = value.split(',', Qt::SkipEmptyParts);
-                        call.name = parts[0].trimmed();
-                        call.weight = parts.value(1, "1").toInt();
-                    } else {
-                        call.name = value;
-                        call.weight = 1;
-                    }
-                    proc.calls.append(call);
-                } else if (key == "If") {
-                    proc.ifFlags += value.split(',', Qt::SkipEmptyParts);
-                } else if (key == "NotIf") {
-                    proc.notIfFlags += value.split(',', Qt::SkipEmptyParts);
-                } else if (key == "PreStatus") {
-                    proc.preStatuses += value.split(',', Qt::SkipEmptyParts);
-                } else if (key == "NotBefore") {
-                    proc.notBefore += value.split(',', Qt::SkipEmptyParts);
-                } else if (key == "NotAfter") {
-                    proc.notAfter += value.split(',', Qt::SkipEmptyParts);
-                } else if (key == "NotBetween") {
-                    QStringList parts = value.split(',', Qt::SkipEmptyParts);
-                    if (parts.size() == 2)
-                        proc.notBetween.append({ parts[0].trimmed(), parts[1].trimmed() });
-                }
+        // Check for section headers
+        if (line.startsWith("[") && line.endsWith("]")) {
+            // If we are in a procedure section, save the one we just finished
+            if (inProcSection) {
+                scriptData.procedures.insert(currentProc.name, currentProc);
             }
-        }
+            inProcSection = false;
 
-        MessageGroup currentGroup;
-        bool inMessageBlock = false;
+            currentSectionName = line.mid(1, line.length() - 2).trimmed();
 
-        for (auto keyIt = entries.begin(); keyIt != entries.end(); ++keyIt) {
-            QString key = keyIt.key();
-            const QStringList& values = keyIt.value();
-
-            for (const QString& val : values) {
-                if (key == "Select") {
-                    if (val.compare("Random", Qt::CaseInsensitive) == 0)
-                        currentGroup.mode = MessageSelectMode::Random;
-                    else
-                        currentGroup.mode = MessageSelectMode::All;
-
-                    inMessageBlock = true;
-                    if (!currentGroup.messages.isEmpty()) {
-                        proc.messages.append(currentGroup);
-                        currentGroup = MessageGroup();
-                    }
-                }
-                else if (key == "Message") {
-                    inMessageBlock = true;
-                    currentGroup.messages.append(val.trimmed());
-                }
-                else if (key == "Text") {
-                    proc.statusTexts.append(val.trimmed());
-                }
+            // Check if this new section is a procedure
+            if (currentSectionName.startsWith("procedure-", Qt::CaseInsensitive)) {
+                inProcSection = true;
+                currentProc = ProcedureDefinition();
+                currentProc.name = currentSectionName.mid(10).toLower();
             }
-        }
-        if (!currentGroup.messages.isEmpty()) {
-            proc.messages.append(currentGroup);
+            continue;
         }
 
-        if (entries.contains("Input"))
-            proc.inputQuestions.append(entries["Input"]);
-
-        if (entries.contains("NoInputProcedure"))
-            proc.noInputProcedure = entries["NoInputProcedure"].value(0);
-
-        if (entries.contains("Question"))
-            proc.advancedQuestions.append(entries["Question"]);
-
-        if (entries.contains("StartAutoAssign")) {
-            QString value = entries["StartAutoAssign"].value(0);
-            if (value.startsWith("time,", Qt::CaseInsensitive)) {
-                proc.autoAssignMode = "time";
-                proc.autoAssignValue = value.mid(QString("time,").length()).trimmed();
-            } else if (value.startsWith("interval,", Qt::CaseInsensitive)) {
-                proc.autoAssignMode = "interval";
-                proc.autoAssignValue = value.mid(QString("interval,").length()).trimmed();
-            } else if (value.startsWith("ask", Qt::CaseInsensitive)) {
-                proc.autoAssignMode = "ask";
-                int commaIndex = value.indexOf(',');
-                if (commaIndex >= 0)
-                    proc.autoAssignValue = value.mid(commaIndex + 1).trimmed();
-                else
-                    proc.autoAssignValue = "";
-            }
+        // If not is a procedure section, skip
+        if (!inProcSection) {
+            continue;
         }
 
-        if (entries.contains("StopAutoAssign"))
-            proc.stopAutoAssign = true;
+        // If we are in a procedure, this must be a key-value pair.
+        int equalsIndex = line.indexOf('=');
+        if (equalsIndex == -1) continue;
 
-        if (entries.contains("Clothing"))
-            proc.clothingInstruction = entries["Clothing"].value(0);
+        QString key = line.left(equalsIndex).trimmed();
+        QString value = line.mid(equalsIndex + 1).trimmed();
 
-        if (entries.contains("ClearCheck"))
-            proc.clearClothingCheck = entries["ClearCheck"].value(0).trimmed() == "1";
-
-        if (entries.contains("MasterMail"))
-            proc.masterMailSubject = entries["MasterMail"].value(0);
-
-        if (entries.contains("MasterAttach")) {
-            for (const QString& file : entries["MasterAttach"])
-                proc.masterAttachments.append(file.trimmed());
+        if (key.compare("Title", Qt::CaseInsensitive) == 0) {
+            currentProc.title = value;
+        } else if (key.compare("Select", Qt::CaseInsensitive) == 0) {
+            if (value.compare("first", Qt::CaseInsensitive) == 0)
+                currentProc.selectMode = ProcedureSelectMode::First;
+            else if (value.compare("random", Qt::CaseInsensitive) == 0)
+                currentProc.selectMode = ProcedureSelectMode::Random;
+            else
+                currentProc.selectMode = ProcedureSelectMode::All;
+        } else if (key.compare("Procedure", Qt::CaseInsensitive) == 0) {
+            currentProc.actions.append({ScriptActionType::ProcedureCall, value});
+        } else if (key.compare("If", Qt::CaseInsensitive) == 0) {
+            currentProc.actions.append({ScriptActionType::If, value});
+        } else if (key.compare("NotIf", Qt::CaseInsensitive) == 0) {
+            currentProc.actions.append({ScriptActionType::NotIf, value});
+        } else if (key.compare("SetFlag", Qt::CaseInsensitive) == 0) {
+            currentProc.actions.append({ScriptActionType::SetFlag, value});
+        } else if (key.compare("RemoveFlag", Qt::CaseInsensitive) == 0) {
+            currentProc.actions.append({ScriptActionType::RemoveFlag, value});
+        } else if (key.compare("ClearFlag", Qt::CaseInsensitive) == 0) {
+            currentProc.actions.append({ScriptActionType::ClearFlag, value});
+        } else if (key.compare("Set#", Qt::CaseInsensitive) == 0) {
+            currentProc.actions.append({ScriptActionType::SetCounterVar, value});
+        } else if (key.compare("Set$", Qt::CaseInsensitive) == 0) {
+            currentProc.actions.append({ScriptActionType::SetString, value});
+        } else if (key.compare("Set!", Qt::CaseInsensitive) == 0) {
+            currentProc.actions.append({ScriptActionType::SetTimeVar, value});
+        } else if (key.compare("Add#", Qt::CaseInsensitive) == 0) {
+            currentProc.actions.append({ScriptActionType::AddCounter, value});
+        } else if (key.compare("Subtract#", Qt::CaseInsensitive) == 0) {
+            currentProc.actions.append({ScriptActionType::SubtractCounter, value});
+        } else if (key.compare("Multiply#", Qt::CaseInsensitive) == 0) {
+            currentProc.actions.append({ScriptActionType::MultiplyCounter, value});
+        } else if (key.compare("Divide#", Qt::CaseInsensitive) == 0) {
+            currentProc.actions.append({ScriptActionType::DivideCounter, value});
+        } else if (key.compare("Message", Qt::CaseInsensitive) == 0) {
+            currentProc.actions.append({ScriptActionType::Message, value});
+        } else if (key.compare("Question", Qt::CaseInsensitive) == 0) {
+            currentProc.actions.append({ScriptActionType::Question, value});
+        } else if (key.compare("Input", Qt::CaseInsensitive) == 0) {
+            currentProc.actions.append({ScriptActionType::Input, value});
+        } else if (key.compare("Clothing", Qt::CaseInsensitive) == 0) {
+            currentProc.actions.append({ScriptActionType::Clothing, value});
+        } else if (key.compare("Timer", Qt::CaseInsensitive) == 0) {
+            currentProc.actions.append({ScriptActionType::Timer, value});
+        } else if (key.compare("NewStatus", Qt::CaseInsensitive) == 0) {
+            currentProc.actions.append({ScriptActionType::NewStatus, value});
+        } else if (key.compare("NewSubStatus", Qt::CaseInsensitive) == 0) {
+            currentProc.actions.append({ScriptActionType::NewSubStatus, value});
         }
 
-        if (entries.contains("SubMail")) {
-            for (const QString& line : entries["SubMail"])
-                proc.subMailLines.append(line.trimmed());
+        if (inProcSection) {
+            scriptData.procedures.insert(currentProc.name, currentProc);
         }
-
-        if (entries.contains("SetFlag"))
-            proc.setFlags = entries["SetFlag"];
-
-        if (entries.contains("ClearFlag"))
-            proc.clearFlags = entries["ClearFlag"];
-
-        if (entries.contains("Set$"))
-            proc.setStringVars = entries["Set$"];
-
-        if (entries.contains("Set#"))
-            proc.setCounterVars = entries["Set#"];
-
-        if (entries.contains("Set@"))
-            proc.setTimeVars = entries["Set@"];
-
-        if (entries.contains("Counter+"))
-            proc.incrementCounters = entries["Counter+"];
-
-        if (entries.contains("Counter-"))
-            proc.decrementCounters = entries["Counter-"];
-
-        if (entries.contains("Random#"))
-            proc.randomCounters = entries["Random#"];
-
-        if (entries.contains("Random$"))
-            proc.randomStrings = entries["Random$"];
-
-        if (entries.contains("Set$"))
-            proc.setStrings = entries["Set$"];
-
-        if (entries.contains("Input$"))
-            proc.inputStrings = entries["Input$"];
-
-        if (entries.contains("InputLong$"))
-            proc.inputLongStrings = entries["InputLong$"];
-
-        if (entries.contains("Drop$"))
-            proc.dropStrings = entries["Drop$"];
-
-        if (entries.contains("Set#"))
-            proc.setCounters = entries["Set#"];
-
-        if (entries.contains("Add#"))
-            proc.addCounters = entries["Add#"];
-
-        if (entries.contains("Subtract#"))
-            proc.subtractCounters = entries["Subtract#"];
-
-        if (entries.contains("Multiply#"))
-            proc.multiplyCounters = entries["Multiply#"];
-
-        if (entries.contains("Divide#"))
-            proc.divideCounters = entries["Divide#"];
-
-        if (entries.contains("Drop#"))
-            proc.dropCounters = entries["Drop#"];
-
-        if (entries.contains("Input#"))
-            proc.inputCounters = entries["Input#"];
-
-        if (entries.contains("InputNeg#"))
-            proc.inputNegCounters = entries["InputNeg#"];
-
-        if (entries.contains("Random#"))
-            proc.randomCounters = entries["Random#"];
-
-        if (entries.contains("Set!"))
-            proc.setTimeVars = entries["Set!"];
-        if (entries.contains("Add!"))
-            proc.addTimeVars = entries["Add!"];
-        if (entries.contains("Subtract!"))
-            proc.subtractTimeVars = entries["Subtract!"];
-        if (entries.contains("Multiply!"))
-            proc.multiplyTimeVars = entries["Multiply!"];
-        if (entries.contains("Divide!"))
-            proc.divideTimeVars = entries["Divide!"];
-        if (entries.contains("Round!"))
-            proc.roundTimeVars = entries["Round!"];
-        if (entries.contains("Drop!"))
-            proc.dropTimeVars = entries["Drop!"];
-        if (entries.contains("InputDate!"))
-            proc.inputDateVars = entries["InputDate!"];
-        if (entries.contains("InputDateDef!"))
-            proc.inputDateDefVars = entries["InputDateDef!"];
-        if (entries.contains("InputTime!"))
-            proc.inputTimeVars = entries["InputTime!"];
-        if (entries.contains("InputTimeDef!"))
-            proc.inputTimeDefVars = entries["InputTimeDef!"];
-        if (entries.contains("InputInterval!"))
-            proc.inputIntervalVars = entries["InputInterval!"];
-        if (entries.contains("Random!"))
-            proc.randomTimeVars = entries["Random!"];
-        if (entries.contains("AddDays!"))
-            proc.addDaysVars = entries["AddDays!"];
-        if (entries.contains("SubtractDays!"))
-            proc.subtractDaysVars = entries["SubtractDays!"];
-        if (entries.contains("Days#"))
-            proc.extractToCounter += entries["Days#"];
-        if (entries.contains("Hours#"))
-            proc.extractToCounter += entries["Hours#"];
-        if (entries.contains("Minutes#"))
-            proc.extractToCounter += entries["Minutes#"];
-        if (entries.contains("Seconds#"))
-            proc.extractToCounter += entries["Seconds#"];
-        if (entries.contains("Days!"))
-            proc.convertFromCounter += entries["Days!"];
-        if (entries.contains("Hours!"))
-            proc.convertFromCounter += entries["Hours!"];
-        if (entries.contains("Minutes!"))
-            proc.convertFromCounter += entries["Minutes!"];
-        if (entries.contains("Seconds!"))
-            proc.convertFromCounter += entries["Seconds!"];
-
-        QStringList lines;
-        for (auto keyIt = entries.begin(); keyIt != entries.end(); ++keyIt) {
-            for (const QString &val : keyIt.value())
-                lines.append(val);
-        }
-
-        int index = 0;
-        while (index < lines.size()) {
-            if (lines[index].startsWith("Case=", Qt::CaseInsensitive)) {
-                CaseBlock block = parseCaseBlock(lines, index);
-                proc.cases.append(block);
-            } else {
-                ++index;
-            }
-        }
-
-        parseTimeRestrictions(entries, proc.notBeforeTimes, proc.notAfterTimes, proc.notBetweenTimes);
-
-        scriptData.procedures.insert(proc.name, proc);
     }
 }
 
@@ -3075,6 +2919,8 @@ void ScriptParser::parseTimerSections(const QMap<QString, QMap<QString, QStringL
                     t.startTimeMax = times.value(1, times.value(0));
                 } else if (key == "End") {
                     t.endTime = value;
+                } else if (key.compare("Procedure", Qt::CaseInsensitive) == 0) {
+                    t.procedures.append(value.trimmed().toLower());
                 } else if (key == "PreStatus") {
                     t.preStatuses += value.split(',', Qt::SkipEmptyParts);
                 } else if (key == "If") {
@@ -3135,7 +2981,7 @@ void ScriptParser::parseQuestionSections(const QMap<QString, QMap<QString, QStri
         if (!sectionName.startsWith("question-"))
             continue;
 
-        QString questionName = sectionName.mid(QString("question-").length());
+        QString questionName = sectionName.mid(QString("question-").length()).toLower();
         const QMap<QString, QStringList>& entries = it.value();
 
         QuestionDefinition question;
@@ -3150,7 +2996,9 @@ void ScriptParser::parseQuestionSections(const QMap<QString, QMap<QString, QStri
             for (const QString& val : values) {
                 QString value = val.trimmed();
 
-                if (key == "Phrase") {
+                if (key.compare("Phrase", Qt::CaseInsensitive) == 0 ||
+                    key.compare("Text", Qt::CaseInsensitive) == 0) {
+                    question.text = value;
                     question.phrase = value;
                 } else if (key.startsWith("?")) {
                     // Save previous answer if exists
@@ -3163,7 +3011,7 @@ void ScriptParser::parseQuestionSections(const QMap<QString, QMap<QString, QStri
                     if (value == "*") {
                         currentAnswer->hasInlineActions = true;
                     } else {
-                        currentAnswer->procedureName = value;
+                        currentAnswer->procedureName = value.trimmed().toLower();
                     }
                 } else if (currentAnswer && currentAnswer->hasInlineActions) {
                     if (key == "Message") {
@@ -3180,6 +3028,15 @@ void ScriptParser::parseQuestionSections(const QMap<QString, QMap<QString, QStri
                             currentAnswer->punishMin = currentAnswer->punishMax = value.toInt();
                         }
                     }
+                } else if (key.compare("NoInputProcedure", Qt::CaseInsensitive) == 0) {
+                    QuestionAnswerBlock defaultAnswer;
+                    defaultAnswer.answerText = "(no input)";
+                    defaultAnswer.procedureName = value.trimmed().toLower();
+                    question.answers.append(defaultAnswer);
+                } else if (key.compare("If", Qt::CaseInsensitive) == 0) {
+                    question.ifConditions.append(value);
+                } else if (key.compare("NotIf", Qt::CaseInsensitive) == 0) {
+                    question.notIfConditions.append(value);
                 }
             }
         }
@@ -3394,6 +3251,10 @@ void ScriptParser::processListCommands(const QStringList &commands) {
         QString trimmed = cmd.trimmed();
         if (trimmed.startsWith("Set*=")) {
             auto parts = trimmed.section('=', 1).split(',', Qt::SkipEmptyParts);
+            if (parts.isEmpty()) {
+                qWarning() << "Malformed list command (no list name):" << trimmed;
+                continue;
+            }
             QString listName = parts.takeFirst().trimmed();
             QStringList items;
             for (QString &val : parts) {
@@ -3407,6 +3268,10 @@ void ScriptParser::processListCommands(const QStringList &commands) {
             scriptData.lists[listName] = items;
         } else if (trimmed.startsWith("Add*=")) {
             auto parts = trimmed.section('=', 1).split(',', Qt::SkipEmptyParts);
+            if (parts.isEmpty()) {
+                qWarning() << "Malformed list command (no list name):" << trimmed;
+                continue;
+            }
             QString listName = parts.takeFirst().trimmed();
             for (QString &val : parts) {
                 val = val.trimmed();
@@ -3418,6 +3283,10 @@ void ScriptParser::processListCommands(const QStringList &commands) {
             }
         } else if (trimmed.startsWith("AddNoDub*=")) {
             auto parts = trimmed.section('=', 1).split(',', Qt::SkipEmptyParts);
+            if (parts.isEmpty()) {
+                qWarning() << "Malformed list command (no list name):" << trimmed;
+                continue;
+            }
             QString listName = parts.takeFirst().trimmed();
             for (QString &val : parts) {
                 val = val.trimmed();
@@ -3429,6 +3298,10 @@ void ScriptParser::processListCommands(const QStringList &commands) {
             }
         } else if (trimmed.startsWith("Push*=")) {
             auto parts = trimmed.section('=', 1).split(',', Qt::SkipEmptyParts);
+            if (parts.isEmpty()) {
+                qWarning() << "Malformed list command (no list name):" << trimmed;
+                continue;
+            }
             QString listName = parts.takeFirst().trimmed();
             for (QString &val : parts) {
                 val = val.trimmed();
@@ -3440,6 +3313,10 @@ void ScriptParser::processListCommands(const QStringList &commands) {
             }
         } else if (trimmed.startsWith("Pull*=")) {
             auto parts = trimmed.section('=', 1).split(',', Qt::SkipEmptyParts);
+            if (parts.isEmpty()) {
+                qWarning() << "Malformed list command (no list name):" << trimmed;
+                continue;
+            }
             QString listName = parts.takeFirst().trimmed();
             for (QString &val : parts) {
                 val = val.trimmed();
@@ -3451,6 +3328,10 @@ void ScriptParser::processListCommands(const QStringList &commands) {
             }
         } else if (trimmed.startsWith("Intersect*=")) {
             auto parts = trimmed.section('=', 1).split(',', Qt::SkipEmptyParts);
+            if (parts.isEmpty()) {
+                qWarning() << "Malformed list command (no list name):" << trimmed;
+                continue;
+            }
             QString listName = parts.takeFirst().trimmed();
             for (QString &val : parts) {
                 val = val.trimmed();
@@ -3462,6 +3343,10 @@ void ScriptParser::processListCommands(const QStringList &commands) {
             }
         } else if (trimmed.startsWith("Sort*=")) {
             auto parts = trimmed.section('=', 1).split(',', Qt::SkipEmptyParts);
+            if (parts.isEmpty()) {
+                qWarning() << "Malformed list command (no list name):" << trimmed;
+                continue;
+            }
             QString listName = parts.takeFirst().trimmed();
             for (QString &val : parts) {
                 val = val.trimmed();
@@ -3473,6 +3358,10 @@ void ScriptParser::processListCommands(const QStringList &commands) {
             }
         } else if (trimmed.startsWith("Remove*=")) {
             auto parts = trimmed.section('=', 1).split(',', Qt::SkipEmptyParts);
+            if (parts.isEmpty()) {
+                qWarning() << "Malformed list command (no list name):" << trimmed;
+                continue;
+            }
             QString listName = parts.takeFirst().trimmed();
             for (QString &val : parts) {
                 val = val.trimmed();
@@ -3484,6 +3373,10 @@ void ScriptParser::processListCommands(const QStringList &commands) {
             }
         } else if (trimmed.startsWith("SetSplit*=")) {
             auto parts = trimmed.section('=', 1).split(',', Qt::SkipEmptyParts);
+            if (parts.isEmpty()) {
+                qWarning() << "Malformed list command (no list name):" << trimmed;
+                continue;
+            }
             QString listName = parts.takeFirst().trimmed();
             for (QString &val : parts) {
                 val = val.trimmed();
@@ -3495,6 +3388,10 @@ void ScriptParser::processListCommands(const QStringList &commands) {
             }
         } else if (trimmed.startsWith("AddSplit*=")) {
             auto parts = trimmed.section('=', 1).split(',', Qt::SkipEmptyParts);
+            if (parts.isEmpty()) {
+                qWarning() << "Malformed list command (no list name):" << trimmed;
+                continue;
+            }
             QString listName = parts.takeFirst().trimmed();
             for (QString &val : parts) {
                 val = val.trimmed();
@@ -3506,6 +3403,10 @@ void ScriptParser::processListCommands(const QStringList &commands) {
             }
         } else if (trimmed.startsWith("RemoveAll*=")) {
             auto parts = trimmed.section('=', 1).split(',', Qt::SkipEmptyParts);
+            if (parts.isEmpty()) {
+                qWarning() << "Malformed list command (no list name):" << trimmed;
+                continue;
+            }
             QString listName = parts.takeFirst().trimmed();
             for (QString &val : parts) {
                 val = val.trimmed();
@@ -3517,6 +3418,10 @@ void ScriptParser::processListCommands(const QStringList &commands) {
             }
         } else if (trimmed.startsWith("Clear*=")) {
             auto parts = trimmed.section('=', 1).split(',', Qt::SkipEmptyParts);
+            if (parts.isEmpty()) {
+                qWarning() << "Malformed list command (no list name):" << trimmed;
+                continue;
+            }
             QString listName = parts.takeFirst().trimmed();
             for (QString &val : parts) {
                 val = val.trimmed();
@@ -3528,6 +3433,10 @@ void ScriptParser::processListCommands(const QStringList &commands) {
             }
         } else if (trimmed.startsWith("Drop*=")) {
             auto parts = trimmed.section('=', 1).split(',', Qt::SkipEmptyParts);
+            if (parts.isEmpty()) {
+                qWarning() << "Malformed list command (no list name):" << trimmed;
+                continue;
+            }
             QString listName = parts.takeFirst().trimmed();
             for (QString &val : parts) {
                 val = val.trimmed();
@@ -3739,4 +3648,9 @@ QuestionSection ScriptParser::getQuestion(const QString &name) const {
 
 void ScriptParser::setVariable(const QString &name, const QString &value) {
     scriptData.stringVariables[name] = value;
+}
+
+QString ScriptParser::getVariable(const QString &varName) const
+{
+    return scriptData.stringVariables.value(varName, "0");
 }
