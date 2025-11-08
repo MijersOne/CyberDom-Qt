@@ -73,7 +73,7 @@ public:
 
     void assignJobFromTrigger(QString section);
     void assignScheduledJobs();
-    void addJobToAssignments(QString assignmentName);
+    void addJobToAssignments(QString assignmentName, bool isAutoAssign = false);
     void addPunishmentToAssignments(const QString &punishmentName, int amount = 1);
     void applyPunishment(int severity, const QString &group = QString());
 
@@ -118,6 +118,8 @@ public:
     const QList<ClothingItem>& getClothingInventory() const { return clothingInventory; }
     void addClothingItem(const ClothingItem& item);
     QMap<QDate, QStringList> getHolidays() const;
+
+    QString getAssignmentEstimate(const QString &assignmentName, bool isPunishment) const;
 
 signals:
     void jobListUpdated();

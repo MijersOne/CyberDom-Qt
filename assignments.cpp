@@ -44,10 +44,12 @@ void Assignments::populateJobList() {
 
     // Configure Columns
     if (ui->table_Assignments->columnCount() == 0) {
-        ui->table_Assignments->setColumnCount(3);
-        ui->table_Assignments->setHorizontalHeaderLabels({"Deadline", "Assignment", "Type"});
+        ui->table_Assignments->setColumnCount(4);
+        ui->table_Assignments->setHorizontalHeaderLabels({"Deadline", "Assignment", "Estimate", "Type"});
         ui->table_Assignments->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
         ui->table_Assignments->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
+        ui->table_Assignments->horizontalHeader()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
+        ui->table_Assignments->horizontalHeader()->setSectionResizeMode(3, QHeaderView::ResizeToContents);
         ui->table_Assignments->setSelectionBehavior(QAbstractItemView::SelectRows);
         ui->table_Assignments->setEditTriggers(QAbstractItemView::NoEditTriggers);
         ui->table_Assignments->setAlternatingRowColors(true);
@@ -88,7 +90,8 @@ void Assignments::populateJobList() {
             QTableWidgetItem *jobItem = new QTableWidgetItem(jobDef.title.isEmpty() ? jobDef.name : jobDef.title);
             jobItem->setData(Qt::UserRole, jobDef.name);
             ui->table_Assignments->setItem(row, 1, jobItem);
-            ui->table_Assignments->setItem(row, 2, new QTableWidgetItem("Job"));
+            ui->table_Assignments->setItem(row, 2, new QTableWidgetItem("estimateStr"));
+            ui->table_Assignments->setItem(row, 3, new QTableWidgetItem("Job"));
 
             row++;
             qDebug() << "[DEBUG] Adding Job to List: " << jobDef.name;

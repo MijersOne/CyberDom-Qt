@@ -366,6 +366,23 @@ void ScriptParser::parseGeneralSection(const QString &sectionName, const QMap<QS
     if (section.contains("DefaultStatus"))
         g.defaultStatus = section["DefaultStatus"].value(0);
 
+    if (section.contains("RemindInterval"))
+        g.globalRemindInterval = section["RemindInterval"].value(0);
+
+    if (section.contains("RemindPenalty"))
+        g.globalRemindPenalty = section["RemindPenalty"].value(0);
+
+    if (section.contains("RemindPenaltyGroup"))
+        g.globalRemindPenaltyGroup = section["RemindPenaltyGroup"].value(0);
+
+    if (section.contains("ExpirePenaltyGroup"))
+        g.globalExpirePenaltyGroup = section["ExpirePenaltyGroup"].value(0);
+
+    if (section.contains("AnnounceJobs")) {
+        // Set to false only if it's explictly "0"
+        g.announceJobs = (section["AnnounceJobs"].value(0).trimmed() != "0");
+    }
+
     if (section.contains("HideTime")) {
         g.hideTimeGlobal = !section["HideTime"].isEmpty() && section["HideTime"].first().trimmed() == "1";
     }
@@ -695,6 +712,9 @@ void ScriptParser::parseStatusSections(const QMap<QString, QMap<QString, QString
             status.convertFromCounter += entries["Seconds!"];
         if (entries.contains("HideTime") && !entries["HideTime"].isEmpty()) {
             status.hideTime = entries["HideTime"].first().trimmed() == "1";
+        }
+        if (entries.contains("AutoAssignMessage")) {
+            status.autoAssignMessage = (entries["AutoAssignMessage"].value(0).trimmed() != "0");
         }
 
         parseDurationControl(entries, status.duration);
@@ -1801,6 +1821,26 @@ void ScriptParser::parsePunishmentSections(const QMap<QString, QMap<QString, QSt
         if (entries.contains("Random#"))
             p.randomCounters = entries["Random#"];
 
+        if (entries.contains("RemindInterval")) {
+            QStringList parts = entries["RemindInterval"].value(0).split(',', Qt::SkipEmptyParts);
+            if (parts.size() == 2) {
+                p.remindIntervalMin = parts[0].trimmed();
+                p.remindIntervalMax = parts[1].trimmed();
+            } else {
+                p.remindIntervalMin = p.remindIntervalMax = entries["RemindInterval"].value(0).trimmed();
+            }
+        }
+
+        if (entries.contains("RemindPenalty")) {
+            QStringList parts = entries["RemindPenalty"].value(0).split(',', Qt::SkipEmptyParts);
+            p.remindPenaltyMin = parts.value(0).trimmed().toInt();
+            p.remindPenaltyMax = parts.value(1, parts.value(0)).trimmed().toInt();
+        }
+
+        if (entries.contains("RemindPenaltyGroup")) {
+            p.remindPenaltyGroup = entries["RemindPenaltyGroup"].value(0);
+        }
+
         if (entries.contains("Set!"))
             p.setTimeVars = entries["Set!"];
         if (entries.contains("Add!"))
@@ -1913,6 +1953,15 @@ void ScriptParser::parseJobSections(const QMap<QString, QMap<QString, QStringLis
             }
         }
 
+        if (entries.contains("Announce")) {
+            QString val = entries["Announce"].value(0).trimmed();
+            if (val == "0") {
+                job.announce = 0;
+            } else if (val == "1") {
+                job.announce = 1;
+            }
+        }
+
         if (entries.contains("Respite"))
             job.respite = entries["Respite"].value(0).trimmed();
         if (entries.contains("Respit"))
@@ -1937,8 +1986,11 @@ void ScriptParser::parseJobSections(const QMap<QString, QMap<QString, QStringLis
         if (entries.contains("RemindPenaltyGroup"))
             job.remindPenaltyGroup = entries["RemindPenaltyGroup"].value(0);
 
-        if (entries.contains("LateMerits"))
-            parseIntRange(entries["LateMerits"].value(0), job.lateMeritsMin, job.lateMeritsMax);
+        if (entries.contains("LateMerits")) {
+            QStringList parts = entries["LateMerits"].value(0).split(',', Qt::SkipEmptyParts);
+            job.lateMeritsMin = parts.value(0).trimmed();
+            job.lateMeritsMax = parts.value(1, job.lateMeritsMin).trimmed();
+        }
 
         if (entries.contains("ExpireAfter")) {
             QStringList parts = entries["ExpireAfter"].value(0).split(',', Qt::SkipEmptyParts);
@@ -2754,6 +2806,8 @@ void ScriptParser::parseProcedureSections(const QStringList& lines) {
             currentProc.actions.append({ScriptActionType::NewStatus, value});
         } else if (key.compare("NewSubStatus", Qt::CaseInsensitive) == 0) {
             currentProc.actions.append({ScriptActionType::NewSubStatus, value});
+        } else if (key.compare("Job", Qt::CaseInsensitive) == 0) {
+            currentProc.actions.append({ScriptActionType::AnnounceJob, value});
         }
 
         if (inProcSection) {

@@ -1256,16 +1256,19 @@ void CyberDom::updateStatusText() {
         if (isFlagSet(startFlagName)) {
             QStringList rawLines;
             QString minTimeStr;
+            QString estimateStr;
 
             if (isPun) {
                 const PunishmentDefinition &punDef = punishmentDefs.value(lowerName);
                 rawLines.append(punDef.statusTexts);
                 minTimeStr = punDef.duration.minTimeStart;
+                estimateStr = punDef.estimate;
             } else if (jobDefs.contains(lowerName)) {
                 const JobDefinition &jobDef = jobDefs.value(lowerName);
                 if (!jobDef.text.isEmpty()) rawLines.append(jobDef.text);
                 rawLines.append(jobDef.statusTexts);
                 minTimeStr = jobDef.duration.minTimeStart;
+                estimateStr = jobDef.estimate;
             }
 
             QDateTime start = settings.value("Assignments/" + assignmentName + "_start_time").toDateTime();
@@ -1274,6 +1277,11 @@ void CyberDom::updateStatusText() {
                 qint64 elapsedSecs = start.secsTo(internalClock);
                 if (elapsedSecs < 0) elapsedSecs = 0;
                 runTimeStr = QTime(0, 0).addSecs(elapsedSecs).toString("HH:mm:ss");
+            }
+
+            // Resolve the estimate string if it's a variable
+            if (estimateStr.startsWith("!") || estimateStr.startsWith("#")) {
+                estimateStr = scriptParser->getVariable(estimateStr.mid(1));
             }
 
             for (QString line : rawLines) {
@@ -2269,12 +2277,23 @@ void CyberDom::assignScheduledJobs() {
 
     QDate today = internalClock.date();
     QString currentDayName = today.toString("dddd");
+    QSettings settings(settingsFile, QSettings::IniFormat);
 
     const auto& jobs = scriptParser->getScriptData().jobs;
     for (const JobDefinition &job : jobs) {
+
+        // Don't assign a job that's already active
+        if (activeAssignments.contains(job.name)) {
+            continue;
+        }
+
+        if (job.oneTime) {
+            QString oneTimeKey = QString("JobCompletion/%1_oneTimeDone").arg(job.name);
+        }
+
         bool shouldRunToday = false;
 
-        // Check the Run rules
+        // --- 1. Check Run= logic (Days of the week) ---
         if (job.runDays.contains("Daily", Qt::CaseInsensitive)) {
             shouldRunToday = true;
         } else {
@@ -2285,8 +2304,6 @@ void CyberDom::assignScheduledJobs() {
                 }
             }
         }
-
-        // Check the NoRun rules
         for (const QString &noRunDay : job.noRunDays) {
             if (currentDayName.compare(noRunDay, Qt::CaseInsensitive) == 0) {
                 shouldRunToday = false;
@@ -2294,10 +2311,72 @@ void CyberDom::assignScheduledJobs() {
             }
         }
 
-        // If the job should run today and is not already assigned, add it.
-        if (shouldRunToday && !activeAssignments.contains(job.name)) {
-            addJobToAssignments(job.name);
-            qDebug() << "[DEBUG] Job Auto-Assigned (" << currentDayName << "): " << job.name;
+        // --- 2. Check Interval= / FirstInterval= logic ---
+        // We only do this if the Run= logic didn't already trigger it
+        if (!shouldRunToday && (job.intervalMin > 0 || job.firstIntervalMin > 0)) {
+
+            QString lastDoneKey = QString("JobCompletion/%1_lastDone").arg(job.name);
+            QDate lastDoneDate = QDate::fromString(settings.value(lastDoneKey).toString(), Qt::ISODate);
+
+            if (!lastDoneDate.isValid()) {
+                // --- A: JOB HAS NEVER BEEN COMPLETED ---
+
+                // Check if we have a FirstInterval defined
+                if (job.firstIntervalMin > 0) {
+
+                    // Check if we've already *set* the first due date
+                    QString firstDueKey = QString("JobCompletion/%1_firstDue").arg(job.name);
+                    QDate firstDueDate = QDate::fromString(settings.value(firstDueKey).toString(), Qt::ISODate);
+
+                    if (!firstDueDate.isValid()) {
+                        // This is the first time we're seeing this job. Set its initial due date.
+                        int intervalDays;
+                        if (job.firstIntervalMax > job.firstIntervalMin) {
+                            intervalDays = QRandomGenerator::global()->bounded(job.firstIntervalMin, job.firstIntervalMax + 1);
+                        } else {
+                            intervalDays = job.firstIntervalMin;
+                        }
+
+                        firstDueDate = today.addDays(intervalDays);
+                        settings.setValue(firstDueKey, firstDueDate.toString(Qt::ISODate));
+                        qDebug() << "[Scheduler] FirstInterval set for" << job.name << ". Due on:" << firstDueDate.toString(Qt::ISODate);
+                    }
+
+                    // Now check if we are on or after that due date
+                    if (today >= firstDueDate) {
+                        shouldRunToday = true;
+                    }
+
+                } else if (job.intervalMin > 0) {
+                    // No FirstInterval, but has a regular Interval. Assign it now.
+                    shouldRunToday = true;
+                }
+
+            } else {
+                // --- B: JOB HAS BEEN COMPLETED BEFORE ---
+                // Ignore FirstInterval forever. Use regular Interval.
+
+                if (job.intervalMin > 0) {
+                    int intervalDays;
+                    if (job.intervalMax > job.intervalMin) {
+                        intervalDays = QRandomGenerator::global()->bounded(job.intervalMin, job.intervalMax + 1);
+                    } else {
+                        intervalDays = job.intervalMin;
+                    }
+
+                    QDate dueDate = lastDoneDate.addDays(intervalDays);
+
+                    if (today >= dueDate) {
+                        shouldRunToday = true;
+                    }
+                }
+            }
+        }
+
+        // --- 3. Assign the job if needed ---
+        if (shouldRunToday) {
+            addJobToAssignments(job.name, true);
+            qDebug() << "[Scheduler] Job Auto-Assigned (" << currentDayName << "): " << job.name;
         }
     }
 }
@@ -2335,7 +2414,7 @@ void CyberDom::assignJobFromTrigger(QString section) {
     }
 }
 
-void CyberDom::addJobToAssignments(QString jobName)
+void CyberDom::addJobToAssignments(QString jobName, bool isAutoAssign)
 {
     if (activeAssignments.contains(jobName)) {
         qDebug() << "[DEBUG] Job already exists in active assignments: " << jobName;
@@ -2356,7 +2435,16 @@ void CyberDom::addJobToAssignments(QString jobName)
 
         // Check for Respite
         if (!jobDef.respite.isEmpty()) {
-            QStringList respiteParts = jobDef.respite.split(":");
+            QString respiteStr = jobDef.respite;
+
+            // Check if it's a variable
+            if (respiteStr.startsWith("!") || respiteStr.startsWith("#")) {
+                // Get the variable's value, which should be "hh:mm"
+                respiteStr = scriptParser->getVariable(respiteStr.mid(1));
+            }
+
+            // Now, parse the hh:mm string
+            QStringList respiteParts = respiteStr.split(":");
             if (respiteParts.size() >= 2) {
                 int hours = respiteParts[0].toInt();
                 int minutes = respiteParts[1].toInt();
@@ -2366,15 +2454,13 @@ void CyberDom::addJobToAssignments(QString jobName)
             }
         }
 
-        // Check for EndTime
+        // --- Check for EndTime ---
         if (!deadlineSet && !jobDef.endTimeMin.isEmpty()) {
-            // Reconstruct the range string for the parser function
             QString endTimeRange = jobDef.endTimeMin;
             if (!jobDef.endTimeMax.isEmpty()) {
                 endTimeRange += "," + jobDef.endTimeMax;
             }
 
-            // Use parseTimeRangeToSeconds to get a random time in the range
             int endTimeSecs = parseTimeRangeToSeconds(endTimeRange);
             QTime endTime = QTime(0,0).addSecs(endTimeSecs);
 
@@ -2388,47 +2474,137 @@ void CyberDom::addJobToAssignments(QString jobName)
             }
         }
 
+        // --- Apply Default Deadline (48 hours) ---
         if (!deadlineSet) {
-            deadline = QDateTime(internalClock.date(), QTime(23, 59, 59));
+            // Neither Respite nor EndTime was set, apply the 48-hour default
+            deadline = internalClock.addDays(2);
+            deadlineSet = true;
+            qDebug() << "[DEBUG] No Respite or EndTime found. Defaulting to 48-hour deadline.";
         }
 
         jobDeadlines[jobName] = deadline;
+
         qDebug() << "[DEBUG] Job deadline set: " << jobName << " - "
                  << deadline.toString("MM-dd-yyyy hh:mm AP");
 
         // Check for ExpireAfter
-        if (!jobDef.expireAfterMin.isEmpty() || !jobDef.expireAfterMax.isEmpty()) {
-            QString range = jobDef.expireAfterMin.isEmpty() ? jobDef.expireAfterMax : jobDef.expireAfterMin;
-            if (!jobDef.expireAfterMin.isEmpty() && !jobDef.expireAfterMax.isEmpty()) {
-                range = jobDef.expireAfterMin + "," + jobDef.expireAfterMax;
+        if (!jobDef.expireAfterMin.isEmpty()) {
+            QString minStr = jobDef.expireAfterMin;
+            QString maxStr = jobDef.expireAfterMax;
+
+            // Helper lambda to resolve variables (handles hh:mm or !myVar)
+            auto getRange = [&](QString s) -> QString {
+                if (s.startsWith("!") || s.startsWith("#")) {
+                    // It's a variable, get its value
+                    // The variable itself should store an "hh:mm" string
+                    return scriptParser->getVariable(s.mid(1));
+                }
+                return s;
+            };
+
+            QString minRange = getRange(minStr);
+            QString maxRange = getRange(maxStr);
+
+            QString finalRange = minRange;
+            if (maxRange != minRange) {
+                finalRange += "," + maxRange;
             }
-            int expireSec = parseTimeRangeToSeconds(range);
-            if (expireSec > 0)
+
+            int expireSec = parseTimeRangeToSeconds(finalRange);
+            if (expireSec > 0) {
                 jobExpiryTimes[jobName] = deadline.addSecs(expireSec);
+            }
         }
 
         // Check for RemindInterval
+        QString remindRange;
         if (!jobDef.remindIntervalMin.isEmpty() || !jobDef.remindIntervalMax.isEmpty()) {
-            QString range = jobDef.remindIntervalMin.isEmpty() ? jobDef.remindIntervalMax : jobDef.remindIntervalMin;
+            // Use Job's specific interval
+            remindRange = jobDef.remindIntervalMin.isEmpty() ? jobDef.remindIntervalMax : jobDef.remindIntervalMin;
             if (!jobDef.remindIntervalMin.isEmpty() && !jobDef.remindIntervalMax.isEmpty()) {
-                range = jobDef.remindIntervalMin + "," + jobDef.remindIntervalMax;
+                remindRange = jobDef.remindIntervalMin + "," + jobDef.remindIntervalMax;
             }
-            int intervalSec = parseTimeRangeToSeconds(range);
-            if (intervalSec > 0)
-                jobRemindIntervals[jobName] = intervalSec;
+        } else if (!scriptParser->getScriptData().general.globalRemindInterval.isEmpty()) {
+            // Fallback to [General] interval
+            remindRange = scriptParser->getScriptData().general.globalRemindInterval;
+        } else {
+            // Fallback to 24-hour default
+            remindRange = "24:00";
         }
 
+        int intervalSec = parseTimeRangeToSeconds(remindRange);
+        if (intervalSec > 0)
+            jobRemindIntervals[jobName] = intervalSec;
+
         // Check for LateMerits
-        if (jobDef.lateMeritsMin != 0 || jobDef.lateMeritsMax != 0) {
-            QString range = QString::number(jobDef.lateMeritsMin);
-            if(jobDef.lateMeritsMax > jobDef.lateMeritsMin) {
-                range += "," + QString::number(jobDef.lateMeritsMax);
+        if (!jobDef.lateMeritsMin.isEmpty()) {
+            QString minStr = jobDef.lateMeritsMin;
+            QString maxStr = jobDef.lateMeritsMax;
+
+            // Helper lambda to resolve counters
+            auto getValue = [&](QString s) -> int {
+                if (s.startsWith("#")) {
+                    return scriptParser->getVariable(s.mid(1)).toInt();
+                }
+                return s.toInt();
+            };
+
+            int minVal = getValue(minStr);
+            int maxVal = getValue(maxStr);
+
+            QString range = QString::number(minVal);
+            if (maxVal > minVal) {
+                range += "," + QString::number(maxVal);
             }
+
             jobLateMerits[jobName] = randomIntFromRange(range);
         }
     } else {
         // Fallback if parser or jobDef doesn't exist
         setDefaultDeadlineForJob(jobName);
+    }
+
+    if (scriptParser && scriptParser->getScriptData().jobs.contains(jobName.toLower())) {
+        const ScriptData &data = scriptParser->getScriptData();
+        const JobDefinition &jobDef = data.jobs.value(jobName.toLower());
+        const GeneralSettings &general = data.general;
+
+        bool showMessage = false;
+
+        // Check Status-level silence
+        if (isAutoAssign) {
+            if (data.statuses.contains(currentStatus.toLower())) {
+                const StatusDefinition &statusDef = data.statuses.value(currentStatus.toLower());
+                if (!statusDef.autoAssignMessage) {
+                    // Status explicitly blocks auto-assign messages, so we stop here.
+                    emit jobListUpdated();
+                    qDebug() << "[DEBUG] jobListUpdated Signal Emitted!";
+                    return;
+                }
+            }
+        }
+
+        // Check Job-level settings
+        if (jobDef.announce == 1) {
+            // Announce=1 forces the message, overriding global silence
+            showMessage = true;
+        } else if (jobDef.announce == 0) {
+            // Announce=0 forces silence, overriding global 'on'
+            showMessage = false;
+        }
+
+        // Check General-level settings (if job is unset)
+        else if (general.announceJobs) {
+            // Announce is unset (-1), so check global. Global is ON.
+            showMessage = true;
+        }
+
+        // (If jobDef.announce is -1 AND general.announceJobs is false, showMessage remains (false)
+
+        if (showMessage) {
+            QString title = jobDef.title.isEmpty() ? jobDef.name : jobDef.title;
+            QMessageBox::information(this, "New Assignment", "A new job has been added to your assignments: " + title);
+        }
     }
 
     emit jobListUpdated();
@@ -2469,14 +2645,55 @@ void CyberDom::checkPunishments() {
         if (isJob) {
             const JobDefinition &jobDef = data.jobs.value(name.toLower());
 
+            // --- Remind Penalty ---
             if (jobDef.remindPenaltyMin > 0 || jobDef.remindPenaltyMax > 0) {
+                // Use Job's specific penalty
                 remindPenaltyRange = QString::number(jobDef.remindPenaltyMin);
                 if (jobDef.remindPenaltyMax > jobDef.remindPenaltyMin) {
                     remindPenaltyRange += "," + QString::number(jobDef.remindPenaltyMax);
                 }
+                remindPenaltyGroup = jobDef.remindPenaltyGroup;
+            } else if (!data.general.globalRemindPenalty.isEmpty()) {
+                // Fallback to [General] penalty
+                remindPenaltyRange = data.general.globalRemindPenalty;
+                remindPenaltyGroup = data.general.globalRemindPenaltyGroup;
             }
-            expirePenaltyGroup = jobDef.expirePenaltyGroup;
+            // (If both are empty, range empty and no punishment is applied)
+
+            // --- Expiry ---
+            if (jobDef.expirePenaltyMin > 0 || jobDef.expirePenaltyMax > 0) {
+                expirePenaltyRange = QString::number(jobDef.expirePenaltyMin);
+                if (jobDef.expirePenaltyMax > jobDef.expirePenaltyMin) {
+                    expirePenaltyRange += "," + QString::number(jobDef.expirePenaltyMax);
+                }
+            }
+
+            if (!jobDef.expirePenaltyGroup.isEmpty()) {
+                // Use the Job's specific group
+                expirePenaltyGroup = jobDef.expirePenaltyGroup;
+            } else {
+                // Fallback to the [General] group
+                expirePenaltyGroup = data.general.globalExpirePenaltyGroup;
+            }
+
             expireProcedure = jobDef.expireProcedure;
+
+        } else if (isPun) {
+            const PunishmentDefinition &punDef = data.punishments.value(name.toLower());
+
+            // --- Remind Penalty ---
+            if (punDef.remindPenaltyMin > 0 || punDef.remindPenaltyMax > 0) {
+                // Use Punishment's specific penalty
+                remindPenaltyRange = QString::number(punDef.remindPenaltyMin);
+                if (punDef.remindPenaltyMax > punDef.remindPenaltyMin) {
+                    remindPenaltyRange += "," + QString::number(punDef.remindPenaltyMax);
+                }
+                remindPenaltyGroup = punDef.remindPenaltyGroup;
+            } else if (!data.general.globalRemindPenalty.isEmpty()) {
+                // Fallback to [General] penalty
+                remindPenaltyRange = data.general.globalRemindPenalty;
+                remindPenaltyGroup = data.general.globalRemindPenaltyGroup;
+            }
         }
 
         QSettings settings(settingsFile, QSettings::IniFormat);
@@ -2612,6 +2829,26 @@ void CyberDom::addPunishmentToAssignments(const QString &punishmentName, int amo
         }
 
         jobDeadlines[punishmentName] = deadline;
+
+        // Check for RemindInterval
+        QString remindRange;
+        if (!punDef->remindIntervalMin.isEmpty() || !punDef->remindIntervalMax.isEmpty()) {
+            // Use the Punishment's specific interval
+            remindRange = punDef->remindIntervalMin.isEmpty() ? punDef->remindIntervalMax : punDef->remindIntervalMin;
+            if (!punDef->remindIntervalMin.isEmpty() && !punDef->remindIntervalMax.isEmpty()) {
+                remindRange = punDef->remindIntervalMin + "," + punDef->remindIntervalMax;
+            }
+        } else if (!scriptParser->getScriptData().general.globalRemindInterval.isEmpty()) {
+            // Fallback to [General] interval
+            remindRange = scriptParser->getScriptData().general.globalRemindInterval;
+        } else {
+            // Fallback to 24-hour default
+            remindRange = "24:00";
+        }
+
+        int intervalSec = parseTimeRangeToSeconds(remindRange);
+        if (intervalSec > 0)
+            jobRemindIntervals[punishmentName] = intervalSec;
 
         emit jobListUpdated();
         qDebug() << "[DEBUG] jobListUpdated Signal Emitted!";
@@ -3082,6 +3319,22 @@ bool CyberDom::markAssignmentDone(const QString &assignmentName, bool isPunishme
     // 11. Update UI (This is correct)
     updateStatusText();
     emit jobListUpdated();
+
+    // If this was a job, save its completion date for interval tracking
+    if (!isPunishment) {
+        QString settingsKey = QString("JobCompletion/%1_lastDone").arg(assignmentName);
+        settings.setValue(settingsKey, internalClock.date().toString(Qt::ISODate));
+        qDebug() << "[Scheduler] Job" << assignmentName << "completed. Saving lastDone date:" << internalClock.date().toString(Qt::ISODate);
+
+        // Check if this was a OneTime job
+        const JobDefinition &jobDef = data.jobs.value(assignmentName.toLower());
+        if (jobDef.oneTime) {
+            QString oneTimeKey = QString("JobCompletion/$1_oneTimeDone").arg(assignmentName);
+            settings.setValue(oneTimeKey, true);
+            qDebug() << "[Scheduler] OneTime job" << assignmentName << "completed. Flagging as done forever.";
+        }
+    }
+
     return true;
 }
 
@@ -3671,6 +3924,9 @@ void CyberDom::runProcedure(const QString &procedureName) {
             break;
         case ScriptActionType::NewSubStatus:
             changeStatus(action.value, true);
+            break;
+        case ScriptActionType::AnnounceJob:
+            addJobToAssignments(action.value, false);
             break;
 
         default:
@@ -4616,6 +4872,38 @@ bool CyberDom::evaluateCondition(const QString &condition)
 
     qDebug() << "[WARN] Non-numeric coparison for" << op << "in:" << condition;
     return false;
+}
+
+QString CyberDom::getAssignmentEstimate(const QString &assignmentName, bool isPunishment) const
+{
+    if (!scriptParser) return QString("N/A");
+
+    const ScriptData &data = scriptParser->getScriptData();
+    QString lowerName = assignmentName.toLower();
+    QString estimateStr;
+
+    // Get the estimate string from the correct struct
+    if (isPunishment) {
+        if (data.punishments.contains(lowerName)) {
+            estimateStr = data.punishments.value(lowerName).estimate;
+        }
+    } else {
+        if (data.jobs.contains(lowerName)) {
+            estimateStr = data.jobs.value(lowerName).estimate;
+        }
+    }
+
+    if (estimateStr.isEmpty()) {
+        return "N/A";
+    }
+
+    // Resolve the string if it's a variable
+    if (estimateStr.startsWith("!") || estimateStr.startsWith("#")) {
+        // Get the variable's value, which should be "hh:mm"
+        estimateStr = scriptParser->getVariable(estimateStr.mid(1));
+    }
+
+    return estimateStr;
 }
 
 void CyberDom::openDataInspector()

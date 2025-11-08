@@ -239,7 +239,8 @@ enum class ScriptActionType {
     Clothing,
     NewStatus,
     NewSubStatus,
-    Timer
+    Timer,
+    AnnounceJob
 };
 
 struct ScriptAction {
@@ -422,6 +423,18 @@ struct GeneralSettings {
     bool hideTimeGlobal = false;
 
     QString defaultStatus;
+
+    // Remind Interval
+    QString globalRemindInterval;
+
+    // Remind Penalty
+    QString globalRemindPenalty;
+    QString globalRemindPenaltyGroup;
+
+    // Expire Penalty Group
+    QString globalExpirePenaltyGroup;
+
+    bool announceJobs = true;
 };
 
 struct InitSettings {
@@ -541,6 +554,8 @@ struct StatusDefinition {
 
     bool hideTime = false;
     bool hasHideTime = false;
+
+    bool autoAssignMessage = true;
 };
 
 struct ReportDefinition {
@@ -885,6 +900,13 @@ struct PunishmentDefinition : public AssignmentBehavior {
     QString estimate;
     QStringList forbids;
 
+    QString remindIntervalMin;
+    QString remindIntervalMax;
+
+    int remindPenaltyMin = 0;
+    int remindPenaltyMax = 0;
+    QString remindPenaltyGroup;
+
     MeritAdjustment merits;
 
     bool centerRandom = false;
@@ -999,8 +1021,8 @@ struct JobDefinition : public AssignmentBehavior {
     int remindPenaltyMax = 0;
     QString remindPenaltyGroup;
 
-    int lateMeritsMin = 0;
-    int lateMeritsMax = 0;
+    QString lateMeritsMin;
+    QString lateMeritsMax;
 
     QString expireAfterMin;
     QString expireAfterMax;
@@ -1010,7 +1032,7 @@ struct JobDefinition : public AssignmentBehavior {
     QString expireProcedure;
 
     bool oneTime = false;
-    bool announce = true;
+    int announce = -1;
 
     MeritAdjustment merits;
 
