@@ -129,9 +129,9 @@ bool ScriptParser::parseScript(const QString& path) {
     QStringList iniLines = readIniLines(path);
     parseClothingTypes(iniLines);
     parseStatusSections(sections);
-    parseReportSections(sections);
-    parseConfessionSections(sections);
-    parsePermissionSections(sections);
+    parseReportSections(iniLines);
+    parseConfessionSections(iniLines);
+    parsePermissionSections(iniLines);
     parsePunishmentSections(sections);
     parseJobSections(sections);
     parseInstructionSets(sections);
@@ -139,7 +139,7 @@ bool ScriptParser::parseScript(const QString& path) {
     parseProcedureSections(iniLines);
     parsePopupGroupSections(sections);
     parsePopupSections(sections);
-    parseTimerSections(sections);
+    parseTimerSections(iniLines);
     parseQuestionSections(sections);
 
     if (sections.contains("events")) {
@@ -725,844 +725,486 @@ void ScriptParser::parseStatusSections(const QMap<QString, QMap<QString, QString
     }
 }
 
-void ScriptParser::parseReportSections(const QMap<QString, QMap<QString, QStringList>>& sections) {
-    for (auto it = sections.begin(); it != sections.end(); ++it) {
-        const QString& sectionName = it.key();
-        if (!sectionName.startsWith("report-"))
+void ScriptParser::parseReportSections(const QStringList& lines) {
+    ReportDefinition currentReport;
+    bool inSection = false;
+    QString currentSectionName;
+    QString currentPunishMessage;
+
+    // Loop through every single line from the .ini in its original order
+    for (const QString& line : lines) {
+        if (line.isEmpty() || line.startsWith("#") || line.startsWith(";"))
             continue;
 
-        QString reportName = sectionName.mid(QString("report-").length());
-        const QMap<QString, QStringList>& entries = it.value();
-
-        ReportDefinition report;
-        report.name = reportName;
-
-        // Parse known report keys
-        if (entries.contains("OnTop"))
-            report.onTop = entries["OnTop"].value(0).trimmed() != "0";
-
-        if (entries.contains("PreStatus")) {
-            for (const QString& val : entries["PreStatus"]) {
-                report.preStatuses << val.split(',', Qt::SkipEmptyParts);
+        // Check for section headers
+        if (line.startsWith("[") && line.endsWith("]")) {
+            // Save the previous report
+            if (inSection) {
+                scriptData.reports.insert(currentReport.name, currentReport);
             }
-        }
+            inSection = false; // Reset
 
-        if (entries.contains("AddMerits") || entries.contains("AddMerits"))
-            report.merits.add = entries.value("AddMerit", entries.value("AddMerits")).value(0).toInt();
+            currentSectionName = line.mid(1, line.length() - 2).trimmed();
 
-        if (entries.contains("SubtractMerit") || entries.contains("SubtractMerits"))
-            report.merits.subtract = entries.value("SubtractMerit", entries.value("SubtractMerits")).value(0).toInt();
-
-        if (entries.contains("SetMerit") || entries.contains("SetMerits"))
-            report.merits.set = entries.value("SetMerit", entries.value("SetMerits")).value(0).toInt();
-
-        if (entries.contains("CenterRandom"))
-            report.centerRandom = entries["CenterRandom"].value(0).trimmed() == "1";
-
-        if (entries.contains("Title"))
-            report.title = entries["Title"].value(0);
-
-        if (entries.contains("Group"))
-            report.group = entries["Group"].value(0);
-
-        MessageGroup currentGroup;
-        bool inMessageBlock = false;
-
-        for (auto keyIt = entries.begin(); keyIt != entries.end(); ++keyIt) {
-            QString key = keyIt.key();
-            const QStringList& values = keyIt.value();
-
-            for (const QString& val : values) {
-                if (key == "Select") {
-                    if (val.compare("Random", Qt::CaseInsensitive) == 0)
-                        currentGroup.mode = MessageSelectMode::Random;
-                    else
-                        currentGroup.mode = MessageSelectMode::All;
-
-                    inMessageBlock = true;
-                    if (!currentGroup.messages.isEmpty()) {
-                        report.messages.append(currentGroup);
-                        currentGroup = MessageGroup();
-                    }
-                }
-                else if (key == "Message") {
-                    inMessageBlock = true;
-                    currentGroup.messages.append(val.trimmed());
-                }
-                else if (key == "Text") {
-                    report.statusTexts.append(val.trimmed());
-                }
+            // Check if this new section is a report
+            if (currentSectionName.startsWith("report-", Qt::CaseInsensitive)) {
+                inSection = true;
+                currentReport = ReportDefinition();
+                currentReport.name = currentSectionName.mid(7).toLower();
+                currentPunishMessage.clear();
             }
-        }
-        if (!currentGroup.messages.isEmpty()) {
-            report.messages.append(currentGroup);
+            continue;
         }
 
-        if (entries.contains("Input"))
-            report.inputQuestions.append(entries["Input"]);
+        // If we are not in a report section, skip this line
+        if (!inSection) {
+            continue;
+        }
 
-        if (entries.contains("NoInputProcedure"))
-            report.noInputProcedure = entries["NoInputProcedure"].value(0);
+        // If we ARE in a report, this must be a key-value pair
+        int equalsIndex = line.indexOf('=');
+        if (equalsIndex == -1) continue;
 
-        if (entries.contains("Question"))
-            report.advancedQuestions.append(entries["Question"]);
+        QString key = line.left(equalsIndex).trimmed();
+        QString value = line.mid(equalsIndex + 1).trimmed();
 
-        if (entries.contains("StartAutoAssign")) {
-            QString value = entries["StartAutoAssign"].value(0);
-            if (value.startsWith("time,", Qt::CaseInsensitive)) {
-                report.autoAssignMode = "time";
-                report.autoAssignValue = value.mid(QString("time,").length()).trimmed();
-            } else if (value.startsWith("interval,", Qt::CaseInsensitive)) {
-                report.autoAssignMode = "interval";
-                report.autoAssignValue = value.mid(QString("interval,").length()).trimmed();
-            } else if (value.startsWith("ask", Qt::CaseInsensitive)) {
-                report.autoAssignMode = "ask";
-                int commaIndex = value.indexOf(',');
-                if (commaIndex >= 0)
-                    report.autoAssignValue = value.mid(commaIndex + 1).trimmed();
-                else report.autoAssignValue = "";
+        // We append actions to the list *in the order we find them*
+        if (key.compare("Title", Qt::CaseInsensitive) == 0) {
+            currentReport.title = value;
+        } else if (key.compare("OnTop", Qt::CaseInsensitive) == 0) {
+            currentReport.onTop = (value != "0");
+        } else if (key.compare("PreStatus", Qt::CaseInsensitive) == 0) {
+            currentReport.preStatuses << value.split(',', Qt::SkipEmptyParts);
+        } else if (key.compare("AddMerit", Qt::CaseInsensitive) == 0 || key.compare("AddMerits", Qt::CaseInsensitive) == 0) {
+            currentReport.merits.add = value;
+        } else if (key.compare("SubtractMerit", Qt::CaseInsensitive) == 0 || key.compare("SubtractMerits", Qt::CaseInsensitive) == 0) {
+            currentReport.merits.subtract = value;
+        } else if (key.compare("Group", Qt::CaseInsensitive) == 0) {
+            currentReport.group = value;
+        }
+
+        // --- Handle ACTIONS ---
+        else if (key.compare("Procedure", Qt::CaseInsensitive) == 0) {
+            currentReport.actions.append({ScriptActionType::ProcedureCall, value});
+        } else if (key.compare("If", Qt::CaseInsensitive) == 0) {
+            currentReport.actions.append({ScriptActionType::If, value});
+        } else if (key.compare("NotIf", Qt::CaseInsensitive) == 0) {
+            currentReport.actions.append({ScriptActionType::NotIf, value});
+        } else if (key.compare("SetFlag", Qt::CaseInsensitive) == 0) {
+            currentReport.actions.append({ScriptActionType::SetFlag, value});
+        } else if (key.compare("RemoveFlag", Qt::CaseInsensitive) == 0) {
+            currentReport.actions.append({ScriptActionType::RemoveFlag, value});
+        } else if (key.compare("ClearFlag", Qt::CaseInsensitive) == 0) {
+            currentReport.actions.append({ScriptActionType::ClearFlag, value});
+        } else if (key.compare("Set#", Qt::CaseInsensitive) == 0) {
+            currentReport.actions.append({ScriptActionType::SetCounterVar, value});
+        } else if (key.compare("Set$", Qt::CaseInsensitive) == 0) {
+            currentReport.actions.append({ScriptActionType::SetString, value});
+        } else if (key.compare("Set!", Qt::CaseInsensitive) == 0) {
+            currentReport.actions.append({ScriptActionType::SetTimeVar, value});
+        } else if (key.compare("Add#", Qt::CaseInsensitive) == 0) {
+            currentReport.actions.append({ScriptActionType::AddCounter, value});
+        } else if (key.compare("Subtract#", Qt::CaseInsensitive) == 0) {
+            currentReport.actions.append({ScriptActionType::SubtractCounter, value});
+        } else if (key.compare("Multiply#", Qt::CaseInsensitive) == 0) {
+            currentReport.actions.append({ScriptActionType::MultiplyCounter, value});
+        } else if (key.compare("Divide#", Qt::CaseInsensitive) == 0) {
+            currentReport.actions.append({ScriptActionType::DivideCounter, value});
+        } else if (key.compare("Message", Qt::CaseInsensitive) == 0) {
+            currentReport.actions.append({ScriptActionType::Message, value});
+        } else if (key.compare("Question", Qt::CaseInsensitive) == 0) {
+            currentReport.actions.append({ScriptActionType::Question, value});
+        } else if (key.compare("Input", Qt::CaseInsensitive) == 0) {
+            currentReport.actions.append({ScriptActionType::Input, value});
+        } else if (key.compare("Clothing", Qt::CaseInsensitive) == 0) {
+            currentReport.actions.append({ScriptActionType::Clothing, value});
+        } else if (key.compare("NewStatus", Qt::CaseInsensitive) == 0) {
+            currentReport.actions.append({ScriptActionType::NewStatus, value});
+        } else if (key.compare("NewSubStatus", Qt::CaseInsensitive) == 0) {
+            currentReport.actions.append({ScriptActionType::NewSubStatus, value});
+        } else if (key.compare("Job", Qt::CaseInsensitive) == 0) {
+            currentReport.actions.append({ScriptActionType::AnnounceJob, value});
+        } else if (key.compare("MarkDone", Qt::CaseInsensitive) == 0) {
+            currentReport.actions.append({ScriptActionType::MarkDone, value});
+        } else if (key.compare("Abort", Qt::CaseInsensitive) == 0) {
+            currentReport.actions.append({ScriptActionType::Abort, value});
+        } else if (key.compare("Delete", Qt::CaseInsensitive) == 0) {
+            currentReport.actions.append({ScriptActionType::Delete, value});
+        } else if (key.compare("AddMerit", Qt::CaseInsensitive) == 0 || key.compare("AddMerits", Qt::CaseInsensitive) == 0) {
+            currentReport.actions.append({ScriptActionType::AddMerit, value});
+        } else if (key.compare("SubtractMerit", Qt::CaseInsensitive) == 0 || key.compare("SubtractMerits", Qt::CaseInsensitive) == 0) {
+            currentReport.actions.append({ScriptActionType::SubtractMerit, value});
+        } else if (key.compare("SetMerit", Qt::CaseInsensitive) == 0 || key.compare("SetMerits", Qt::CaseInsensitive) == 0) {
+            currentReport.actions.append({ScriptActionType::SetMerit, value});
+        } else if (key.compare("PunishMessage", Qt::CaseInsensitive) == 0) {
+            if (currentPunishMessage.isEmpty()) {
+                currentPunishMessage = value;
             }
-        }
-
-        if (entries.contains("StopAutoAssign"))
-            report.stopAutoAssign = true;
-
-        if (entries.contains("Clothing"))
-            report.clothingInstruction = entries["Clothing"].value(0);
-
-        if (entries.contains("ClearCheck"))
-            report.clearClothingCheck = entries["ClearCheck"].value(0).trimmed() == "1";
-
-        if (entries.contains("MasterMail"))
-            report.masterMailSubject = entries["MasterMail"].value(0);
-
-        if (entries.contains("MasterAttach")) {
-            for (const QString& file : entries["MasterAttach"])
-                report.masterAttachments.append(file.trimmed());
-        }
-
-        if (entries.contains("SubMail")) {
-            for (const QString& line : entries["SubMail"])
-                report.subMailLines.append(line.trimmed());
-        }
-
-        if (entries.contains("Sound"))
-            report.soundFiles = entries["Sound"];
-
-        if (entries.contains("LocalSound"))
-            report.localSoundFiles = entries["LocalSound"];
-
-        if (entries.contains("WriteReport"))
-            report.writeReportLines = entries["WriteReport"];
-
-        if (entries.contains("ShowPicture"))
-            report.showPictures = entries["ShowPicture"];
-
-        if (entries.contains("ShowLocalPicture"))
-            report.showLocalPictures = entries["ShowLocalPicture"];
-
-        if (entries.contains("RemovePicture"))
-            report.removePictures = entries["RemovePicture"];
-
-        if (entries.contains("RemoveLocalPicture"))
-            report.removeLocalPictures = entries["RemoveLocalPicture"];
-
-        if (entries.contains("Launch"))
-            report.launchCommand = entries["Launch"].value(0);
-
-        if (entries.contains("MakeNewReport")) {
-            QString val = entries["MakeNewReport"].value(0);
-            report.makeNewReport = val == "1" || val == "2";
-            report.makeNewReportSilent = val == "2";
-        }
-
-        if (entries.contains("PgmAction"))
-            report.programAction = entries["PgmAction"].value(0);
-
-        if (entries.contains("SetFlag"))
-            report.setFlags = entries["SetFlag"];
-
-        if (entries.contains("ClearFlag"))
-            report.clearFlags = entries["ClearFlag"];
-
-        if (entries.contains("Set$"))
-            report.setStringVars = entries["Set$"];
-
-        if (entries.contains("Set#"))
-            report.setCounterVars = entries["Set#"];
-
-        if (entries.contains("Set@"))
-            report.setTimeVars = entries["Set@"];
-
-        if (entries.contains("Counter+"))
-            report.incrementCounters = entries["Counter+"];
-
-        if (entries.contains("Counter-"))
-            report.decrementCounters = entries["Counter-"];
-
-        if (entries.contains("Random#"))
-            report.randomCounters = entries["Random#"];
-
-        if (entries.contains("Random$"))
-            report.randomStrings = entries["Random$"];
-
-        if (entries.contains("SetFlag"))
-            report.setFlags = entries["SetFlag"];
-
-        if (entries.contains("RemoveFlag"))
-            report.removeFlags = entries["RemoveFlag"];
-
-        if (entries.contains("SetFlagGroup"))
-            report.setFlagGroups = entries["SetFlagGroup"];
-
-        if (entries.contains("RemoveFlagGroup"))
-            report.removeFlagGroups = entries["RemoveFlagGroup"];
-
-        if (entries.contains("If"))
-            report.ifFlags = entries["If"];
-
-        if (entries.contains("NotIf"))
-            report.notIfFlags = entries["NotIf"];
-
-        if (entries.contains("DenyIf"))
-            report.denyIfFlags = entries["DenyIf"];
-
-        if (entries.contains("PermitIf"))
-            report.permitIfFlags = entries["PermitIf"];
-
-        if (entries.contains("Set!"))
-            report.setTimeVars = entries["Set!"];
-        if (entries.contains("Add!"))
-            report.addTimeVars = entries["Add!"];
-        if (entries.contains("Subtract!"))
-            report.subtractTimeVars = entries["Subtract!"];
-        if (entries.contains("Multiply!"))
-            report.multiplyTimeVars = entries["Multiply!"];
-        if (entries.contains("Divide!"))
-            report.divideTimeVars = entries["Divide!"];
-        if (entries.contains("Round!"))
-            report.roundTimeVars = entries["Round!"];
-        if (entries.contains("Drop!"))
-            report.dropTimeVars = entries["Drop!"];
-        if (entries.contains("InputDate!"))
-            report.inputDateVars = entries["InputDate!"];
-        if (entries.contains("InputDateDef!"))
-            report.inputDateDefVars = entries["InputDateDef!"];
-        if (entries.contains("InputTime!"))
-            report.inputTimeVars = entries["InputTime!"];
-        if (entries.contains("InputTimeDef!"))
-            report.inputTimeDefVars = entries["InputTimeDef!"];
-        if (entries.contains("InputInterval!"))
-            report.inputIntervalVars = entries["InputInterval!"];
-        if (entries.contains("Random!"))
-            report.randomTimeVars = entries["Random!"];
-        if (entries.contains("AddDays!"))
-            report.addDaysVars = entries["AddDays!"];
-        if (entries.contains("SubtractDays!"))
-            report.subtractDaysVars = entries["SubtractDays!"];
-        if (entries.contains("Days#"))
-            report.extractToCounter += entries["Days#"];
-        if (entries.contains("Hours#"))
-            report.extractToCounter += entries["Hours#"];
-        if (entries.contains("Minutes#"))
-            report.extractToCounter += entries["Minutes#"];
-        if (entries.contains("Seconds#"))
-            report.extractToCounter += entries["Seconds#"];
-        if (entries.contains("Days!"))
-            report.convertFromCounter += entries["Days!"];
-        if (entries.contains("Hours!"))
-            report.convertFromCounter += entries["Hours!"];
-        if (entries.contains("Minutes!"))
-            report.convertFromCounter += entries["Minutes!"];
-        if (entries.contains("Seconds!"))
-            report.convertFromCounter += entries["Seconds!"];
-        if (entries.contains("Set*"))
-            report.listSets = entries["Set*"];
-        if (entries.contains("SetSplit*"))
-            report.listSetSplits = entries["SetSplit*"];
-        if (entries.contains("Add*"))
-            report.listAdds = entries["Add*"];
-        if (entries.contains("AddNoDub*"))
-            report.listAddNoDubs = entries["AddNoDub*"];
-        if (entries.contains("AddSplit*"))
-            report.listAddSplits = entries["AddSplit*"];
-        if (entries.contains("Push*"))
-            report.listPushes = entries["Push*"];
-        if (entries.contains("Remove*"))
-            report.listRemoves = entries["Remove*"];
-        if (entries.contains("RemoveAll*"))
-            report.listRemoveAlls = entries["RemoveAll*"];
-        if (entries.contains("Pull*"))
-            report.listPulls = entries["Pull*"];
-        if (entries.contains("Intersect*"))
-            report.listIntersects = entries["Intersect*"];
-        if (entries.contains("Clear*"))
-            report.listClears = entries["Clear*"];
-        if (entries.contains("Drop*"))
-            report.listDrops = entries["Drop*"];
-        if (entries.contains("Sort*"))
-            report.listSorts = entries["Sort*"];
-
-        QStringList lines;
-        for (auto keyIt = entries.begin(); keyIt != entries.end(); ++keyIt) {
-            for (const QString &val : keyIt.value())
-                lines.append(val);
-        }
-
-        int index = 0;
-        while (index < lines.size()) {
-            if (lines[index].startsWith("Case=", Qt::CaseInsensitive)) {
-                CaseBlock block = parseCaseBlock(lines, index);
-                report.cases.append(block);
-            } else {
-                ++index;
+        } else if (key.compare("PunishmentGroup", Qt::CaseInsensitive) == 0) {
+            if (currentReport.punishGroup.isEmpty()) {
+                currentReport.punishGroup = value;
             }
+        } else if (key.compare("Punish", Qt::CaseInsensitive) == 0) {
+            currentReport.actions.append({ScriptActionType::Punish, value});
         }
+    }
 
-        parseTimeWindowControl(entries, report.timeWindow);
-        parseTimeRestrictions(entries, report.notBeforeTimes, report.notAfterTimes, report.notBetweenTimes);
-
-        scriptData.reports.insert(reportName, report);
+    // Save the very last report in the file
+    if (inSection) {
+        scriptData.reports.insert(currentReport.name, currentReport);
     }
 }
 
-void ScriptParser::parseConfessionSections(const QMap<QString, QMap<QString, QStringList>>& sections) {
-    for (auto it = sections.begin(); it != sections.end(); ++it) {
-        const QString& sectionName = it.key();
-        if (!sectionName.startsWith("confession-"))
-            continue;
+void ScriptParser::parseConfessionSections(const QStringList& lines) {
+    ConfessionDefinition currentConf;
+    bool inSection = false;
+    QString currentSectionName;
+    QString currentPunishMessage;
 
-        QString confessionName = sectionName.mid(QString("confession-").length());
-        const QMap<QString, QStringList>& entries = it.value();
-
-        ConfessionDefinition confession;
-        confession.name = confessionName;
-
-        if (entries.contains("OnTop"))
-            confession.onTop = entries["OnTop"].value(0).trimmed() == "1";
-
-        if (entries.contains("Menu"))
-            confession.showInMenu = entries["Menu"].value(0).trimmed() != "0";
-
-        if (entries.contains("PreStatus")) {
-            for (const QString& val : entries["PreStatus"])
-                confession.preStatuses << val.split(',', Qt::SkipEmptyParts);
+    // Helper lambda for parsing time ranges
+    auto parseTimeRange = [](const QString& val) -> TimeRange {
+        QStringList parts = val.split(',', Qt::SkipEmptyParts);
+        TimeRange tr;
+        if (parts.size() == 2) {
+            tr.min = parts[0].trimmed();
+            tr.max = parts[1].trimmed();
+        } else if (parts.size() == 1) {
+            tr.min = tr.max = parts[0].trimmed();
         }
+        return tr;
+    };
 
-        if (entries.contains("AddMerit") || entries.contains("AddMerits"))
-            confession.merits.add = entries.value("AddMerit", entries.value("AddMerits")).value(0).toInt();
+    for (const QString& line : lines) {
+        if (line.isEmpty() || line.startsWith("#") || line.startsWith(";"))
+            continue; // Skip comments and empty lines
 
-        if (entries.contains("SubtractMerit") || entries.contains("SubtractMerits"))
-            confession.merits.subtract = entries.value("SubtractMerit", entries.value("SubtractMerits")).value(0).toInt();
-
-        if (entries.contains("SetMerit") || entries.contains("SetMerits"))
-            confession.merits.set = entries.value("SetMerit", entries.value("SetMerits")).value(0).toInt();
-
-        if (entries.contains("CenterRandom"))
-            confession.centerRandom = entries["CenterRandom"].value(0).trimmed() == "1";
-
-        if (entries.contains("Title"))
-            confession.title = entries["Title"].value(0);
-
-        if (entries.contains("Group"))
-            confession.group = entries["Group"].value(0);
-
-        MessageGroup currentGroup;
-        bool inMessageBlock = false;
-
-        for (auto keyIt = entries.begin(); keyIt != entries.end(); ++keyIt) {
-            QString key = keyIt.key();
-            const QStringList& values = keyIt.value();
-
-            for (const QString& val : values) {
-                if (key == "Select") {
-                    if (val.compare("Random", Qt::CaseInsensitive) == 0)
-                        currentGroup.mode = MessageSelectMode::Random;
-                    else
-                        currentGroup.mode = MessageSelectMode::All;
-
-                    inMessageBlock = true;
-                    if (!currentGroup.messages.isEmpty()) {
-                        confession.messages.append(currentGroup);
-                        currentGroup = MessageGroup();
-                    }
-                }
-                else if (key == "Message") {
-                    inMessageBlock = true;
-                    currentGroup.messages.append(val.trimmed());
-                }
-                else if (key == "Text") {
-                    confession.statusTexts.append(val.trimmed());
-                }
+        // Check for section headers
+        if (line.startsWith("[") && line.endsWith("]")) {
+            // Save the previous confession
+            if (inSection) {
+                scriptData.confessions.insert(currentConf.name, currentConf);
             }
-        }
-        if (!currentGroup.messages.isEmpty()) {
-            confession.messages.append(currentGroup);
-        }
+            inSection = false; // Reset
 
-        if (entries.contains("Input"))
-            confession.inputQuestions.append(entries["Input"]);
+            currentSectionName = line.mid(1, line.length() - 2).trimmed();
 
-        if (entries.contains("NoInputProcedure"))
-            confession.noInputProcedure = entries["NoInputProcedure"].value(0);
-
-        if (entries.contains("Question"))
-            confession.advancedQuestions.append(entries["Question"]);
-
-        if (entries.contains("MasterMail"))
-            confession.masterMailSubject = entries["MasterMail"].value(0);
-
-        if (entries.contains("MasterAttach")) {
-            for (const QString& file : entries["MasterAttach"])
-                confession.masterAttachments.append(file.trimmed());
+            if (currentSectionName.startsWith("confession-", Qt::CaseInsensitive)) {
+                inSection = true;
+                currentConf = ConfessionDefinition(); // Start a new, clean confession
+                currentConf.name = currentSectionName.mid(11).toLower();
+                currentPunishMessage.clear();
+            }
+            continue;
         }
 
-        if (entries.contains("SubMail")) {
-            for (const QString& line : entries["SubMail"])
-                confession.subMailLines.append(line.trimmed());
+        if (!inSection) continue; // Skip lines not in a confession section
+
+        int equalsIndex = line.indexOf('=');
+        if (equalsIndex == -1) continue; // Not a key-value pair
+
+        QString key = line.left(equalsIndex).trimmed();
+        QString value = line.mid(equalsIndex + 1).trimmed();
+
+        // --- 1. Handle PROPERTIES (not actions) ---
+        if (key.compare("Title", Qt::CaseInsensitive) == 0) {
+            currentConf.title = value;
+        } else if (key.compare("OnTop", Qt::CaseInsensitive) == 0) {
+            currentConf.onTop = (value != "0");
+        } else if (key.compare("ShowInMenu", Qt::CaseInsensitive) == 0) {
+            currentConf.showInMenu = (value != "0");
+        } else if (key.compare("PreStatus", Qt::CaseInsensitive) == 0) {
+            currentConf.preStatuses << value.split(',', Qt::SkipEmptyParts);
+        } else if (key.compare("AddMerit", Qt::CaseInsensitive) == 0 || key.compare("AddMerits", Qt::CaseInsensitive) == 0) {
+            currentConf.merits.add = value;
+        } else if (key.compare("SubtractMerit", Qt::CaseInsensitive) == 0 || key.compare("SubtractMerits", Qt::CaseInsensitive) == 0) {
+            currentConf.merits.subtract = value;
+        } else if (key.compare("SetMerit", Qt::CaseInsensitive) == 0 || key.compare("SetMerits", Qt::CaseInsensitive) == 0) {
+            currentConf.merits.set = value;
+        } else if (key.compare("CenterRandom", Qt::CaseInsensitive) == 0) {
+            currentConf.centerRandom = (value == "1");
+        } else if (key.compare("Group", Qt::CaseInsensitive) == 0) {
+            currentConf.group = value;
+        } else if (key.compare("MasterMail", Qt::CaseInsensitive) == 0) {
+            currentConf.masterMailSubject = value;
+        } else if (key.compare("MasterAttach", Qt::CaseInsensitive) == 0) {
+            currentConf.masterAttachments.append(value);
+        } else if (key.compare("SubMail", Qt::CaseInsensitive) == 0) {
+            currentConf.subMailLines.append(value);
+        } else if (key.compare("Text", Qt::CaseInsensitive) == 0) {
+            currentConf.statusTexts.append(value); // This is a property
         }
+        // ... (add other non-action properties like TimeWindowControl) ...
 
-        if (entries.contains("SetFlag"))
-            confession.setFlags = entries["SetFlag"];
+        // --- 2. Handle ACTIONS (add to ordered list) ---
+        else if (key.compare("Procedure", Qt::CaseInsensitive) == 0) {
+            currentConf.actions.append({ScriptActionType::ProcedureCall, value});
+        } else if (key.compare("If", Qt::CaseInsensitive) == 0) {
+            currentConf.actions.append({ScriptActionType::If, value});
+        } else if (key.compare("NotIf", Qt::CaseInsensitive) == 0) {
+            currentConf.actions.append({ScriptActionType::NotIf, value});
+        } else if (key.compare("SetFlag", Qt::CaseInsensitive) == 0) {
+            currentConf.actions.append({ScriptActionType::SetFlag, value});
+        } else if (key.compare("RemoveFlag", Qt::CaseInsensitive) == 0) {
+            currentConf.actions.append({ScriptActionType::RemoveFlag, value});
+        } else if (key.compare("ClearFlag", Qt::CaseInsensitive) == 0) {
+            currentConf.actions.append({ScriptActionType::ClearFlag, value});
+        } else if (key.compare("Set#", Qt::CaseInsensitive) == 0) {
+            currentConf.actions.append({ScriptActionType::SetCounterVar, value});
+        }
+        // ... (add all other action types just like we did for parseProcedureSections) ...
+        else if (key.compare("Add#", Qt::CaseInsensitive) == 0) {
+            currentConf.actions.append({ScriptActionType::AddCounter, value});
+        } else if (key.compare("Subtract#", Qt::CaseInsensitive) == 0) {
+            currentConf.actions.append({ScriptActionType::SubtractCounter, value});
+        } else if (key.compare("Multiply#", Qt::CaseInsensitive) == 0) {
+            currentConf.actions.append({ScriptActionType::MultiplyCounter, value});
+        } else if (key.compare("Divide#", Qt::CaseInsensitive) == 0) {
+            currentConf.actions.append({ScriptActionType::DivideCounter, value});
+        } else if (key.compare("Message", Qt::CaseInsensitive) == 0) {
+            currentConf.actions.append({ScriptActionType::Message, value});
+        } else if (key.compare("Question", Qt::CaseInsensitive) == 0) {
+            currentConf.actions.append({ScriptActionType::Question, value});
+        } else if (key.compare("Input", Qt::CaseInsensitive) == 0) {
+            currentConf.actions.append({ScriptActionType::Input, value});
+        } else if (key.compare("NewStatus", Qt::CaseInsensitive) == 0) {
+            currentConf.actions.append({ScriptActionType::NewStatus, value});
+        } else if (key.compare("NewSubStatus", Qt::CaseInsensitive) == 0) {
+            currentConf.actions.append({ScriptActionType::NewSubStatus, value});
+        } else if (key.compare("MarkDone", Qt::CaseInsensitive) == 0) {
+            currentConf.actions.append({ScriptActionType::MarkDone, value});
+        } else if (key.compare("Abort", Qt::CaseInsensitive) == 0) {
+            currentConf.actions.append({ScriptActionType::Abort, value});
+        } else if (key.compare("Delete", Qt::CaseInsensitive) == 0) {
+            currentConf.actions.append({ScriptActionType::Delete, value});
+        } else if (key.compare("AddMerit", Qt::CaseInsensitive) == 0 || key.compare("AddMerits", Qt::CaseInsensitive) == 0) {
+            currentConf.actions.append({ScriptActionType::AddMerit, value});
+        } else if (key.compare("SubtractMerit", Qt::CaseInsensitive) == 0 || key.compare("SubtractMerits", Qt::CaseInsensitive) == 0) {
+            currentConf.actions.append({ScriptActionType::SubtractMerit, value});
+        } else if (key.compare("SetMerit", Qt::CaseInsensitive) == 0 || key.compare("SetMerits", Qt::CaseInsensitive) == 0) {
+            currentConf.actions.append({ScriptActionType::SetMerit, value});
+        } else if (key.compare("PunishMessage", Qt::CaseInsensitive) == 0) {
+            if (currentPunishMessage.isEmpty()) {
+                currentPunishMessage = value;
+            }
+        } else if (key.compare("PunishmentGroup", Qt::CaseInsensitive) == 0) {
+            if (currentConf.punishGroup.isEmpty()) {
+                currentConf.punishGroup = value;
+            }
+        } else if (key.compare("Punish", Qt::CaseInsensitive) == 0) {
+            currentConf.actions.append({ScriptActionType::Punish, value});
+        }
+    }
 
-        if (entries.contains("ClearFlag"))
-            confession.clearFlags = entries["ClearFlag"];
-
-        if (entries.contains("Set$"))
-            confession.setStringVars = entries["Set$"];
-
-        if (entries.contains("Set#"))
-            confession.setCounterVars = entries["Set#"];
-
-        if (entries.contains("Set@"))
-            confession.setTimeVars = entries["Set@"];
-
-        if (entries.contains("Counter+"))
-            confession.incrementCounters = entries["Counter+"];
-
-        if (entries.contains("Counter-"))
-            confession.decrementCounters = entries["Counter-"];
-
-        if (entries.contains("Random#"))
-            confession.randomCounters = entries["Random#"];
-
-        if (entries.contains("Random$"))
-            confession.randomStrings = entries["Random$"];
-
-        if (entries.contains("Set!"))
-            confession.setTimeVars = entries["Set!"];
-        if (entries.contains("Add!"))
-            confession.addTimeVars = entries["Add!"];
-        if (entries.contains("Subtract!"))
-            confession.subtractTimeVars = entries["Subtract!"];
-        if (entries.contains("Multiply!"))
-            confession.multiplyTimeVars = entries["Multiply!"];
-        if (entries.contains("Divide!"))
-            confession.divideTimeVars = entries["Divide!"];
-        if (entries.contains("Round!"))
-            confession.roundTimeVars = entries["Round!"];
-        if (entries.contains("Drop!"))
-            confession.dropTimeVars = entries["Drop!"];
-        if (entries.contains("InputDate!"))
-            confession.inputDateVars = entries["InputDate!"];
-        if (entries.contains("InputDateDef!"))
-            confession.inputDateDefVars = entries["InputDateDef!"];
-        if (entries.contains("InputTime!"))
-            confession.inputTimeVars = entries["InputTime!"];
-        if (entries.contains("InputTimeDef!"))
-            confession.inputTimeDefVars = entries["InputTimeDef!"];
-        if (entries.contains("InputInterval!"))
-            confession.inputIntervalVars = entries["InputInterval!"];
-        if (entries.contains("Random!"))
-            confession.randomTimeVars = entries["Random!"];
-        if (entries.contains("AddDays!"))
-            confession.addDaysVars = entries["AddDays!"];
-        if (entries.contains("SubtractDays!"))
-            confession.subtractDaysVars = entries["SubtractDays!"];
-        if (entries.contains("Days#"))
-            confession.extractToCounter += entries["Days#"];
-        if (entries.contains("Hours#"))
-            confession.extractToCounter += entries["Hours#"];
-        if (entries.contains("Minutes#"))
-            confession.extractToCounter += entries["Minutes#"];
-        if (entries.contains("Seconds#"))
-            confession.extractToCounter += entries["Seconds#"];
-        if (entries.contains("Days!"))
-            confession.convertFromCounter += entries["Days!"];
-        if (entries.contains("Hours!"))
-            confession.convertFromCounter += entries["Hours!"];
-        if (entries.contains("Minutes!"))
-            confession.convertFromCounter += entries["Minutes!"];
-        if (entries.contains("Seconds!"))
-            confession.convertFromCounter += entries["Seconds!"];
-        if (entries.contains("If"))
-            confession.ifConditions = entries["If"];
-        if (entries.contains("NotIf"))
-            confession.notIfConditions = entries["NotIf"];
-        if (entries.contains("DenyIf"))
-            confession.denyIfConditions = entries["DenyIf"];
-        if (entries.contains("PermitIf"))
-            confession.permitIfConditions = entries["PermitIf"];
-
-        parseTimeWindowControl(entries, confession.timeWindow);
-        parseTimeRestrictions(entries, confession.notBeforeTimes, confession.notAfterTimes, confession.notBetweenTimes);
-
-        scriptData.confessions.insert(confessionName, confession);
+    // Save the very last confession in the file
+    if (inSection) {
+        scriptData.confessions.insert(currentConf.name, currentConf);
     }
 }
 
-void ScriptParser::parsePermissionSections(const QMap<QString, QMap<QString, QStringList>>& sections) {
-    for (auto it = sections.begin(); it != sections.end(); ++it) {
-        const QString& sectionName = it.key();
-        if (!sectionName.startsWith("permission-"))
+void ScriptParser::parsePermissionSections(const QStringList& lines) {
+    PermissionDefinition currentPermission;
+    bool inSection = false;
+    QString currentSectionName;
+    QString currentPunishMessage;
+
+    // Helper lambda for parsing time ranges
+    auto parseTimeRange = [](const QString& val) -> TimeRange {
+        QStringList parts = val.split(',', Qt::SkipEmptyParts);
+        TimeRange tr;
+        if (parts.size() == 2) {
+            tr.min = parts[0].trimmed();
+            tr.max = parts[1].trimmed();
+        } else if (parts.size() == 1) {
+            tr.min = tr.max = parts[0].trimmed();
+        }
+        return tr;
+    };
+
+    // Helper lambda for parsing int ranges
+    auto parseRange = [](const QString& v, int& minVal, int& maxVal) {
+        QStringList parts = v.split(',', Qt::SkipEmptyParts);
+        minVal = parts.value(0).toInt();
+        maxVal = parts.size() > 1 ? parts.value(1).toInt() : minVal;
+    };
+
+    for (const QString& line : lines) {
+        if (line.isEmpty() || line.startsWith("#") || line.startsWith(";"))
             continue;
 
-        QString permissionName = sectionName.mid(QString("permission-").length());
-        const QMap<QString, QStringList>& entries = it.value();
-
-        PermissionDefinition permission;
-        permission.name = permissionName;
-
-        if (entries.contains("Pct"))
-            permission.pct = entries["Pct"].value(0).toInt();
-
-        auto parseTimeRange = [](const QString& val) -> TimeRange {
-            QStringList parts = val.split(',', Qt::SkipEmptyParts);
-            TimeRange tr;
-            if (parts.size() == 2) {
-                tr.min = parts[0].trimmed();
-                tr.max = parts[1].trimmed();
-            } else if (parts.size() == 1) {
-                tr.min = tr.max = parts[0].trimmed();
+        // Check for section headers
+        if (line.startsWith("[") && line.endsWith("]")) {
+            if (inSection) {
+                // Save the previous permission
+                scriptData.permissions.insert(currentPermission.name, currentPermission);
             }
-            return tr;
-        };
+            inSection = false; // Reset
 
-        if (entries.contains("MinInterval"))
-            permission.minInterval = parseTimeRange(entries["MinInterval"].value(0));
+            currentSectionName = line.mid(1, line.length() - 2).trimmed();
 
-        if (entries.contains("Delay"))
-            permission.delay = parseTimeRange(entries["Delay"].value(0));
-
-        if (entries.contains("MaxWait"))
-            permission.maxWait = parseTimeRange(entries["MaxWait"].value(0));
-
-        if (entries.contains("Notify"))
-            permission.notify = entries["Notify"].value(0).toInt();
-
-        if (entries.contains("AddMerit") || entries.contains("AddMerits"))
-            permission.merits.add = entries.value("AddMerit", entries.value("AddMerits")).value(0).toInt();
-
-        if (entries.contains("SubtractMerit") || entries.contains("SubtractMerits"))
-            permission.merits.subtract = entries.value("SubtractMerit", entries.value("SubtractMerits")).value(0).toInt();
-
-        if (entries.contains("SetMerit") || entries.contains("SetMerits"))
-            permission.merits.set = entries.value("SetMerit", entries.value("SetMerits")).value(0).toInt();
-
-        if (entries.contains("CenterRandom"))
-            permission.centerRandom = entries["CenterRandom"].value(0).trimmed() == "1";
-
-        if (entries.contains("Title"))
-            permission.title = entries["Title"].value(0);
-
-        if (entries.contains("Group"))
-            permission.group = entries["Group"].value(0);
-
-        MessageGroup currentGroup;
-        bool inMessageBlock = false;
-
-        for (auto keyIt = entries.begin(); keyIt != entries.end(); ++keyIt) {
-            QString key = keyIt.key();
-            const QStringList& values = keyIt.value();
-
-            for (const QString& val : values) {
-                if (key == "Select") {
-                    if (val.compare("Random", Qt::CaseInsensitive) == 0)
-                        currentGroup.mode = MessageSelectMode::Random;
-                    else
-                        currentGroup.mode = MessageSelectMode::All;
-
-                    inMessageBlock = true;
-                    if (!currentGroup.messages.isEmpty()) {
-                        permission.messages.append(currentGroup);
-                        currentGroup = MessageGroup();
-                    }
-                }
-                else if (key == "Message") {
-                    inMessageBlock = true;
-                    currentGroup.messages.append(val.trimmed());
-                }
-                else if (key == "Text") {
-                    permission.statusTexts.append(val.trimmed());
-                }
+            if (currentSectionName.startsWith("permission-", Qt::CaseInsensitive)) {
+                inSection = true;
+                currentPermission = PermissionDefinition();
+                currentPermission.name = currentSectionName.mid(11).toLower();
+                currentPunishMessage.clear();
             }
-        }
-        if (!currentGroup.messages.isEmpty()) {
-            permission.messages.append(currentGroup);
+            continue;
         }
 
-        if (entries.contains("Input"))
-            permission.inputQuestions.append(entries["Input"]);
+        if (!inSection) continue; // Skip lines not in a permission section
 
-        if (entries.contains("NoInputProcedure"))
-            permission.noInputProcedure = entries["NoInputProcedure"].value(0);
+        int equalsIndex = line.indexOf('=');
+        if (equalsIndex == -1) continue; // Not a key-value pair
 
-        if (entries.contains("Question"))
-            permission.advancedQuestions.append(entries["Question"]);
+        QString key = line.left(equalsIndex).trimmed();
+        QString value = line.mid(equalsIndex + 1).trimmed();
 
-        // --- Time Control ---
-        if (entries.contains("DenyBefore")) {
-            QStringList parts = entries["DenyBefore"].value(0).split(',', Qt::SkipEmptyParts);
-            permission.denyBeforeStart = parts.value(0);
-            permission.denyBeforeEnd = parts.value(1, parts.value(0));
-        }
-
-        if (entries.contains("DenyAfter")) {
-            QStringList parts = entries["DenyAfter"].value(0).split(',', Qt::SkipEmptyParts);
-            permission.denyAfterStart = parts.value(0);
-            permission.denyAfterEnd = parts.value(1, parts.value(0));
-        }
-
-        if (entries.contains("DenyBetween")) {
-            QStringList parts = entries["DenyBetween"].value(0).split(',', Qt::SkipEmptyParts);
-            if (parts.size() == 2)
-                permission.denyBetweenRanges.append({ parts[0].trimmed(), parts[1].trimmed() });
-        }
-
-        // --- Flag Control ---
-        if (entries.contains("DenyIf"))
-            permission.denyIfFlags += entries["DenyIf"].value(0).split(',', Qt::SkipEmptyParts);
-
-        if (entries.contains("PermitIf"))
-            permission.permitIfFlags += entries["PermitIf"].value(0).split(',', Qt::SkipEmptyParts);
-
-        // --- Merit Control ---
-        auto parseRange = [](const QString& v, int& minVal, int& maxVal) {
-            QStringList parts = v.split(',', Qt::SkipEmptyParts);
-            minVal = parts.value(0).toInt();
-            maxVal = parts.size() > 1 ? parts.value(1).toInt() : minVal;
-        };
-
-        if (entries.contains("DenyBelow"))
-            parseRange(entries["DenyBelow"].value(0), permission.denyBelowMin, permission.denyBelowMax);
-
-        if (entries.contains("DenyAbove"))
-            parseRange(entries["DenyAbove"].value(0), permission.denyAboveMin, permission.denyAboveMax);
-
-        // --- Percent Control ---
-        if (entries.contains("Pct")) {
-            QString value = entries["Pct"].value(0).trimmed();
+        // --- Handle PROPERTIES ---
+        if (key.compare("Title", Qt::CaseInsensitive) == 0) {
+            currentPermission.title = value;
+        } else if (key.compare("PreStatus", Qt::CaseInsensitive) == 0) {
+            currentPermission.preStatuses << value.split(',', Qt::SkipEmptyParts);
+        } else if (key.compare("Pct", Qt::CaseInsensitive) == 0) {
             if (value.compare("Var", Qt::CaseInsensitive) == 0) {
-                permission.pctIsVariable = true;
+                currentPermission.pctIsVariable = true;
             } else {
-                parseRange(value, permission.pctMin, permission.pctMax);
+                parseRange(value, currentPermission.pctMin, currentPermission.pctMax);
+                if (currentPermission.pctMin = currentPermission.pctMax) {
+                    currentPermission.pct = currentPermission.pctMin;
+                }
             }
+        } else if (key.compare("MinInterval", Qt::CaseInsensitive) == 0) {
+            currentPermission.minInterval = parseTimeRange(value);
+        } else if (key.compare("Delay", Qt::CaseInsensitive) == 0) {
+            currentPermission.delay = parseTimeRange(value);
+        } else if (key.compare("MaxWait", Qt::CaseInsensitive) == 0) {
+            currentPermission.maxWait = parseTimeRange(value);
+        } else if (key.compare("Notify", Qt::CaseInsensitive) == 0) {
+            currentPermission.notify = value.toInt();
+        } else if (key.compare("AddMerit", Qt::CaseInsensitive) == 0 || key.compare("AddMerits", Qt::CaseInsensitive) == 0) {
+            currentPermission.merits.add = value;
+        } else if (key.compare("SubtractMerit", Qt::CaseInsensitive) == 0 || key.compare("SubtractMerits", Qt::CaseInsensitive) == 0) {
+            currentPermission.merits.subtract = value;
+        } else if (key.compare("SetMerit", Qt::CaseInsensitive) == 0 || key.compare("SetMerits", Qt::CaseInsensitive) == 0) {
+            currentPermission.merits.set = value;
+        } else if (key.compare("CenterRandom", Qt::CaseInsensitive) == 0) {
+            currentPermission.centerRandom = (value == "1");
+        } else if (key.compare("Group", Qt::CaseInsensitive) == 0) {
+            currentPermission.group = value;
+        } else if (key.compare("DenyBefore", Qt::CaseInsensitive) == 0) {
+            QStringList parts = value.split(',', Qt::SkipEmptyParts);
+            currentPermission.denyBeforeStart = parts.value(0);
+            currentPermission.denyBeforeEnd = parts.value(1, parts.value(0));
+        } else if (key.compare("DenyAfter", Qt::CaseInsensitive) == 0) {
+            QStringList parts = value.split(',', Qt::SkipEmptyParts);
+            currentPermission.denyAfterStart = parts.value(0);
+            currentPermission.denyAfterEnd = parts.value(1, parts.value(0));
+        } else if (key.compare("DenyBetween", Qt::CaseInsensitive) == 0) {
+            QStringList parts = value.split(',', Qt::SkipEmptyParts);
+            if (parts.size() == 2)
+                currentPermission.denyBetweenRanges.append({ parts[0].trimmed(), parts[1].trimmed() });
+        } else if (key.compare("DenyBelow", Qt::CaseInsensitive) == 0) {
+            parseRange(value, currentPermission.denyBelowMin, currentPermission.denyBelowMax);
+        } else if (key.compare("DenyAbove", Qt::CaseInsensitive) == 0) {
+            parseRange(value, currentPermission.denyAboveMin, currentPermission.denyAboveMax);
+        } else if (key.compare("HighMerits", Qt::CaseInsensitive) == 0) {
+            parseRange(value, currentPermission.highMeritsMin, currentPermission.highMeritsMax);
+        } else if (key.compare("HighPct", Qt::CaseInsensitive) == 0) {
+            parseRange(value, currentPermission.highPctMin, currentPermission.highPctMax);
+        } else if (key.compare("LowMerits", Qt::CaseInsensitive) == 0) {
+            parseRange(value, currentPermission.lowMeritsMin, currentPermission.lowMeritsMax);
+        } else if (key.compare("LowPct", Qt::CaseInsensitive) == 0) {
+            parseRange(value, currentPermission.lowPctMin, currentPermission.lowPctMax);
+        } else if (key.compare("BeforeProcedure", Qt::CaseInsensitive) == 0) {
+            currentPermission.beforeProcedure = value;
+        } else if (key.compare("PermitMessage", Qt::CaseInsensitive) == 0) {
+            currentPermission.permitMessage = value;
+        } else if (key.compare("DenyProcedure", Qt::CaseInsensitive) == 0) {
+            currentPermission.denyProcedure = value;
+        } else if (key.compare("DenyFlag", Qt::CaseInsensitive) == 0) {
+            currentPermission.denyFlags += value.split(',', Qt::SkipEmptyParts);
+        } else if (key.compare("DenyLaunch", Qt::CaseInsensitive) == 0) {
+            currentPermission.denyLaunch = value;
+        } else if (key.compare("DenyStatus", Qt::CaseInsensitive) == 0) {
+            currentPermission.denyStatus = value;
+        } else if (key.compare("MasterMail", Qt::CaseInsensitive) == 0) {
+            currentPermission.masterMailSubject = value;
+        } else if (key.compare("MasterAttach", Qt::CaseInsensitive) == 0) {
+            currentPermission.masterAttachments.append(value);
+        } else if (key.compare("SubMail", Qt::CaseInsensitive) == 0) {
+            currentPermission.subMailLines.append(value);
+        } else if (key.compare("PointCamera", Qt::CaseInsensitive) == 0) {
+            currentPermission.pointCameraText = value;
         }
 
-        if (entries.contains("HighMerits"))
-            parseRange(entries["HighMerits"].value(0), permission.highMeritsMin, permission.highMeritsMax);
-
-        if (entries.contains("HighPct"))
-            parseRange(entries["HighPct"].value(0), permission.highPctMin, permission.highPctMax);
-
-        if (entries.contains("LowMerits"))
-            parseRange(entries["LowMerits"].value(0), permission.lowMeritsMin, permission.lowMeritsMax);
-
-        if (entries.contains("LowPct"))
-            parseRange(entries["LowPct"].value(0), permission.lowPctMin, permission.lowPctMax);
-
-        // --- Control Procedure ---
-        if (entries.contains("BeforeProcedure"))
-            permission.beforeProcedure = entries["BeforeProcedure"].value(0);
-
-        // --- Messages ---
-        if (entries.contains("PermitMessage"))
-            permission.permitMessage = entries["PermitMessage"].value(0);
-
-        if (entries.contains("DenyMessage"))
-            permission.denyMessage = entries["DenyMessage"].value(0);
-
-        // --- Denial Actions ---
-        if (entries.contains("DenyProcedure"))
-            permission.denyProcedure = entries["DenyProcedure"].value(0);
-
-        if (entries.contains("DenyFlag"))
-            permission.denyFlags += entries["DenyFlag"].value(0).split(',', Qt::SkipEmptyParts);
-
-        if (entries.contains("DenyLaunch"))
-            permission.denyLaunch = entries["DenyLaunch"].value(0);
-
-        if (entries.contains("DenyStatus"))
-            permission.denyStatus = entries["DenyStatus"].value(0);
-
-        if (entries.contains("MasterMail"))
-            permission.masterMailSubject = entries["MasterMail"].value(0);
-
-        if (entries.contains("MasterAttach")) {
-            for (const QString& file : entries["MasterAttach"])
-                permission.masterAttachments.append(file.trimmed());
+        // --- Handle ACTIONS
+        else if (key.compare("Procedure", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::ProcedureCall, value});
+        } else if (key.compare("If", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::If, value});
+        } else if (key.compare("NotIf", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::NotIf, value});
+        } else if (key.compare("SetFlag", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::SetFlag, value});
+        } else if (key.compare("RemoveFlag", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::RemoveFlag, value});
+        } else if (key.compare("ClearFlag", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::ClearFlag, value});
+        } else if (key.compare("Set#", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::SetCounterVar, value});
+        } else if (key.compare("Set$", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::SetString, value});
+        } else if (key.compare("Set!", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::SetTimeVar, value});
+        } else if (key.compare("Add#", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::AddCounter, value});
+        } else if (key.compare("Subtract#", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::SubtractCounter, value});
+        } else if (key.compare("Multiply#", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::MultiplyCounter, value});
+        } else if (key.compare("Divide#", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::DivideCounter, value});
+        } else if (key.compare("Message", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::Message, value});
+        } else if (key.compare("Question", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::Question, value});
+        } else if (key.compare("Input", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::Input, value});
+        } else if (key.compare("Clothing", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::Clothing, value});
+        } else if (key.compare("NewStatus", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::NewStatus, value});
+        } else if (key.compare("NewSubStatus", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::NewSubStatus, value});
+        } else if (key.compare("Job", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::AnnounceJob, value});
+        } else if (key.compare("MarkDone", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::MarkDone, value});
+        } else if (key.compare("Abort", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::Abort, value});
+        } else if (key.compare("Delete", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::Delete, value});
+        } else if (key.compare("AddMerit", Qt::CaseInsensitive) == 0 || key.compare("AddMerits", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::AddMerit, value});
+        } else if (key.compare("SubtractMerit", Qt::CaseInsensitive) == 0 || key.compare("SubtractMerits", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::SubtractMerit, value});
+        } else if (key.compare("SetMerit", Qt::CaseInsensitive) == 0 || key.compare("SetMerits", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::SetMerit, value});
+        } else if (key.compare("PunishMessage", Qt::CaseInsensitive) == 0) {
+            if (currentPunishMessage.isEmpty()) {
+                currentPunishMessage = value;
+            }
+        } else if (key.compare("PunishmentGroup", Qt::CaseInsensitive) == 0) {
+            if (currentPermission.punishGroup.isEmpty()) {
+                currentPermission.punishGroup = value;
+            }
+        } else if (key.compare("Punish", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::Punish, value});
         }
+    }
 
-        if (entries.contains("SubMail")) {
-            for (const QString& line : entries["SubMail"])
-                permission.subMailLines.append(line.trimmed());
-        }
-
-        if (entries.contains("PoseCamera"))
-            permission.poseCameraText = entries["PoseCamera"].value(0);
-
-        if (entries.contains("PointCamera"))
-            permission.pointCameraText = entries["PointCamera"].value(0);
-
-        if (entries.contains("SetFlag"))
-            permission.setFlags = entries["SetFlag"];
-
-        if (entries.contains("ClearFlag"))
-            permission.clearFlags = entries["ClearFlag"];
-
-        if (entries.contains("Set$"))
-            permission.setStringVars = entries["Set$"];
-
-        if (entries.contains("Set#"))
-            permission.setCounterVars = entries["Set#"];
-
-        if (entries.contains("Set@"))
-            permission.setTimeVars = entries["Set@"];
-
-        if (entries.contains("Counter+"))
-            permission.incrementCounters = entries["Counter+"];
-
-        if (entries.contains("Counter-"))
-            permission.decrementCounters = entries["Counter-"];
-
-        if (entries.contains("Random#"))
-            permission.randomCounters = entries["Random#"];
-
-        if (entries.contains("Random$"))
-            permission.randomStrings = entries["Random$"];
-
-        if (entries.contains("SetFlag"))
-            permission.setFlags = entries["SetFlag"];
-
-        if (entries.contains("RemoveFlag"))
-            permission.removeFlags = entries["RemoveFlag"];
-
-        if (entries.contains("SetFlagGroup"))
-            permission.setFlagGroups = entries["SetFlagGroup"];
-
-        if (entries.contains("RemoveFlagGroup"))
-            permission.removeFlagGroups = entries["RemoveFlagGroup"];
-
-        if (entries.contains("If"))
-            permission.ifFlags = entries["If"];
-
-        if (entries.contains("NotIf"))
-            permission.notIfFlags = entries["NotIf"];
-
-        if (entries.contains("DenyIf"))
-            permission.denyIfFlags = entries["DenyIf"];
-
-        if (entries.contains("PermitIf"))
-            permission.permitIfFlags = entries["PermitIf"];
-
-        if (entries.contains("Set$"))
-            permission.setStrings = entries["Set$"];
-
-        if (entries.contains("Input$"))
-            permission.inputStrings = entries["Input$"];
-
-        if (entries.contains("InputLong$"))
-            permission.inputLongStrings = entries["InputLong$"];
-
-        if (entries.contains("Drop$"))
-            permission.dropStrings = entries["Drop$"];
-
-        if (entries.contains("Set#"))
-            permission.setCounters = entries["Set#"];
-
-        if (entries.contains("Add#"))
-            permission.addCounters = entries["Add#"];
-
-        if (entries.contains("Subtract#"))
-            permission.subtractCounters = entries["Subtract#"];
-
-        if (entries.contains("Multiply#"))
-            permission.multiplyCounters = entries["Multiply#"];
-
-        if (entries.contains("Divide#"))
-            permission.divideCounters = entries["Divide#"];
-
-        if (entries.contains("Drop#"))
-            permission.dropCounters = entries["Drop#"];
-
-        if (entries.contains("Input#"))
-            permission.inputCounters = entries["Input#"];
-
-        if (entries.contains("InputNeg#"))
-            permission.inputNegCounters = entries["InputNeg#"];
-
-        if (entries.contains("Random#"))
-            permission.randomCounters = entries["Random#"];
-
-        if (entries.contains("Set!"))
-            permission.setTimeVars = entries["Set!"];
-        if (entries.contains("Add!"))
-            permission.addTimeVars = entries["Add!"];
-        if (entries.contains("Subtract!"))
-            permission.subtractTimeVars = entries["Subtract!"];
-        if (entries.contains("Multiply!"))
-            permission.multiplyTimeVars = entries["Multiply!"];
-        if (entries.contains("Divide!"))
-            permission.divideTimeVars = entries["Divide!"];
-        if (entries.contains("Round!"))
-            permission.roundTimeVars = entries["Round!"];
-        if (entries.contains("Drop!"))
-            permission.dropTimeVars = entries["Drop!"];
-        if (entries.contains("InputDate!"))
-            permission.inputDateVars = entries["InputDate!"];
-        if (entries.contains("InputDateDef!"))
-            permission.inputDateDefVars = entries["InputDateDef!"];
-        if (entries.contains("InputTime!"))
-            permission.inputTimeVars = entries["InputTime!"];
-        if (entries.contains("InputTimeDef!"))
-            permission.inputTimeDefVars = entries["InputTimeDef!"];
-        if (entries.contains("InputInterval!"))
-            permission.inputIntervalVars = entries["InputInterval!"];
-        if (entries.contains("Random!"))
-            permission.randomTimeVars = entries["Random!"];
-        if (entries.contains("AddDays!"))
-            permission.addDaysVars = entries["AddDays!"];
-        if (entries.contains("SubtractDays!"))
-            permission.subtractDaysVars = entries["SubtractDays!"];
-        if (entries.contains("Days#"))
-            permission.extractToCounter += entries["Days#"];
-        if (entries.contains("Hours#"))
-            permission.extractToCounter += entries["Hours#"];
-        if (entries.contains("Minutes#"))
-            permission.extractToCounter += entries["Minutes#"];
-        if (entries.contains("Seconds#"))
-            permission.extractToCounter += entries["Seconds#"];
-        if (entries.contains("Days!"))
-            permission.convertFromCounter += entries["Days!"];
-        if (entries.contains("Hours!"))
-            permission.convertFromCounter += entries["Hours!"];
-        if (entries.contains("Minutes!"))
-            permission.convertFromCounter += entries["Minutes!"];
-        if (entries.contains("Seconds!"))
-            permission.convertFromCounter += entries["Seconds!"];
-        if (entries.contains("If"))
-            permission.ifConditions = entries["If"];
-        if (entries.contains("NotIf"))
-            permission.notIfConditions = entries["NotIf"];
-        if (entries.contains("DenyIf"))
-            permission.denyIfConditions = entries["DenyIf"];
-        if (entries.contains("PermitIf"))
-            permission.permitIfConditions = entries["PermitIf"];
-
-        parseTimeWindowControl(entries, permission.timeWindow);
-        parseTimeRestrictions(entries, permission.notBeforeTimes, permission.notAfterTimes, permission.notBetweenTimes);
-
-        scriptData.permissions.insert(permissionName, permission);
+    // Save the very last permission in the file
+    if (inSection) {
+        scriptData.permissions.insert(currentPermission.name, currentPermission);
     }
 }
 
@@ -1598,13 +1240,8 @@ void ScriptParser::parsePunishmentSections(const QMap<QString, QMap<QString, QSt
 
         if (entries.contains("Weight")) {
             QStringList parts = entries["Weight"].value(0).split(',', Qt::SkipEmptyParts);
-            if (parts.size() == 2) {
-                p.weightMin = parts[0].toInt();
-                p.weightMax = parts[1].toInt();
-            } else {
-                int w = parts[0].toInt();
-                p.weightMin = p.weightMax = (w > 0 ? w : 1);
-            }
+            p.weightMin = parts.value(0).trimmed();
+            p.weightMax = parts.value(1, p.weightMin).trimmed();
         }
 
         if (entries.contains("Group")) {
@@ -1620,6 +1257,46 @@ void ScriptParser::parsePunishmentSections(const QMap<QString, QMap<QString, QSt
 
         if (entries.contains("MustStart"))
             p.mustStart = entries["MustStart"].value(0).trimmed() == "1";
+
+        if (entries.contains("DeleteAllowed"))
+            p.deleteAllowed = entries["DeleteAllowed"].value(0).trimmed() == "1";
+
+        if (entries.contains("StartProcedure"))
+            p.startProcedure = entries["StartProcedure"].value(0).trimmed();
+
+        if (entries.contains("BeforeDoneProcedure"))
+            p.beforeDoneProcedure = entries["BeforeDoneProcedure"].value(0).trimmed();
+
+        if (entries.contains("AbortProcedure"))
+            p.abortProcedure = entries["AbortProcedure"].value(0).trimmed();
+
+        if (entries.contains("DoneProcedure"))
+            p.doneProcedure = entries["DoneProcedure"].value(0).trimmed();
+
+        if (entries.contains("RemindProcedure"))
+            p.remindProcedure = entries["RemindProcedure"].value(0).trimmed();
+
+        if (entries.contains("AnnounceProcedure"))
+            p.announceProcedure = entries["AnnounceProcedure"].value(0).trimmed();
+
+        if (entries.contains("BeforeProcedure"))
+            p.beforeProcedure = entries["BeforeProcedure"].value(0).trimmed();
+
+        if (entries.contains("DeleteProcedure"))
+            p.deleteProcedure = entries["DeleteProcedure"].value(0).trimmed();
+
+        if (entries.contains("BeforeDeleteProcedure"))
+            p.beforeDeleteProcedure = entries["BeforeDeleteProcedure"].value(0).trimmed();
+
+        if (entries.contains("StartFlag"))
+            p.startFlag = entries["StartFlag"].value(0).trimmed();
+
+        if (entries.contains("Interruptable") || entries.contains("Interruptible")) {
+            QString val = entries.value("Interruptable", entries.value("Interruptible")).value(0).trimmed();
+            if (val == "0") {
+                p.interruptable = false;
+            }
+        }
 
         if (entries.contains("Accumulative"))
             p.accumulative = entries["Accumulative"].value(0).trimmed() == "1";
@@ -1638,13 +1315,13 @@ void ScriptParser::parsePunishmentSections(const QMap<QString, QMap<QString, QSt
         }
 
         if (entries.contains("AddMerit") || entries.contains("AddMerits"))
-            p.merits.add = entries.value("AddMerit", entries.value("AddMerits")).value(0).toInt();
+            p.merits.add = entries.value("AddMerit", entries.value("AddMerits")).value(0);
 
         if (entries.contains("SubtractMerit") || entries.contains("SubtractMerits"))
-            p.merits.subtract = entries.value("SubtractMerit", entries.value("SubtractMerits")).value(0).toInt();
+            p.merits.subtract = entries.value("SubtractMerit", entries.value("SubtractMerits")).value(0);
 
         if (entries.contains("SetMerit") || entries.contains("SetMerits"))
-            p.merits.set = entries.value("SetMerit", entries.value("SetMerits")).value(0).toInt();
+            p.merits.set = entries.value("SetMerit", entries.value("SetMerits")).value(0);
 
         if (entries.contains("CenterRandom"))
             p.centerRandom = entries["CenterRandom"].value(0).trimmed() == "1";
@@ -2002,6 +1679,49 @@ void ScriptParser::parseJobSections(const QMap<QString, QMap<QString, QStringLis
             }
         }
 
+        if (entries.contains("MustStart"))
+            job.mustStart = entries["MustStart"].value(0).trimmed() == "1";
+
+        if (entries.contains("DeleteAllowed"))
+            job.deleteAllowed = (entries["DeleteAllowed"].value(0).trimmed() == "1");
+
+        if (entries.contains("StartFlag"))
+            job.startFlag = entries["StartFlag"].value(0).trimmed();
+
+        if (entries.contains("AnnounceProcedure"))
+            job.announceProcedure = entries["AnnounceProcedure"].value(0).trimmed();
+
+        if (entries.contains("BeforeDoneProcedure"))
+            job.beforeDoneProcedure = entries["BeforeDoneProcedure"].value(0).trimmed();
+
+        if (entries.contains("StartProcedure"))
+            job.startProcedure = entries["StartProcedure"].value(0).trimmed();
+
+        if (entries.contains("AbortProcedure"))
+            job.abortProcedure = entries["AbortProcedure"].value(0).trimmed();
+
+        if (entries.contains("DoneProcedure"))
+            job.doneProcedure = entries["DoneProcedure"].value(0).trimmed();
+
+        if (entries.contains("BeforeProcedure"))
+            job.beforeProcedure = entries["AnnounceProcedure"].value(0).trimmed();
+
+        if (entries.contains("RemindProcedure"))
+            job.remindProcedure = entries["RemindProcedure"].value(0).trimmed();
+
+        if (entries.contains("DeleteProcedure"))
+            job.deleteProcedure = entries["DeleteProcedure"].value(0).trimmed();
+
+        if (entries.contains("BeforeDeleteProcedure"))
+            job.beforeDeleteProcedure = entries["BeforeDeleteProcedure"].value(0).trimmed();
+
+        if (entries.contains("Interruptable") || entries.contains("Interruptible")) {
+            QString val = entries.value("Interruptable", entries.value("Interruptible")).value(0).trimmed();
+            if (val == "0") {
+                job.interruptable = false;
+            }
+        }
+
         if (entries.contains("ExpirePenalty"))
             parseIntRange(entries["ExpirePenalty"].value(0), job.expirePenaltyMin, job.expirePenaltyMax);
 
@@ -2018,13 +1738,13 @@ void ScriptParser::parseJobSections(const QMap<QString, QMap<QString, QStringLis
             job.announce = entries["Announce"].value(0).trimmed() != "0";
 
         if (entries.contains("AddMerit") || entries.contains("AddMerits"))
-            job.merits.add = entries.value("AddMerit", entries.value("AddMerits")).value(0).toInt();
+            job.merits.add = entries.value("AddMerit", entries.value("AddMerits")).value(0);
 
         if (entries.contains("SubtractMerit") || entries.contains("SubtractMerits"))
-            job.merits.subtract = entries.value("SubtractMerit", entries.value("SubtractMerits")).value(0).toInt();
+            job.merits.subtract = entries.value("SubtractMerit", entries.value("SubtractMerits")).value(0);
 
         if (entries.contains("SetMerit") || entries.contains("SetMerits"))
-            job.merits.set = entries.value("SetMerit", entries.value("SetMerits")).value(0).toInt();
+            job.merits.set = entries.value("SetMerit", entries.value("SetMerits")).value(0);
 
         if (entries.contains("CenterRandom"))
             job.centerRandom = entries["CenterRandom"].value(0).trimmed() == "1";
@@ -2186,6 +1906,10 @@ void ScriptParser::parseJobSections(const QMap<QString, QMap<QString, QStringLis
 
         if (entries.contains("Random#"))
             job.randomCounters = entries["Random#"];
+
+        if (entries.contains("NewStatus")) {
+            job.newStatus = entries["NewStatus"].value(0).trimmed();
+        }
 
         if (entries.contains("Set!"))
             job.setTimeVars = entries["Set!"];
@@ -2720,6 +2444,7 @@ void ScriptParser::parseProcedureSections(const QStringList& lines) {
     ProcedureDefinition currentProc;
     bool inProcSection = false;
     QString currentSectionName;
+    QString currentPunishMessage;
 
     // Loop through every single line from the .ini in its original order
     for (const QString& line : lines) {
@@ -2741,6 +2466,7 @@ void ScriptParser::parseProcedureSections(const QStringList& lines) {
                 inProcSection = true;
                 currentProc = ProcedureDefinition();
                 currentProc.name = currentSectionName.mid(10).toLower();
+                currentPunishMessage.clear();
             }
             continue;
         }
@@ -2808,6 +2534,26 @@ void ScriptParser::parseProcedureSections(const QStringList& lines) {
             currentProc.actions.append({ScriptActionType::NewSubStatus, value});
         } else if (key.compare("Job", Qt::CaseInsensitive) == 0) {
             currentProc.actions.append({ScriptActionType::AnnounceJob, value});
+        } else if (key.compare("MarkDone", Qt::CaseInsensitive) == 0) {
+            currentProc.actions.append({ScriptActionType::MarkDone, value});
+        } else if (key.compare("Abort", Qt::CaseInsensitive) == 0) {
+            currentProc.actions.append({ScriptActionType::Delete, value});
+        } else if (key.compare("AddMerit", Qt::CaseInsensitive) == 0 || key.compare("AddMerits", Qt::CaseInsensitive) == 0) {
+            currentProc.actions.append({ScriptActionType::AddMerit, value});
+        } else if (key.compare("SubtractMerit", Qt::CaseInsensitive) == 0 || key.compare("SubtractMerits", Qt::CaseInsensitive) == 0) {
+            currentProc.actions.append({ScriptActionType::SubtractMerit, value});
+        } else if (key.compare("SetMerit", Qt::CaseInsensitive) == 0 || key.compare("SetMerits", Qt::CaseInsensitive) == 0) {
+            currentProc.actions.append({ScriptActionType::SetMerit, value});
+        } else if (key.compare("PunishMessage", Qt::CaseInsensitive) == 0) {
+            if (currentPunishMessage.isEmpty()) {
+                currentPunishMessage = value;
+            }
+        } else if (key.compare("PunishmentGroup", Qt::CaseInsensitive) == 0) {
+            if (currentProc.punishGroup.isEmpty()) {
+                currentProc.punishGroup = value;
+            }
+        } else if (key.compare("Punish", Qt::CaseInsensitive) == 0) {
+            currentProc.actions.append({ScriptActionType::Punish, value});
         }
 
         if (inProcSection) {
@@ -2948,84 +2694,111 @@ void ScriptParser::parsePopupGroupSections(const QMap<QString, QMap<QString, QSt
     }
 }
 
-void ScriptParser::parseTimerSections(const QMap<QString, QMap<QString, QStringList>>& sections) {
-    for (auto it = sections.begin(); it != sections.end(); ++it) {
-        QString sectionName = it.key();
-        if (!sectionName.startsWith("timer-"))
+void ScriptParser::parseTimerSections(const QStringList& lines) {
+    TimerDefinition currentTimer;
+    bool inSection = false;
+    QString currentSectionName;
+    QString currentPunishMessage;
+
+    for (const QString& line : lines) {
+        if (line.isEmpty() || line.startsWith("#") || line.startsWith(";"))
+            continue; // Skip comments and empty lines
+
+        // Check for section headers
+        if (line.startsWith("[") && line.endsWith("]")) {
+            if (inSection) {
+                // Save the previous timer
+                scriptData.timers.insert(currentTimer.name, currentTimer);
+            }
+            inSection = false; // Reset
+
+            currentSectionName = line.mid(1, line.length() - 2).trimmed();
+
+            if (currentSectionName.startsWith("timer-", Qt::CaseInsensitive)) {
+                inSection = true;
+                currentTimer = TimerDefinition(); // Start a new, clean timer
+                currentTimer.name = currentSectionName.mid(6).toLower();
+                currentPunishMessage.clear();
+            }
             continue;
+        }
 
-        QString name = sectionName.mid(QString("timer-").length());
-        const QMap<QString, QStringList>& entries = it.value();
+        if (!inSection) continue; // Skip lines not in a timer section
 
-        TimerDefinition t;
-        t.name = name;
+        int equalsIndex = line.indexOf('=');
+        if (equalsIndex == -1) continue; // Not a key-value pair
 
-        for (auto e = entries.begin(); e != entries.end(); ++e) {
-            const QString& key = e.key();
-            const QStringList& values = e.value();
+        QString key = line.left(equalsIndex).trimmed();
+        QString value = line.mid(equalsIndex + 1).trimmed();
 
-            for (const QString& raw : values) {
-                QString value = raw.trimmed();
+        // --- 1. Handle PROPERTIES (not actions) ---
+        if (key.compare("Start", Qt::CaseInsensitive) == 0) {
+            QStringList times = value.split(',', Qt::SkipEmptyParts);
+            currentTimer.startTimeMin = times.value(0);
+            currentTimer.startTimeMax = times.value(1, times.value(0));
+        } else if (key.compare("End", Qt::CaseInsensitive) == 0) {
+            currentTimer.endTime = value;
+        } else if (key.compare("PreStatus", Qt::CaseInsensitive) == 0) {
+            currentTimer.preStatuses += value.split(',', Qt::SkipEmptyParts);
+        } else if (key.compare("NotBefore", Qt::CaseInsensitive) == 0) {
+            currentTimer.notBefore += value.split(',', Qt::SkipEmptyParts);
+        } else if (key.compare("NotAfter", Qt::CaseInsensitive) == 0) {
+            currentTimer.notAfter += value.split(',', Qt::SkipEmptyParts);
+        } else if (key.compare("NotBetween", Qt::CaseInsensitive) == 0) {
+            QStringList parts = value.split(',', Qt::SkipEmptyParts);
+            if (parts.size() == 2)
+                currentTimer.notBetween.append({ parts[0].trimmed(), parts[1].trimmed() });
+        }
+        // ... (add other non-action properties like MasterMail, etc.) ...
 
-                if (key == "Start") {
-                    QStringList times = value.split(',', Qt::SkipEmptyParts);
-                    t.startTimeMin = times.value(0);
-                    t.startTimeMax = times.value(1, times.value(0));
-                } else if (key == "End") {
-                    t.endTime = value;
-                } else if (key.compare("Procedure", Qt::CaseInsensitive) == 0) {
-                    t.procedures.append(value.trimmed().toLower());
-                } else if (key == "PreStatus") {
-                    t.preStatuses += value.split(',', Qt::SkipEmptyParts);
-                } else if (key == "If") {
-                    t.ifFlags += value.split(',', Qt::SkipEmptyParts);
-                } else if (key == "NotIf") {
-                    t.notIfFlags += value.split(',', Qt::SkipEmptyParts);
-                } else if (key == "NotBefore") {
-                    t.notBefore += value.split(',', Qt::SkipEmptyParts);
-                } else if (key == "NotAfter") {
-                    t.notAfter += value.split(',', Qt::SkipEmptyParts);
-                } else if (key == "NotBetween") {
-                    QStringList parts = value.split(',', Qt::SkipEmptyParts);
-                    if (parts.size() == 2)
-                        t.notBetween.append({ parts[0].trimmed(), parts[1].trimmed() });
-                }
+        // --- 2. Handle ACTIONS (add to ordered list) ---
+        else if (key.compare("Procedure", Qt::CaseInsensitive) == 0) {
+            currentTimer.actions.append({ScriptActionType::ProcedureCall, value});
+        } else if (key.compare("If", Qt::CaseInsensitive) == 0) {
+            currentTimer.actions.append({ScriptActionType::If, value});
+        } else if (key.compare("NotIf", Qt::CaseInsensitive) == 0) {
+            currentTimer.actions.append({ScriptActionType::NotIf, value});
+        } else if (key.compare("SetFlag", Qt::CaseInsensitive) == 0) {
+            currentTimer.actions.append({ScriptActionType::SetFlag, value});
+        } else if (key.compare("Set#", Qt::CaseInsensitive) == 0) {
+            currentTimer.actions.append({ScriptActionType::SetCounterVar, value});
+        } else if (key.compare("Add#", Qt::CaseInsensitive) == 0) {
+            currentTimer.actions.append({ScriptActionType::AddCounter, value});
+        } else if (key.compare("Subtract#", Qt::CaseInsensitive) == 0) {
+            currentTimer.actions.append({ScriptActionType::SubtractCounter, value});
+        } else if (key.compare("Message", Qt::CaseInsensitive) == 0) {
+            currentTimer.actions.append({ScriptActionType::Message, value});
+        } else if (key.compare("NewStatus", Qt::CaseInsensitive) == 0) {
+            currentTimer.actions.append({ScriptActionType::NewStatus, value});
+        } else if (key.compare("MarkDone", Qt::CaseInsensitive) == 0) {
+            currentTimer.actions.append({ScriptActionType::MarkDone, value});
+        } else if (key.compare("Abort", Qt::CaseInsensitive) == 0) {
+            currentTimer.actions.append({ScriptActionType::Abort, value});
+        } else if (key.compare("Delete", Qt::CaseInsensitive) == 0) {
+            currentTimer.actions.append({ScriptActionType::Delete, value});
+        } else if (key.compare("AddMerit", Qt::CaseInsensitive) == 0 || key.compare("AddMerits", Qt::CaseInsensitive) == 0) {
+            currentTimer.actions.append({ScriptActionType::AddMerit, value});
+        } else if (key.compare("SubtractMerit", Qt::CaseInsensitive) == 0 || key.compare("SubtractMerits", Qt::CaseInsensitive) == 0) {
+            currentTimer.actions.append({ScriptActionType::SubtractMerit, value});
+        } else if (key.compare("SetMerit", Qt::CaseInsensitive) == 0 || key.compare("SetMerits", Qt::CaseInsensitive) == 0) {
+            currentTimer.actions.append({ScriptActionType::SetMerit, value});
+        } else if (key.compare("PunishMessage", Qt::CaseInsensitive) == 0) {
+            if (currentPunishMessage.isEmpty()) {
+                currentPunishMessage = value;
             }
-        }
-
-        if (entries.contains("MasterMail"))
-            t.masterMailSubject = entries["MasterMail"].value(0);
-
-        if (entries.contains("MasterAttach")) {
-            for (const QString& file : entries["MasterAttach"])
-                t.masterAttachments.append(file.trimmed());
-        }
-
-        if (entries.contains("SubMail")) {
-            for (const QString& line : entries["SubMail"])
-                t.subMailLines.append(line.trimmed());
-        }
-
-        QStringList lines;
-        for (auto keyIt = entries.begin(); keyIt != entries.end(); ++keyIt) {
-            for (const QString &val : keyIt.value())
-                lines.append(val);
-        }
-
-        int index = 0;
-        while (index < lines.size()) {
-            if (lines[index].startsWith("Case=", Qt::CaseInsensitive)) {
-                CaseBlock block = parseCaseBlock(lines, index);
-                t.cases.append(block);
-            } else {
-                ++index;
+        } else if (key.compare("PunishmentGroup", Qt::CaseInsensitive) == 0) {
+            if (currentTimer.punishGroup.isEmpty()) {
+                currentTimer.punishGroup = value;
             }
+        } else if (key.compare("Punish", Qt::CaseInsensitive) == 0) {
+            currentTimer.actions.append({ScriptActionType::Punish, value});
         }
+        // ... (add all other action types as needed) ...
+    }
 
-        parseDurationControl(entries, t.duration);
-        parseTimeRestrictions(entries, t.notBeforeTimes, t.notAfterTimes, t.notBetweenTimes);
-
-        scriptData.timers.insert(t.name, t);
+    // Save the very last timer in the file
+    if (inSection) {
+        scriptData.timers.insert(currentTimer.name, currentTimer);
     }
 }
 

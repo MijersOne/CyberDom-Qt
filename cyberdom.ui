@@ -42,7 +42,7 @@
     <property name="geometry">
      <rect>
       <x>10</x>
-      <y>490</y>
+      <y>480</y>
       <width>641</width>
       <height>26</height>
      </rect>
@@ -61,9 +61,9 @@
     <property name="geometry">
      <rect>
       <x>10</x>
-      <y>440</y>
-      <width>47</width>
-      <height>26</height>
+      <y>430</y>
+      <width>161</width>
+      <height>41</height>
      </rect>
     </property>
     <property name="sizePolicy">
@@ -71,6 +71,11 @@
       <horstretch>0</horstretch>
       <verstretch>0</verstretch>
      </sizepolicy>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>14</pointsize>
+     </font>
     </property>
     <property name="text">
      <string>Merits:</string>
@@ -80,7 +85,7 @@
     <property name="geometry">
      <rect>
       <x>700</x>
-      <y>440</y>
+      <y>430</y>
       <width>91</width>
       <height>26</height>
      </rect>
@@ -99,7 +104,7 @@
     <property name="geometry">
      <rect>
       <x>640</x>
-      <y>440</y>
+      <y>430</y>
       <width>51</width>
       <height>26</height>
      </rect>
@@ -115,7 +120,7 @@
     <property name="geometry">
      <rect>
       <x>700</x>
-      <y>460</y>
+      <y>450</y>
       <width>81</width>
       <height>26</height>
      </rect>
@@ -134,7 +139,7 @@
     <property name="geometry">
      <rect>
       <x>640</x>
-      <y>460</y>
+      <y>450</y>
       <width>51</width>
       <height>26</height>
      </rect>
@@ -150,7 +155,7 @@
     <property name="geometry">
      <rect>
       <x>670</x>
-      <y>490</y>
+      <y>480</y>
       <width>81</width>
       <height>26</height>
      </rect>
@@ -171,8 +176,14 @@
       <x>10</x>
       <y>50</y>
       <width>771</width>
-      <height>381</height>
+      <height>371</height>
      </rect>
+    </property>
+    <property name="frameShadow">
+     <enum>QFrame::Shadow::Raised</enum>
+    </property>
+    <property name="lineWidth">
+     <number>1</number>
     </property>
     <property name="widgetResizable">
      <bool>true</bool>
@@ -183,7 +194,7 @@
        <x>0</x>
        <y>0</y>
        <width>769</width>
-       <height>379</height>
+       <height>369</height>
       </rect>
      </property>
      <widget class="QLabel" name="statusLabel">

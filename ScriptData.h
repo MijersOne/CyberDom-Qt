@@ -8,6 +8,42 @@
 #include <QStack>
 #include <QSet>
 
+enum class ScriptActionType {
+    ProcedureCall,
+    If,
+    NotIf,
+    SetFlag,
+    RemoveFlag,
+    ClearFlag,
+    SetCounterVar,
+    SetString,
+    SetTimeVar,
+    AddCounter,
+    SubtractCounter,
+    MultiplyCounter,
+    DivideCounter,
+    Message,
+    Question,
+    Input,
+    Clothing,
+    NewStatus,
+    NewSubStatus,
+    Timer,
+    AnnounceJob,
+    MarkDone,
+    Abort,
+    Delete,
+    AddMerit,
+    SubtractMerit,
+    SetMerit,
+    Punish
+};
+
+struct ScriptAction {
+    ScriptActionType type;
+    QString value;
+};
+
 enum class CaseMode {
     All,
     First,
@@ -177,8 +213,6 @@ struct TimerDefinition {
     QString endTime;
 
     QStringList preStatuses;
-    QStringList ifFlags;
-    QStringList notIfFlags;
     QStringList notBefore;
     QStringList notAfter;
     QList<QPair<QString, QString>> notBetween;
@@ -195,7 +229,10 @@ struct TimerDefinition {
 
     QList<CaseBlock> cases;
 
-    QStringList procedures;
+    QList<ScriptAction> actions;
+
+    QString punishMessage;
+    QString punishGroup;
 };
 
 enum class MessageSelectMode {
@@ -217,35 +254,6 @@ enum class ProcedureSelectMode {
     All,
     First,
     Random
-};
-
-enum class ScriptActionType {
-    ProcedureCall,
-    If,
-    NotIf,
-    SetFlag,
-    RemoveFlag,
-    ClearFlag,
-    SetCounterVar,
-    SetString,
-    SetTimeVar,
-    AddCounter,
-    SubtractCounter,
-    MultiplyCounter,
-    DivideCounter,
-    Message,
-    Question,
-    Input,
-    Clothing,
-    NewStatus,
-    NewSubStatus,
-    Timer,
-    AnnounceJob
-};
-
-struct ScriptAction {
-    ScriptActionType type;
-    QString value;
 };
 
 struct ProcedureDefinition {
@@ -273,6 +281,8 @@ struct ProcedureDefinition {
 
     // --- Actions ---
     QList<ScriptAction> actions;
+    QString punishMessage;
+    QString punishGroup;
 };
 
 struct QuestionAnswerBlock {
@@ -326,9 +336,9 @@ struct AssignmentBehavior {
 };
 
 struct MeritAdjustment {
-    int add = 0;
-    int subtract = 0;
-    int set = -1;
+    QString add;
+    QString subtract;
+    QString set;
 };
 
 struct GeneralSettings {
@@ -595,6 +605,8 @@ struct ReportDefinition {
     QStringList masterAttachments;
     QStringList subMailLines;
 
+    QList<ScriptAction> actions;
+
     QStringList soundFiles;
     QStringList localSoundFiles;
     QStringList writeReportLines;
@@ -606,58 +618,8 @@ struct ReportDefinition {
     QString programAction;
     bool makeNewReport = false;
     bool makeNewReportSilent = false;
-
-    QStringList clearFlags;
-    QStringList setStringVars;
-    QStringList setCounterVars;
-    QStringList incrementCounters;
-    QStringList decrementCounters;
-    QStringList randomCounters;
-    QStringList randomStrings;
-    QStringList setCounters;
-    QStringList addCounters;
-    QStringList subtractCounters;
-    QStringList multiplyCounters;
-    QStringList divideCounters;
-    QStringList dropCounters;
-    QStringList inputCounters;
-    QStringList inputNegCounters;
-
-    QStringList setFlags;
-    QStringList removeFlags;
-    QStringList setFlagGroups;
-    QStringList removeFlagGroups;
-    QStringList ifFlags;
-    QStringList notIfFlags;
-    QStringList denyIfFlags;
-    QStringList permitIfFlags;
-
-    QStringList setStrings;
-    QStringList inputStrings;
-    QStringList inputLongStrings;
-    QStringList dropStrings;
-
-    QStringList setTimeVars;
-    QStringList addTimeVars;
-    QStringList subtractTimeVars;
-    QStringList multiplyTimeVars;
-    QStringList divideTimeVars;
-    QStringList roundTimeVars;
-    QStringList dropTimeVars;
-    QStringList inputDateVars;
-    QStringList inputTimeVars;
-    QStringList inputIntervalVars;
-    QStringList inputDateDefVars;
-    QStringList inputTimeDefVars;
-    QStringList randomTimeVars;
-    QStringList addDaysVars;
-    QStringList subtractDaysVars;
-    QStringList extractToCounter; // e.g. Days#=#counter,!timevar
-    QStringList convertFromCounter; // e.g. Days!=!timevar,#counter
-
     QMap<QString, QStringList> lists;
     QMultiMap<QString, QStringList> listCommands;
-
     QList<CaseBlock> cases;
 
     QStringList listSets;
@@ -673,6 +635,9 @@ struct ReportDefinition {
     QStringList listClears;
     QStringList listDrops;
     QStringList listSorts;
+
+    QString punishMessage;
+    QString punishGroup;
 };
 
 struct ConfessionDefinition {
@@ -705,45 +670,15 @@ struct ConfessionDefinition {
     QStringList masterAttachments;
     QStringList subMailLines;
 
-    QStringList setFlags;
-    QStringList clearFlags;
-    QStringList setStringVars;
-    QStringList setCounterVars;
-    QStringList incrementCounters;
-    QStringList decrementCounters;
-    QStringList randomCounters;
-    QStringList randomStrings;
-    QStringList setCounters;
-    QStringList addCounters;
-    QStringList subtractCounters;
-    QStringList multiplyCounters;
-    QStringList divideCounters;
-    QStringList dropCounters;
-    QStringList inputCounters;
-    QStringList inputNegCounters;
-
-    QStringList setTimeVars;
-    QStringList addTimeVars;
-    QStringList subtractTimeVars;
-    QStringList multiplyTimeVars;
-    QStringList divideTimeVars;
-    QStringList roundTimeVars;
-    QStringList dropTimeVars;
-    QStringList inputDateVars;
-    QStringList inputTimeVars;
-    QStringList inputIntervalVars;
-    QStringList inputDateDefVars;
-    QStringList inputTimeDefVars;
-    QStringList randomTimeVars;
-    QStringList addDaysVars;
-    QStringList subtractDaysVars;
-    QStringList extractToCounter; // e.g. Days#=#counter,!timevar
-    QStringList convertFromCounter; // e.g. Days!=!timevar,#counter
+    QList<ScriptAction> actions;
 
     QStringList ifConditions;
     QStringList notIfConditions;
     QStringList denyIfConditions;
     QStringList permitIfConditions;
+
+    QString punishMessage;
+    QString punishGroup;
 };
 
 struct TimeRange {
@@ -822,62 +757,14 @@ struct PermissionDefinition {
     QString poseCameraText;
     QString pointCameraText;
 
-    QStringList clearFlags;
-    QStringList setStringVars;
-    QStringList setCounterVars;
-    QStringList incrementCounters;
-    QStringList decrementCounters;
-    QStringList randomCounters;
-    QStringList randomStrings;
-    QStringList setCounters;
-    QStringList addCounters;
-    QStringList subtractCounters;
-    QStringList multiplyCounters;
-    QStringList divideCounters;
-    QStringList dropCounters;
-    QStringList inputCounters;
-    QStringList inputNegCounters;
-
-    QStringList setFlags;
-    QStringList removeFlags;
-    QStringList setFlagGroups;
-    QStringList removeFlagGroups;
-    QStringList ifFlags;
-    QStringList notIfFlags;
-    QStringList denyIfFlags;
-    QStringList permitIfFlags;
-
-    QStringList setStrings;
-    QStringList inputStrings;
-    QStringList inputLongStrings;
-    QStringList dropStrings;
-
-    QStringList setTimeVars;
-    QStringList addTimeVars;
-    QStringList subtractTimeVars;
-    QStringList multiplyTimeVars;
-    QStringList divideTimeVars;
-    QStringList roundTimeVars;
-    QStringList dropTimeVars;
-    QStringList inputDateVars;
-    QStringList inputTimeVars;
-    QStringList inputIntervalVars;
-    QStringList inputDateDefVars;
-    QStringList inputTimeDefVars;
-    QStringList randomTimeVars;
-    QStringList addDaysVars;
-    QStringList subtractDaysVars;
-    QStringList extractToCounter; // e.g. Days#=#counter,!timevar
-    QStringList convertFromCounter; // e.g. Days!=!timevar,#counter
-
-    QStringList ifConditions;
-    QStringList notIfConditions;
-    QStringList denyIfConditions;
-    QStringList permitIfConditions;
+    QList<ScriptAction> actions;
 
     QMap<QString, QStringList> lists;
     QMultiMap<QString, QStringList> listCommands;
     QStringList preStatuses;
+
+    QString punishMessage;
+    QString punishGroup;
 };
 
 struct PunishmentDefinition : public AssignmentBehavior {
@@ -889,8 +776,9 @@ struct PunishmentDefinition : public AssignmentBehavior {
     int max = 20;
     int minSeverity = 0;
     int maxSeverity = 0;
-    int weightMin = 1;
-    int weightMax = 1;
+    QString weightMin;
+    QString weightMax;
+
     QStringList groups;
     bool groupOnly = false;
     bool longRunning = false;
@@ -899,6 +787,8 @@ struct PunishmentDefinition : public AssignmentBehavior {
     QString respite;
     QString estimate;
     QStringList forbids;
+
+    bool deleteAllowed = false;
 
     QString remindIntervalMin;
     QString remindIntervalMax;
@@ -1035,6 +925,8 @@ struct JobDefinition : public AssignmentBehavior {
     int announce = -1;
 
     MeritAdjustment merits;
+
+    bool deleteAllowed = false;
 
     bool centerRandom = false;
 

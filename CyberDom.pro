@@ -42,6 +42,7 @@ SOURCES += \
 
 HEADERS += \
     ScriptData.h \
+    ScriptData.h.bak \
     ScriptUtils.h \
     about.h \
     addclothing.h \

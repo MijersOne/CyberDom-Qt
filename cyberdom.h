@@ -75,7 +75,7 @@ public:
     void assignScheduledJobs();
     void addJobToAssignments(QString assignmentName, bool isAutoAssign = false);
     void addPunishmentToAssignments(const QString &punishmentName, int amount = 1);
-    void applyPunishment(int severity, const QString &group = QString());
+    void applyPunishment(int severity, const QString &group = QString(), const QString &message = QString());
 
     QString selectPunishmentFromGroup(int severity, const QString &group);
 
@@ -120,6 +120,9 @@ public:
     QMap<QDate, QStringList> getHolidays() const;
 
     QString getAssignmentEstimate(const QString &assignmentName, bool isPunishment) const;
+
+    // Procedure Management
+    void runProcedure(const QString &procedureName);
 
 signals:
     void jobListUpdated();
@@ -212,11 +215,11 @@ private:
     QMenu *permissionMenu = nullptr;
 
     bool isPunishment = false;
+    const PunishmentDefinition* getPunishmentDefinition(const QString &instanceName) const;
 
     QList<ClothingItem> clothingInventory;
 
     // Procedure handling
-    void runProcedure(const QString &procedureName);
     void executeReport(const QString &name);
     void executeQuestion(const QString &questionKey, const QString &title);
 
@@ -224,6 +227,13 @@ private:
     bool evaluateCondition(const QString &condition);
 
     QString lastDisplayedStatusText;
+
+    bool isInterruptAllowed() const;
+
+    void applyDailyMerits();
+    QDate lastDayMeritsGiven;
+
+    void executePunish(const QString &severityValue, const QString &message, const QString &group);
 
     struct TimerInstance {
         QString name;
@@ -274,6 +284,14 @@ private:
     QDate lastScheduledJobsRun;
 
     void performCounterOperation(const QString &opString, const QString &opType);
+
+    bool checkInterruptableAssignments();
+
+    int yellowMerits = -1;
+    int redMerits = -1;
+
+    void modifyMerits(const QString &value, const QString &opType);
+
 private slots:
     void applyTimeToClock(int days, int hours, int minutes, int seconds);
     void openAboutDialog();

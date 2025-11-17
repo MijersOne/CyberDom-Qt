@@ -1,0 +1,40 @@
+[Buildset]
+BuildItems=@Variant(\x00\x00\x00\t\x00\x00\x00\x00\x01\x00\x00\x00\x0b\x00\x00\x00\x00\x01\x00\x00\x00\x16\x00C\x00y\x00b\x00e\x00r\x00D\x00o\x00m\x00-\x00Q\x00t)
+
+[Launch]
+Launch Configurations=Launch Configuration 0
+
+[Launch][Launch Configuration 0]
+Configured Launch Modes=execute
+Configured Launchers=nativeAppLauncher
+Name=CyberDom
+Type=Native Application
+
+[Launch][Launch Configuration 0][Data]
+Arguments=
+Dependencies=@Variant(\x00\x00\x00\t\x00\x00\x00\x00\x01\x00\x00\x00\x0b\x00\x00\x00\x00\x02\x00\x00\x00\x16\x00C\x00y\x00b\x00e\x00r\x00D\x00o\x00m\x00-\x00Q\x00t\x00\x00\x00\x10\x00C\x00y\x00b\x00e\x00r\x00D\x00o\x00m)
+Dependency Action=Build
+EnvironmentGroup=
+Executable=file:///mnt/Games/CyberDom-Qt
+External Terminal=konsole --noclose --workdir %workdir -e %exe
+Kill Before Executing Again=4194304
+Project Target=CyberDom-Qt,CyberDom
+Use External Terminal=false
+Working Directory=
+isExecutable=false
+
+[Project]
+VersionControlSupport=kdevgit
+
+[QMake_Builder]
+Build_Folder=/mnt/Games/CyberDom-Qt/build
+Build_Type=0
+Extra_Arguments=
+Install_Prefix=
+QMake_Binary=/usr/bin/qmake
+
+[QMake_Builder][/mnt/Games/CyberDom-Qt/build]
+Build_Type=0
+Extra_Arguments=
+Install_Prefix=
+QMake_Binary=/usr/bin/qmake

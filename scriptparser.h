@@ -44,9 +44,9 @@ public:
     void parseInitSection(const QMap<QString, QStringList>& section);
     void parseEventsSection(const QMap<QString, QStringList>& section);
     void parseStatusSections(const QMap<QString, QMap<QString, QStringList>>& sections);
-    void parseReportSections(const QMap<QString, QMap<QString, QStringList>>& sections);
-    void parseConfessionSections(const QMap<QString, QMap<QString, QStringList>>& sections);
-    void parsePermissionSections(const QMap<QString, QMap<QString, QStringList>>& sections);
+    void parseReportSections(const QStringList& lines);
+    void parseConfessionSections(const QStringList& lines);
+    void parsePermissionSections(const QStringList& lines);
     void parsePunishmentSections(const QMap<QString, QMap<QString, QStringList>>& sections);
     void parseJobSections(const QMap<QString, QMap<QString, QStringList>>& sections);
     bool loadFromCDS(const QString &cdsPath);
@@ -57,7 +57,7 @@ public:
     void parseProcedureSections(const QStringList& lines);
     void parsePopupSections(const QMap<QString, QMap<QString, QStringList>>& sections);
     void parsePopupGroupSections(const QMap<QString, QMap<QString, QStringList>>& sections);
-    void parseTimerSections(const QMap<QString, QMap<QString, QStringList>>& sections);
+    void parseTimerSections(const QStringList& lines);
     void parseQuestionSections(const QMap<QString, QMap<QString, QStringList>>& sections);
     void parseDurationControl (const QMap<QString, QStringList>& entries, DurationControl& d);
     void parseTimeWindowControl(const QMap<QString, QStringList>& entries, TimeWindowControl& tw);

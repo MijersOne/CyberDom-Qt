@@ -148,7 +148,7 @@ void DataInspectorDialog::populateTree()
         addChildItem(timerItem, "Start", timer.startTimeMin + " - " + timer.startTimeMax);
         addChildItem(timerItem, "End", timer.endTime);
 
-        addChildList(timerItem, "Procedures", timer.procedures);
+        //addChildList(timerItem, "Procedures", timer.procedures);
     }
 
     // --- 4. Procedures ---
@@ -249,7 +249,7 @@ void DataInspectorDialog::populateTree()
         QTreeWidgetItem* item = new QTreeWidgetItem(repRoot);
         item->setText(0, rep.name);
         addChildItem(item, "Title", rep.title);
-        addChildList(item, "setFlags", rep.setFlags);
+        //addChildList(item, "setFlags", rep.setFlags);
     }
 
     // --- 10. Confessions ---
