@@ -445,6 +445,14 @@ struct GeneralSettings {
     QString globalExpirePenaltyGroup;
 
     bool announceJobs = true;
+
+    //Punishments
+    int maxDecline = 3;
+    int minPunishment = 1;
+    int maxPunishment = 0;
+    int askPunishmentMin = 0;
+    int askPunishmentMax = 0;
+    QStringList askPunishmentGroups;
 };
 
 struct InitSettings {

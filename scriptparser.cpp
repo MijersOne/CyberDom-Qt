@@ -383,6 +383,34 @@ void ScriptParser::parseGeneralSection(const QString &sectionName, const QMap<QS
         g.announceJobs = (section["AnnounceJobs"].value(0).trimmed() != "0");
     }
 
+    if (section.contains("MinPunishment")) {
+        g.minPunishment = section["MinPunishment"].value(0).toInt();
+    }
+
+    if (section.contains("MaxPunishment")) {
+        g.maxPunishment = section["MaxPunishment"].value(0).toInt();
+    }
+
+    if (section.contains("AskPunishment")) {
+        QStringList parts = section["AskPunishment"].value(0).split(',', Qt::SkipEmptyParts);
+        if (parts.size() >= 2) {
+            g.askPunishmentMin = parts[0].trimmed().toInt();
+            g.askPunishmentMax = parts[1].trimmed().toInt();
+        } else if (parts.size() == 1) {
+            // Handle single value cases
+            g.askPunishmentMin = g.askPunishmentMax = parts[0].trimmed().toInt();
+        }
+    }
+
+    if (section.contains("AskPunishmentGroup")) {
+        // Split by comma to get the list of groups
+        g.askPunishmentGroups = section["AskPunishmentGroup"].value(0).split(',', Qt::SkipEmptyParts);
+    }
+
+    if (section.contains("MaxDecline")) {
+        g.maxDecline = section["MaxDecline"].value(0).toInt();
+    }
+
     if (section.contains("HideTime")) {
         g.hideTimeGlobal = !section["HideTime"].isEmpty() && section["HideTime"].first().trimmed() == "1";
     }

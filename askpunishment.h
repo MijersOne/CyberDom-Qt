@@ -15,6 +15,8 @@ public:
     explicit AskPunishment(QWidget *parent = nullptr, int minPunishment = 25, int maxPunishment = 75);
     ~AskPunishment();
 
+    int getSelectedSeverity() const;
+
 private:
     Ui::AskPunishment *ui;
     int minPunishment;

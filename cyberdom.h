@@ -124,6 +124,9 @@ public:
     // Procedure Management
     void runProcedure(const QString &procedureName);
 
+    // Punishment Management
+    QString getAskPunishmentGroups() const;
+
 signals:
     void jobListUpdated();
 
@@ -291,6 +294,9 @@ private:
     int redMerits = -1;
 
     void modifyMerits(const QString &value, const QString &opType);
+
+    // Punishments
+    QString askPunishmentGroups;
 
 private slots:
     void applyTimeToClock(int days, int hours, int minutes, int seconds);

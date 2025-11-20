@@ -341,6 +341,10 @@ int CyberDom::getMaxMerits() const
     return maxMerits;
 }
 
+QString CyberDom::getAskPunishmentGroups() const {
+    return askPunishmentGroups;
+}
+
 int CyberDom::getAskPunishmentMin() const {
     return askPunishmentMin;
 }
@@ -897,17 +901,26 @@ void CyberDom::openPermission(const QString &name)
 }
 
 bool CyberDom::isPermissionForbidden(const QString &name) const {
-    if (!scriptParser)
-        return false;
+    if (!scriptParser) return false;
 
-    const auto &puns = scriptParser->getScriptData().punishments;
-    for (auto it = puns.constBegin(); it != puns.constEnd(); ++it) {
-        const PunishmentDefinition &p = it.value();
-        if (!activeAssignments.contains(p.name))
-            continue;
-        for (const QString &forbid : p.forbids) {
-            if (forbid.trimmed().compare(name, Qt::CaseInsensitive) == 0)
+    // Iterate active assignments (handles _2 suffixes correctly via helper)
+    for (const QString &assignmentName : activeAssignments) {
+
+        // Get the definition using the helper
+        const PunishmentDefinition* punDef = getPunishmentDefinition(assignmentName);
+        if (!punDef) continue;
+
+        // Check if the punishment is started
+        // Only started punishments should enforce restrictions
+        QString startFlag = "punishment_" + assignmentName + "_started";
+        if (!isFlagSet(startFlag)) continue;
+
+        // Check the forbids list
+        for (const QString &forbid : punDef->forbids) {
+            if (forbid.trimmed().compare(name, Qt::CaseInsensitive) == 0) {
+                qDebug() << "[Permission] Denied" << name << "because of active punishment:" << assignmentName;
                 return true;
+            }
         }
     }
     return false;
@@ -1286,8 +1299,40 @@ void CyberDom::openAskPunishmentDialog()
     int minPunishment = getAskPunishmentMin();
     int maxPunishment = getAskPunishmentMax();
 
-    AskPunishment askPunishmentDialog(this, minPunishment, maxPunishment); // Create the AskPunishment dialog, passing the parent
-    askPunishmentDialog.exec(); // Show the dialog modally
+    // If feature is not enabled in script (max=0), show error or return
+    if (maxPunishment <= 0) {
+        QMessageBox::information(this, "Not Available", "You cannot ask for a punishment right now.");
+        return;
+    }
+
+    // Show the simple confirmation dialog
+    AskPunishment askPunishmentDialog(this, minPunishment, maxPunishment);
+
+    if (askPunishmentDialog.exec() == QDialog::Accepted) {
+
+        // Calculate a RANDOM severity between min and max
+        int severity = 0;
+        if (minPunishment == maxPunishment) {
+            severity = minPunishment;
+        } else {
+            severity = ScriptUtils::randomInRange(minPunishment, maxPunishment, false);
+        }
+
+        // Get the target groups (if any)
+        QString groups = getAskPunishmentGroups();
+
+        // Trigger the "PunishmentAsked" event handler
+        if (scriptParser) {
+            QString eventProc = scriptParser->getScriptData().eventHandlers.punishmentAsked;
+            if (!eventProc.isEmpty()) {
+                runProcedure(eventProc);
+            }
+        }
+
+        // Apply the punishment
+        qDebug() << "[AskPunishment] User requested punishment. Calculated Severity:" << severity << "Groups:" << groups;
+        applyPunishment(severity, groups, QString());
+    }
 }
 
 
@@ -2091,23 +2136,9 @@ void CyberDom::applyScriptSettings() {
     qDebug() << "TestMenu Enabled:" << testMenuEnabled;
 
     // Handle AskPunishment
-    QString askPunishmentStr = data.generalSettings.value("AskPunishment");
-    if (!askPunishmentStr.isEmpty()) {
-        QStringList values = askPunishmentStr.split(", ");
-        if (values.size() == 2) {
-            bool minOk, maxOk;
-            askPunishmentMin = values[0].trimmed().toInt(&minOk);
-            askPunishmentMax = values[1].trimmed().toInt(&maxOk);
-
-            if (!minOk || !maxOk) {
-                askPunishmentMin = 25;
-                askPunishmentMax = 75;
-            }
-        }
-    } else {
-        askPunishmentMin = 25;
-        askPunishmentMax = 75;
-    }
+    askPunishmentMin = data.general.askPunishmentMin;
+    askPunishmentMax = data.general.askPunishmentMax;
+    askPunishmentGroups = data.general.askPunishmentGroups.join(",");
 
     // Build Status Groups
     statusGroups.clear();
@@ -2364,7 +2395,8 @@ void CyberDom::updateAvailableActions() {
 
     // --- Update UI based on status permissions ---
     ui->actionPermissions->setEnabled(permsEnabled);
-    ui->actionAsk_for_Punishment->setEnabled(permsEnabled);
+    bool canAskPunishment = permsEnabled && (askPunishmentMax > 0);
+    ui->actionAsk_for_Punishment->setEnabled(canAskPunishment);
     ui->actionConfessions->setEnabled(confsEnabled);
     ui->actionReports->setEnabled(reportsEnabled);
     ui->menuRules->setEnabled(rulesEnabled);
@@ -2785,6 +2817,15 @@ void CyberDom::addJobToAssignments(QString jobName, bool isAutoAssign)
             remindRange = "24:00";
         }
 
+        if (remindRange.compare("Never", Qt::CaseInsensitive) == 0) {
+            // Explicitly disabled. Do not set an interval.
+            qDebug() << "[DEBUG] RemindInterval is 'Never' for job:" << jobName;
+        } else {
+            int intervalSec = parseTimeRangeToSeconds(remindRange);
+            if (intervalSec > 0)
+                jobRemindIntervals[jobName] = intervalSec;
+        }
+
         int intervalSec = parseTimeRangeToSeconds(remindRange);
         if (intervalSec > 0)
             jobRemindIntervals[jobName] = intervalSec;
@@ -2875,7 +2916,7 @@ void CyberDom::addJobToAssignments(QString jobName, bool isAutoAssign)
 void CyberDom::checkPunishments() {
     QDateTime now = internalClock;
 
-    if (!scriptParser) return; // Safety Check
+    if (!scriptParser) return;
 
     const ScriptData &data = scriptParser->getScriptData();
 
@@ -2887,16 +2928,14 @@ void CyberDom::checkPunishments() {
         if (now < deadline)
             continue;
 
-        // Determine the type of assignment and get its properties
+        // Determine the type of assignment
         const PunishmentDefinition* punDef = getPunishmentDefinition(name);
         bool isPun = (punDef != nullptr);
-
-        // Jobs don't use suffixes, simple lookup is fin
         bool isJob = data.jobs.contains(name.toLower());
 
         if (!isPun && !isJob) { continue; }
 
-        // --- Get properties (if they exist)
+        // --- Get properties with Hierarchy ---
         QString remindPenaltyRange;
         QString remindPenaltyGroup;
         QString expirePenaltyRange;
@@ -2908,53 +2947,40 @@ void CyberDom::checkPunishments() {
             const JobDefinition &jobDef = data.jobs.value(name.toLower());
             remindProcedure = jobDef.remindProcedure;
 
-            // --- Remind Penalty ---
+            // 1. Remind Penalty Hierarchy (Job -> General)
             if (jobDef.remindPenaltyMin > 0 || jobDef.remindPenaltyMax > 0) {
-                // Use Job's specific penalty
                 remindPenaltyRange = QString::number(jobDef.remindPenaltyMin);
                 if (jobDef.remindPenaltyMax > jobDef.remindPenaltyMin) {
                     remindPenaltyRange += "," + QString::number(jobDef.remindPenaltyMax);
                 }
                 remindPenaltyGroup = jobDef.remindPenaltyGroup;
             } else if (!data.general.globalRemindPenalty.isEmpty()) {
-                // Fallback to [General] penalty
                 remindPenaltyRange = data.general.globalRemindPenalty;
                 remindPenaltyGroup = data.general.globalRemindPenaltyGroup;
             }
-            // (If both are empty, range empty and no punishment is applied)
 
-            // --- Expiry ---
+            // 2. Expire Penalty (Jobs only)
             if (jobDef.expirePenaltyMin > 0 || jobDef.expirePenaltyMax > 0) {
                 expirePenaltyRange = QString::number(jobDef.expirePenaltyMin);
                 if (jobDef.expirePenaltyMax > jobDef.expirePenaltyMin) {
                     expirePenaltyRange += "," + QString::number(jobDef.expirePenaltyMax);
                 }
             }
-
-            if (!jobDef.expirePenaltyGroup.isEmpty()) {
-                // Use the Job's specific group
-                expirePenaltyGroup = jobDef.expirePenaltyGroup;
-            } else {
-                // Fallback to the [General] group
-                expirePenaltyGroup = data.general.globalExpirePenaltyGroup;
-            }
-
+            expirePenaltyGroup = jobDef.expirePenaltyGroup;
             expireProcedure = jobDef.expireProcedure;
 
         } else if (isPun) {
-            const PunishmentDefinition &punDef = data.punishments.value(name.toLower());
-            remindProcedure = punDef.remindProcedure;
+            // const PunishmentDefinition &punDef is already available from getPunishmentDefinition
+            remindProcedure = punDef->remindProcedure;
 
-            // --- Remind Penalty ---
-            if (punDef.remindPenaltyMin > 0 || punDef.remindPenaltyMax > 0) {
-                // Use Punishment's specific penalty
-                remindPenaltyRange = QString::number(punDef.remindPenaltyMin);
-                if (punDef.remindPenaltyMax > punDef.remindPenaltyMin) {
-                    remindPenaltyRange += "," + QString::number(punDef.remindPenaltyMax);
+            // 1. Remind Penalty Hierarchy (Punishment -> General)
+            if (punDef->remindPenaltyMin > 0 || punDef->remindPenaltyMax > 0) {
+                remindPenaltyRange = QString::number(punDef->remindPenaltyMin);
+                if (punDef->remindPenaltyMax > punDef->remindPenaltyMin) {
+                    remindPenaltyRange += "," + QString::number(punDef->remindPenaltyMax);
                 }
-                remindPenaltyGroup = punDef.remindPenaltyGroup;
+                remindPenaltyGroup = punDef->remindPenaltyGroup;
             } else if (!data.general.globalRemindPenalty.isEmpty()) {
-                // Fallback to [General] penalty
                 remindPenaltyRange = data.general.globalRemindPenalty;
                 remindPenaltyGroup = data.general.globalRemindPenaltyGroup;
             }
@@ -2962,7 +2988,9 @@ void CyberDom::checkPunishments() {
 
         QSettings settings(settingsFile, QSettings::IniFormat);
 
+        // --- Logic for Late/Expired Assignments ---
         if (!expiredAssignments.contains(name)) {
+            // First time expiration
             expiredAssignments.insert(name);
 
             // Apply late merits penalty
@@ -2976,18 +3004,19 @@ void CyberDom::checkPunishments() {
             // Set up the next reminder
             if (jobRemindIntervals.contains(name))
                 jobNextReminds[name] = now.addSecs(jobRemindIntervals[name]);
+
         } else if (jobRemindIntervals.contains(name) && now >= jobNextReminds.value(name)) {
+            // Repeated Reminder
             if (isInterruptAllowed()) {
-                // The assignment is already expired, and it's time for another reminder
                 QMessageBox::information(this, "Assignment Late", QString("You are late completing %1").arg(name));
             }
 
-            // Run the RemindProcedure
+            // Run Remind Procedure
             if (!remindProcedure.isEmpty()) {
                 runProcedure(remindProcedure);
             }
 
-            // Apply reminder penalty (uses new variables)
+            // Apply Remind Penalty (Calculated above)
             if (!remindPenaltyRange.isEmpty()) {
                 int sev = randomIntFromRange(remindPenaltyRange);
                 if (sev > 0)
@@ -2997,20 +3026,16 @@ void CyberDom::checkPunishments() {
             jobNextReminds[name] = now.addSecs(jobRemindIntervals[name]);
         }
 
-        // Check if the assignment has permanently expired
+        // Check if the assignment has permanently expired (Jobs only mostly)
         if (jobExpiryTimes.contains(name) && now >= jobExpiryTimes[name]) {
-
-            // Apply expiry penalty
             if (!expirePenaltyRange.isEmpty()) {
                 int sev = randomIntFromRange(expirePenaltyRange);
                 if (sev > 0)
                     applyPunishment(sev, expirePenaltyGroup, QString());
             }
-            // Run expiry procedure
             if (!expireProcedure.isEmpty())
                 runProcedure(expireProcedure);
 
-            // Clean up the assignment
             activeAssignments.remove(name);
             jobDeadlines.remove(name);
             jobExpiryTimes.remove(name);
@@ -3028,7 +3053,7 @@ void CyberDom::addPunishmentToAssignments(const QString &punishmentName, int amo
     if (amount <= 0) return;
     if (!scriptParser) return;
 
-    // 1. Get the base definition
+    // 1. Get the base definition using the helper
     const PunishmentDefinition *punDef = getPunishmentDefinition(punishmentName);
     if (!punDef) {
         qDebug() << "[WARNING] Punishment section not found in ScriptData:" << punishmentName;
@@ -3036,16 +3061,13 @@ void CyberDom::addPunishmentToAssignments(const QString &punishmentName, int amo
     }
 
     QString targetInstance;
-    QString baseName = punDef->name.toLower(); // Normalize base name
+    QString baseName = punDef->name.toLower();
 
-    // 2. Check for an existing instance we can add to (Accumulative Logic)
+    // 2. Check for an existing instance (Accumulative Logic)
     if (punDef->accumulative) {
         for (const QString &activeName : activeAssignments) {
-            // Check if this active assignment is an instance of our punishment
             const PunishmentDefinition *activeDef = getPunishmentDefinition(activeName);
             if (activeDef && activeDef->name.toLower() == baseName) {
-
-                // Check if it has room
                 int currentAmt = punishmentAmounts.value(activeName);
                 if (currentAmt + amount <= punDef->max) {
                     targetInstance = activeName;
@@ -3055,19 +3077,16 @@ void CyberDom::addPunishmentToAssignments(const QString &punishmentName, int amo
         }
     }
 
-    // 3. If no suitable existing instance, create a new one
+    // 3. Create new instance if needed
     bool isNewInstance = false;
     if (targetInstance.isEmpty()) {
         isNewInstance = true;
         int counter = 1;
-        targetInstance = punDef->name; // Start with base name
-
-        // Find the next available name (spanking, spanking_2, spanking_3...)
+        targetInstance = punDef->name;
         while (activeAssignments.contains(targetInstance)) {
             counter++;
             targetInstance = QString("%1_%2").arg(punDef->name).arg(counter);
         }
-
         activeAssignments.insert(targetInstance);
         qDebug() << "[DEBUG] Created new punishment instance:" << targetInstance;
     } else {
@@ -3077,7 +3096,7 @@ void CyberDom::addPunishmentToAssignments(const QString &punishmentName, int amo
     // 4. Add the amount
     punishmentAmounts[targetInstance] += amount;
 
-    // 5. Handle Deadline (Only for new instances or extending time-based ones)
+    // 5. Handle Deadline & Properties
     if (isNewInstance) {
         if (scriptParser) {
             QString proc = scriptParser->getScriptData().eventHandlers.punishmentGiven;
@@ -3088,23 +3107,40 @@ void CyberDom::addPunishmentToAssignments(const QString &punishmentName, int amo
         QDateTime deadline = internalClock;
         bool deadlineSet = false;
 
-        // Respite
+        // --- Respite (Variable-Aware) ---
         if (!punDef->respite.isEmpty()) {
-            QStringList respiteParts = punDef->respite.split(":");
+            QString respiteStr = punDef->respite;
+            if (respiteStr.startsWith("!") || respiteStr.startsWith("#")) {
+                respiteStr = scriptParser->getVariable(respiteStr.mid(1));
+            }
+
+            QStringList respiteParts = respiteStr.split(":");
             if (respiteParts.size() >= 2) {
                 deadline = deadline.addSecs(respiteParts[0].toInt() * 3600 + respiteParts[1].toInt() * 60);
                 deadlineSet = true;
+                qDebug() << "[DEBUG] Punishment deadline set from Respite:" << deadline.toString("MM-dd-yyyy hh:mm AP");
             }
         }
 
-        // ValueUnit Logic (Initial Calculation)
+        // --- ValueUnit Logic (Initial Calculation) ---
         if (!deadlineSet && !punDef->valueUnit.isEmpty()) {
             double val = punDef->value > 0 ? punDef->value : 1.0;
             int total = qRound(val * amount);
 
-            if (punDef->valueUnit == "minute") deadline = deadline.addSecs(total * 60);
-            else if (punDef->valueUnit == "hour") deadline = deadline.addSecs(total * 3600);
-            else if (punDef->valueUnit == "day") deadline = deadline.addDays(total);
+            if (punDef->valueUnit.compare("minute", Qt::CaseInsensitive) == 0) {
+                deadline = deadline.addSecs(total * 60);
+                deadlineSet = true;
+            } else if (punDef->valueUnit.compare("hour", Qt::CaseInsensitive) == 0) {
+                deadline = deadline.addSecs(total * 3600);
+                deadlineSet = true;
+            } else if (punDef->valueUnit.compare("day", Qt::CaseInsensitive) == 0) {
+                deadline = deadline.addDays(total);
+                deadlineSet = true;
+            }
+
+            if (deadlineSet) {
+                qDebug() << "[DEBUG] Punishment deadline set from ValueUnit:" << deadline.toString("MM-dd-yyyy hh:mm AP");
+            }
         }
 
         jobDeadlines[targetInstance] = deadline;
@@ -3112,15 +3148,21 @@ void CyberDom::addPunishmentToAssignments(const QString &punishmentName, int amo
         // Remind Interval
         QString remindRange;
         if (!punDef->remindIntervalMin.isEmpty()) {
-             remindRange = punDef->remindIntervalMin;
-             if (!punDef->remindIntervalMax.isEmpty()) remindRange += "," + punDef->remindIntervalMax;
+            remindRange = punDef->remindIntervalMin;
+            if (!punDef->remindIntervalMax.isEmpty()) remindRange += "," + punDef->remindIntervalMax;
         } else if (!scriptParser->getScriptData().general.globalRemindInterval.isEmpty()) {
-             remindRange = scriptParser->getScriptData().general.globalRemindInterval;
+            remindRange = scriptParser->getScriptData().general.globalRemindInterval;
         } else {
-             remindRange = "24:00";
+            remindRange = "24:00";
         }
-        int intervalSec = parseTimeRangeToSeconds(remindRange);
-        if (intervalSec > 0) jobRemindIntervals[targetInstance] = intervalSec;
+
+        if (remindRange.compare("Never", Qt::CaseInsensitive) == 0) {
+            // Explicitly disabled
+            qDebug() << "[DEBUG] RemindInterval is 'Never' for punishment:" << targetInstance;
+        } else {
+            int intervalSec = parseTimeRangeToSeconds(remindRange);
+            if (intervalSec > 0) jobRemindIntervals[targetInstance] = intervalSec;
+        }
 
     } else {
         // Extending an existing TIME-BASED punishment
@@ -3130,12 +3172,16 @@ void CyberDom::addPunishmentToAssignments(const QString &punishmentName, int amo
             double val = punDef->value > 0 ? punDef->value : 1.0;
             int total = qRound(val * amount);
 
-            if (punDef->valueUnit == "minute") deadline = deadline.addSecs(total * 60);
-            else if (punDef->valueUnit == "hour") deadline = deadline.addSecs(total * 3600);
-            else if (punDef->valueUnit == "day") deadline = deadline.addDays(total);
+            if (punDef->valueUnit.compare("minute", Qt::CaseInsensitive) == 0) {
+                 deadline = deadline.addSecs(total * 60);
+            } else if (punDef->valueUnit.compare("hour", Qt::CaseInsensitive) == 0) {
+                 deadline = deadline.addSecs(total * 3600);
+            } else if (punDef->valueUnit.compare("day", Qt::CaseInsensitive) == 0) {
+                 deadline = deadline.addDays(total);
+            }
 
             jobDeadlines[targetInstance] = deadline;
-            qDebug() << "[DEBUG] Extended deadline for" << targetInstance;
+            qDebug() << "[DEBUG] Extended deadline for" << targetInstance << "to" << deadline.toString("MM-dd-yyyy hh:mm AP");
         }
     }
 
@@ -3144,67 +3190,176 @@ void CyberDom::addPunishmentToAssignments(const QString &punishmentName, int amo
 
 void CyberDom::applyPunishment(int severity, const QString &group, const QString &message)
 {
-    // Choose a punishment based on severity and group
-    QString punishmentName = selectPunishmentFromGroup(severity, group);
-    if (punishmentName.isEmpty()) {
-        qDebug() << "[Punish] No punishment found for severity" << severity << "in group" << group;
-        return;
-    }
-
     if (!scriptParser) return;
+    if (severity <= 0) return;
 
-    const auto &punishments = scriptParser->getScriptData().punishments;
-    QString lowerName = punishmentName.toLower();
+    const GeneralSettings &general = scriptParser->getScriptData().general;
 
-    if (!punishments.contains(lowerName)) {
-        qDebug() << "[ERROR] applyPunishment: Could not find definition for" << punishmentName;
-        return;
-    }
-    const PunishmentDefinition &punDef = punishments.value(lowerName);
-
-    QMap<QString, QStringList> rawData = scriptParser->getRawSectionData("punishment-" + punishmentName);
-    bool hasValue = rawData.contains("value");
-
-    double value = punDef.value;
-    QString valueUnit = punDef.valueUnit.toLower();
-
-    if (!hasValue && valueUnit == "once") value = 1.0;
-    if (value <= 0) value = 1.0;
-
-    int min = punDef.min;
-    int max = punDef.max;
-    if (max <= 0) max = 20;
-
-    int totalUnits;
-    if (valueUnit == "once" && !hasValue) {
-        totalUnits = qMax(min, 1);
-    } else {
-        double amt = static_cast<double>(severity) / value;
-        totalUnits = qRound(amt);
-        if (totalUnits < min) totalUnits = min;
+    // Enforce global MinPunishment
+    int globalMin = general.minPunishment;
+    if (severity < globalMin) {
+        qDebug() << "[Punish] Severity" << severity << "increased to global minimum" << globalMin;
+        severity = globalMin;
     }
 
-    // --- Show the message ---
-    if (!message.isEmpty()) {
-        // A custom message was provided
-        QMessageBox::information(this, "Punishment", replaceVariables(message));
-    } else {
-        // No custom message, generate a default one
-        QString defaultMsg = QString("You have been punished with %1 %2 of %3.")
-                .arg(totalUnits)
-                .arg(valueUnit)
-                .arg(punDef.title.isEmpty() ? punDef.name : punDef.title);
-        QMessageBox::information(this, "Punishment", defaultMsg);
+    // Enforce global MaxPunishment
+    int globalMax = general.maxPunishment;
+    if (severity < globalMin) {
+        qDebug() << "[Punish] Severity" << severity << "increased to global maximum" << globalMax;
+        severity = globalMax;
     }
 
-    // Add the assignments
-    if (valueUnit == "once") {
-        addPunishmentToAssignments(punishmentName, totalUnits);
-    } else {
-        while (totalUnits > 0) {
-            int amount = qMin(max, totalUnits);
-            addPunishmentToAssignments(punishmentName, amount);
-            totalUnits -= amount;
+    // 1. Try to find a single punishment that fits
+    QString punishmentName = selectPunishmentFromGroup(severity, group);
+
+    // 2. SPLIT LOGIC: If no single punishment fits, try to split the severity
+    if (punishmentName.isEmpty()) {
+
+        const auto &allPunishments = scriptParser->getScriptData().punishments;
+        QStringList targetGroups;
+        if (!group.isEmpty()) {
+            QStringList rawGroups = group.split(',', Qt::SkipEmptyParts);
+            for (const QString &g : rawGroups) targetGroups.append(g.trimmed().toLower());
+        }
+
+        int bestChunkSize = 0;
+
+        // Iterate to find the biggest possible "chunk" of severity we can handle
+        for (const PunishmentDefinition &def : allPunishments.values()) {
+
+            // Check Group logic (same as selectPunishmentFromGroup)
+            if (!targetGroups.isEmpty()) {
+                bool groupMatch = false;
+                for (const QString &pg : def.groups) {
+                    if (targetGroups.contains(pg.trimmed().toLower())) { groupMatch = true; break; }
+                }
+                if (!groupMatch) continue;
+            } else {
+                 if (def.groupOnly) continue; // Respect GroupOnly
+            }
+
+            // Check Min Severity
+            if (severity < def.minSeverity) continue;
+
+            // Calculate the max severity this punishment can take
+            // If maxSeverity is 0, it's unlimited, so it can take the whole thing.
+            // (But if it was unlimited, selectPunishmentFromGroup shouldn't have failed,
+            // unless we are here for some other reason. Safe to assume maxSeverity is the limiter).
+            int limit = (def.maxSeverity > 0) ? def.maxSeverity : severity;
+
+            // The chunk is the smaller of the limit or the total severity
+            int chunk = qMin(limit, severity);
+
+            if (chunk > bestChunkSize) {
+                bestChunkSize = chunk;
+            }
+        }
+
+        if (bestChunkSize > 0 && bestChunkSize < severity) {
+            qDebug() << "[Punish] Splitting severity" << severity << "into chunk" << bestChunkSize << "and remainder" << (severity - bestChunkSize);
+
+            // Recurse: Apply the chunk (this should succeed now)
+            applyPunishment(bestChunkSize, group, message);
+
+            // Recurse: Apply the remainder
+            applyPunishment(severity - bestChunkSize, group, message);
+            return;
+        } else {
+            // If we couldn't split it (e.g. bestChunkSize is 0 or we are in an infinite loop), abort.
+            qDebug() << "[Punish] Unable to match or split severity" << severity << "in group" << group;
+            QMessageBox::warning(this, "Error", "No suitable punishment (or combination of punishments) could be found for this severity.");
+            return;
+        }
+    }
+
+    // 3. INTERACTIVE LOOP (This part remains largely the same)
+    int currentDeclineCount = 0;
+    int maxDecline = scriptParser->getScriptData().general.maxDecline;
+
+    while (true) {
+        // Note: We already have 'punishmentName' from step 1 for the first pass.
+        // For subsequent passes (declines), we select again.
+        if (currentDeclineCount > 0) {
+            punishmentName = selectPunishmentFromGroup(severity, group);
+            if (punishmentName.isEmpty()) {
+                // Fallback if increased severity pushes us out of range again:
+                // Try to find *any* valid punishment in the group
+                punishmentName = selectPunishmentFromGroup(0, group);
+                if (punishmentName.isEmpty()) return; // Give up
+            }
+        }
+
+        const auto &punishments = scriptParser->getScriptData().punishments;
+        QString lowerName = punishmentName.toLower();
+        if (!punishments.contains(lowerName)) return;
+        const PunishmentDefinition &punDef = punishments.value(lowerName);
+
+        QMap<QString, QStringList> rawData = scriptParser->getRawSectionData("punishment-" + punishmentName);
+        bool hasValue = rawData.contains("value");
+
+        double value = punDef.value;
+        QString valueUnit = punDef.valueUnit.toLower();
+
+        if (!hasValue && valueUnit == "once") value = 1.0;
+        if (value <= 0) value = 1.0;
+
+        int min = punDef.min;
+        int max = punDef.max;
+        if (max <= 0) max = 20;
+
+        int totalUnits;
+        if (valueUnit == "once" && !hasValue) {
+            totalUnits = qMax(min, 1);
+        } else {
+            double amt = static_cast<double>(severity) / value;
+            totalUnits = qRound(amt);
+            if (totalUnits < min) totalUnits = min;
+        }
+
+        QString displayMsg;
+        if (!message.isEmpty()) {
+            displayMsg = replaceVariables(message);
+        } else {
+            displayMsg = QString("You have been punished with %1 %2 of %3.")
+                    .arg(totalUnits)
+                    .arg(valueUnit)
+                    .arg(punDef.title.isEmpty() ? punDef.name : punDef.title);
+        }
+
+        if (currentDeclineCount > 0) {
+            displayMsg += QString("\n\n(Severity increased by %1%. Declines remaining: %2)")
+                          .arg(currentDeclineCount * 20)
+                          .arg(maxDecline - currentDeclineCount);
+        }
+
+        QMessageBox msgBox(this);
+        msgBox.setWindowTitle("Punishment");
+        msgBox.setText(displayMsg);
+        msgBox.setIcon(QMessageBox::Warning);
+
+        QPushButton *acceptBtn = msgBox.addButton("Accept", QMessageBox::AcceptRole);
+        QPushButton *declineBtn = msgBox.addButton("Decline", QMessageBox::RejectRole);
+
+        if (currentDeclineCount >= maxDecline) {
+            declineBtn->setEnabled(false);
+        }
+
+        msgBox.exec();
+
+        if (msgBox.clickedButton() == acceptBtn) {
+            if (valueUnit == "once") {
+                addPunishmentToAssignments(punishmentName, totalUnits);
+            } else {
+                while (totalUnits > 0) {
+                    int amount = qMin(max, totalUnits);
+                    addPunishmentToAssignments(punishmentName, amount);
+                    totalUnits -= amount;
+                }
+            }
+            break;
+        } else {
+            currentDeclineCount++;
+            severity = qRound(severity * 1.20);
         }
     }
 }
@@ -3430,7 +3585,7 @@ void CyberDom::startAssignment(const QString &assignmentName, bool isPunishment,
     }
 
     // Set the built-in "_started" flag
-    QString startFlagName = (isPunishment ? "punishment_" : "job_") + assignmentName;
+    QString startFlagName = (isPunishment ? "punishment_" : "job_") + assignmentName + "_started";
     setFlag(startFlagName);
 
     // Set the custom StartFlag from the .ini
@@ -5682,12 +5837,37 @@ QString CyberDom::getAssignmentEstimate(const QString &assignmentName, bool isPu
     QString lowerName = assignmentName.toLower();
     QString estimateStr;
 
-    // Get the estimate string from the correct struct
     if (isPunishment) {
         if (data.punishments.contains(lowerName)) {
-            estimateStr = data.punishments.value(lowerName).estimate;
+            const PunishmentDefinition &def = data.punishments.value(lowerName);
+
+            // --- Check if measured in time ---
+            QString vu = def.valueUnit.toLower();
+            if (vu == "minute" || vu == "hour" || vu == "day") {
+                // It is measured in time, so we ignore def.estimate
+                // and calculate the actual duration based on the amount
+                int amount = punishmentAmounts.value(assignmentName, 0);
+                qint64 totalSecs = 0;
+
+                if (vu == "minute") totalSecs = amount * 60;
+                else if (vu == "hour") totalSecs = amount * 3600;
+                else if (vu == "day") totalSecs = amount * 86400;
+
+                if (totalSecs > 0) {
+                    // Format as HH:mm
+                    qint64 hours = totalSecs / 3600;
+                    qint64 mins = (totalSecs % 3600) / 60;
+                    return QString("%1:%2")
+                            .arg(hours, 2, 10, QChar('0'))
+                            .arg(mins, 2, 10, QChar('0'));
+                }
+            }
+
+            // Not time-based, use the script's estimate
+            estimateStr = def.estimate;
         }
     } else {
+        // Jobs Logic
         if (data.jobs.contains(lowerName)) {
             estimateStr = data.jobs.value(lowerName).estimate;
         }
@@ -5697,9 +5877,8 @@ QString CyberDom::getAssignmentEstimate(const QString &assignmentName, bool isPu
         return "N/A";
     }
 
-    // Resolve the string if it's a variable
+    // Resolve the string if it's a variable (e.g. !myTimeVar)
     if (estimateStr.startsWith("!") || estimateStr.startsWith("#")) {
-        // Get the variable's value, which should be "hh:mm"
         estimateStr = scriptParser->getVariable(estimateStr.mid(1));
     }
 
