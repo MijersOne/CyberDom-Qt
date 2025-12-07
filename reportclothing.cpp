@@ -13,13 +13,31 @@
 #include <QTextBrowser>
 #include <QDebug>
 
-ReportClothing::ReportClothing(QWidget *parent, ScriptParser* parser)
+ReportClothing::ReportClothing(QWidget *parent, ScriptParser* parser, bool forced, const QString &customTitle)
     : QDialog(parent)
     , ui(new Ui::ReportClothing)
     , parser(parser)
+    , isForced(forced)
 {
     ui->setupUi(this);
-    setWindowTitle("Report Clothing");
+
+    // --- Handle Window Title ---
+    if (!customTitle.isEmpty()) {
+        setWindowTitle(customTitle);
+        ui->lbl_Title->setText(customTitle);
+    } else {
+        setWindowTitle("Report Clothing");
+    }
+
+    // --- Handle Forced Mode ---
+    if (isForced) {
+        // Disable closing via Esc key (reject)
+        // We effectively remove the Cancel button functionality
+        ui->btn_Cancel->hide();
+
+        // Remove the "X" from the window title bar
+        setWindowFlags(windowFlags() & ~Qt::WindowCloseButtonHint);
+    }
 
     populateClothTypes();
 
@@ -304,6 +322,7 @@ void ReportClothing::onNakedCheckboxToggled(bool checked)
 
 void ReportClothing::cancelDialog()
 {
+    if (isForced) return;
     reject();
 }
 
@@ -525,6 +544,11 @@ void ReportClothing::populateClothTypes()
         if (ui->cb_Type->findText(name) == -1)
             ui->cb_Type->addItem(name);
     }
+}
+
+void ReportClothing::reject() {
+    if (isForced) return;
+    QDialog::reject();
 }
 
 ReportClothing::~ReportClothing()

@@ -14,8 +14,15 @@ class AskClothing : public QDialog
     Q_OBJECT
 
 public:
-    explicit AskClothing(QWidget *parent = nullptr, ScriptParser *parser = nullptr);
+    explicit AskClothing(QWidget *parent = nullptr, ScriptParser *parser = nullptr, const QString &target = "");
     ~AskClothing();
+
+    QString getSelectedInstruction() const;
+
+    void setInstructionText(const QString &text);
+
+public slots:
+    void onInstructionSelected(int index);
 
 private:
     void populateCombo();
@@ -23,6 +30,10 @@ private:
 private:
     Ui::AskClothing *ui;
     ScriptParser *parser = nullptr;
+    QString targetInstruction;
+
+private slots:
+
 };
 
 #endif // ASKCLOTHING_H

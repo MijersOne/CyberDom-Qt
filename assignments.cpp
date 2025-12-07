@@ -3,6 +3,8 @@
 #include "cyberdom.h"
 #include "linewriter.h"
 #include "scriptparser.h"
+#include "ScriptUtils.h"
+#include "detention.h"
 
 #include <QMessageBox>
 #include <QSettings>
@@ -10,6 +12,8 @@
 #include <QDebug>
 #include <QSet>
 #include <QtMath>
+#include <QRandomGenerator>
+#include <QTime>
 
 Assignments::Assignments(QWidget *parent, CyberDom *app)
     : QMainWindow(parent)
@@ -69,87 +73,113 @@ void Assignments::populateJobList() {
 
     int row = 0;
 
-    // --- Add Jobs ---
     for (const QString &assignmentName : activeJobs) {
         QString lowerName = assignmentName.toLower();
 
-        // Check if it's a job
+        // --- 1. Check for Punishment (Handle suffixes like _2) ---
+        QString baseName = lowerName;
+        int lastUnderscore = baseName.lastIndexOf('_');
+        if (lastUnderscore != -1) {
+            bool isNumber;
+            baseName.mid(lastUnderscore + 1).toInt(&isNumber);
+            if (isNumber) baseName = baseName.left(lastUnderscore);
+        }
+
+        if (data.punishments.contains(baseName)) {
+            // It is a punishment
+            const PunishmentDefinition &punDef = data.punishments.value(baseName);
+
+            QString deadlineStr = "No Deadline";
+            if (deadlines.contains(assignmentName)) {
+                deadlineStr = deadlines.value(assignmentName).toString("MM-dd-yyyy h:mm AP");
+            }
+
+            // Build display name
+            QString displayText = punDef.title.isEmpty() ? punDef.name : punDef.title;
+            int amt = mainApp->getPunishmentAmount(assignmentName);
+            if (displayText.contains('#')) {
+                displayText.replace('#', QString::number(amt));
+            }
+            if (!displayText.isEmpty()) displayText[0] = displayText[0].toUpper();
+
+            // Handle Line Writing Select=Random Display
+            if (punDef.isLineWriting && punDef.lineSelectMode.compare("Random", Qt::CaseInsensitive) == 0) {
+                QSettings settings(mainApp->getSettingsFilePath(), QSettings::IniFormat);
+                QString line = settings.value("Assignments/" + assignmentName + "_selected_line").toString();
+                if (!line.isEmpty()) {
+                    // Format: "Write 5 times: I must obey"
+                    displayText = QString("Write %1 times: %2").arg(amt).arg(line);
+                }
+            }
+
+            ui->table_Assignments->insertRow(row);
+            ui->table_Assignments->setItem(row, 0, new QTableWidgetItem(deadlineStr));
+
+            QTableWidgetItem *punItem = new QTableWidgetItem(displayText);
+            punItem->setData(Qt::UserRole, assignmentName); // Store the FULL instance name
+            ui->table_Assignments->setItem(row, 1, punItem);
+
+            QString estimateStr = mainApp->getAssignmentEstimate(assignmentName, true);
+            ui->table_Assignments->setItem(row, 2, new QTableWidgetItem(estimateStr));
+
+            // Type is in column 3
+            QTableWidgetItem *typeItem = new QTableWidgetItem("Punishment");
+            typeItem->setBackground(QColor(255, 230, 230));
+            typeItem->setForeground(QColor(180, 0, 0));
+            ui->table_Assignments->setItem(row, 3, typeItem);
+
+            row++;
+            continue; // Done with this assignment
+        }
+
+        // --- 2. Check for Job ---
         if (data.jobs.contains(lowerName)) {
             const JobDefinition &jobDef = data.jobs.value(lowerName);
 
-            QString deadlineStr;
+            QString deadlineStr = "No Deadline";
             if (deadlines.contains(assignmentName)) {
                 deadlineStr = deadlines.value(assignmentName).toString("MM-dd-yyyy h:mm AP");
-            } else {
-                deadlineStr = "No Deadline";
+            }
+
+            QString displayText = jobDef.title.isEmpty() ? jobDef.name : jobDef.title;
+
+            // Handle Line Writing Select=Random Display
+            if (jobDef.isLineWriting && jobDef.lineSelectMode.compare("Random", Qt::CaseInsensitive) == 0) {
+                QSettings settings(mainApp->getSettingsFilePath(), QSettings::IniFormat);
+                QString line = settings.value("Assignments/" + assignmentName + "_selected_line").toString();
+                if (!line.isEmpty()) {
+                    int amt = jobDef.lineCount > 0 ? jobDef.lineCount : 1;
+                    displayText = QString("Write %1 times: %2").arg(amt).arg(line);
+                }
             }
 
             ui->table_Assignments->insertRow(row);
             ui->table_Assignments->setItem(row, 0, new QTableWidgetItem(deadlineStr));
 
             QTableWidgetItem *jobItem = new QTableWidgetItem(jobDef.title.isEmpty() ? jobDef.name : jobDef.title);
-            jobItem->setData(Qt::UserRole, jobDef.name);
+            jobItem->setData(Qt::UserRole, assignmentName); // Store the FULL instance name
             ui->table_Assignments->setItem(row, 1, jobItem);
-            ui->table_Assignments->setItem(row, 2, new QTableWidgetItem("estimateStr"));
-            ui->table_Assignments->setItem(row, 3, new QTableWidgetItem("Job"));
 
-            row++;
-            qDebug() << "[DEBUG] Adding Job to List: " << jobDef.name;
-        }
-    }
-
-    // --- Add Punishments ---
-    for (const QString &assignmentName : activeJobs) {
-        QString lowerName = assignmentName.toLower();
-
-        // Check if this is a punishment
-        if (data.punishments.contains(lowerName)) {
-            const PunishmentDefinition &punDef = data.punishments.value(lowerName);
-
-            // Get deadline
-            QString deadlineStr;
-            if (deadlines.contains(assignmentName)) {
-                deadlineStr = deadlines.value(assignmentName).toString("MM-dd-yyyy h:mm AP");
-            } else {
-                deadlineStr = "No Deadline";
-            }
-
-            // Build display name, replacing '#' with the amount
-            QString displayName = punDef.title.isEmpty() ? punDef.name : punDef.title;
-            int amt = mainApp->getPunishmentAmount(assignmentName);
-            if (displayName.contains('#')) {
-                displayName.replace('#', QString::number(amt));
-            }
-            if (!displayName.isEmpty()) {
-                displayName[0] = displayName[0].toUpper();
-            }
-            if (!displayName.isEmpty()) {
-                displayName[0] = displayName[0].toUpper();
-            }
-
-            ui->table_Assignments->insertRow(row);
-            ui->table_Assignments->setItem(row, 0, new QTableWidgetItem(deadlineStr));
-
-            QTableWidgetItem *punItem = new QTableWidgetItem(displayName);
-            punItem->setData(Qt::UserRole, punDef.name);
-            ui->table_Assignments->setItem(row, 1, punItem);
-
-            QString estimateStr = mainApp->getAssignmentEstimate(punDef.name, true);
+            QString estimateStr = mainApp->getAssignmentEstimate(assignmentName, false);
             ui->table_Assignments->setItem(row, 2, new QTableWidgetItem(estimateStr));
-            ui->table_Assignments->setItem(row, 3, new QTableWidgetItem("Punishment"));
 
-            // Style punishments
-            ui->table_Assignments->item(row, 3)->setBackground(QColor(255, 230, 230));
-            ui->table_Assignments->item(row, 3)->setForeground(QColor(180, 0, 0));
+            // Type is in column 3
+            QTableWidgetItem *typeItem = new QTableWidgetItem("Job");
+            typeItem->setBackground(QColor(230, 255, 230));
+            typeItem->setForeground(QColor(0, 100, 0));
+            ui->table_Assignments->setItem(row, 3, typeItem);
 
             row++;
-            qDebug() << "[DEBUG] Added Punishment to List: " << punDef.name;
         }
     }
 
-    qDebug() << "[DEBUG] Displayed Active Jobs and Punishments in UI.";
     updateStartButtonState();
 }
+
+// In assignments.cpp (Add this include at the top)
+#include <QTime>
+
+// ...
 
 void Assignments::on_btn_Start_clicked()
 {
@@ -159,76 +189,140 @@ void Assignments::on_btn_Start_clicked()
         return;
     }
 
-    // Get the assignment details
     QTableWidgetItem *startItem = ui->table_Assignments->item(selectedRow, 1);
     QString assignmentName = startItem->data(Qt::UserRole).toString();
-    QString assignmentType = ui->table_Assignments->item(selectedRow, 2)->text();
+
+    QString assignmentType = ui->table_Assignments->item(selectedRow, 3)->text();
     bool isPunishment = (assignmentType.toLower() == "punishment");
 
-    if (!mainApp || !mainApp->getScriptParser()) {
-        QMessageBox::warning(this, "Error", "Application reference lost.");
-        return;
-    }
+    if (!mainApp || !mainApp->getScriptParser()) return;
 
     const ScriptData &data = mainApp->getScriptParser()->getScriptData();
     QString lowerName = assignmentName.toLower();
+    QString baseName = lowerName;
 
-    // --- REFACTORED: Get details from Structs ---
+    // Resolve base name (handle suffixes)
+    if (isPunishment) {
+        int lastUnderscore = baseName.lastIndexOf('_');
+        if (lastUnderscore != -1) {
+            bool isNumber;
+            baseName.mid(lastUnderscore + 1).toInt(&isNumber);
+            if (isNumber) baseName = baseName.left(lastUnderscore);
+        }
+    }
+
     QString instructions = "No specific instructions available.";
     QString newStatus;
     bool isLineWriting = false;
     QStringList lines;
+    int lineCount = 0;
+    QString lineSelectMode;
 
     if (isPunishment) {
-        if (!data.punishments.contains(lowerName)) {
-            QMessageBox::warning(this, "Error", "Punishment not found in the script.");
+        if (!data.punishments.contains(baseName)) {
+            QMessageBox::warning(this, "Error", "Punishment definition not found for: " + baseName);
             return;
         }
-        const PunishmentDefinition &def = data.punishments.value(lowerName);
+        const PunishmentDefinition &def = data.punishments.value(baseName);
         if (!def.statusTexts.isEmpty()) instructions = def.statusTexts.join("\n");
-        newStatus = def.newStatus; // Get NewStatus from struct
+        newStatus = def.newStatus;
         isLineWriting = def.isLineWriting;
         lines = def.lines;
+        lineSelectMode = def.lineSelectMode;
+        lineCount = mainApp->getPunishmentAmount(assignmentName);
     } else {
         if (!data.jobs.contains(lowerName)) {
-            QMessageBox::warning(this, "Error", "Job not found in the script.");
+            QMessageBox::warning(this, "Error", "Job definition not found for: " + lowerName);
             return;
         }
         const JobDefinition &def = data.jobs.value(lowerName);
         if (!def.statusTexts.isEmpty()) instructions = def.statusTexts.join("\n");
         if (!def.text.isEmpty()) instructions = def.text + "\n" + instructions;
-        newStatus = def.newStatus; // Get NewStatus from struct
+        newStatus = def.newStatus;
+        isLineWriting = def.isLineWriting;
+        lines = def.lines;
+        lineSelectMode = def.lineSelectMode;
+        lineCount = def.lineCount > 0 ? def.lineCount : 1;
     }
 
-    // Update the assignment notes text box
     ui->text_AssignmentNotes->setText(instructions);
 
-    // Save the assignment name for reselection after refresh
-    QString savedAssignmentName = assignmentName;
-
-    // Actually start the assignment (Pass NewStatus to CyberDom)
-    mainApp->startAssignment(assignmentName, isPunishment, newStatus);
-
-    // Show the success message
-    QMessageBox::information(this,
-                             "Starting " + assignmentType,
-                             assignmentType + " " + assignmentName +
-                                 " has been started.\n\n" + "Instructions: " + instructions);
-
-    // Launch line writing UI if needed
-    if (isPunishment && isLineWriting) {
-        int count = mainApp->getPunishmentAmount(assignmentName);
-        LineWriter dlg(lines, count, this);
-        if (dlg.exec() == QDialog::Accepted)
-            mainApp->markAssignmentDone(assignmentName, true);
+    // --- START ASSIGNMENT ---
+    if (!mainApp->startAssignment(assignmentName, isPunishment, newStatus)) {
+        return;
     }
 
-    // Reselect the same assignment in the refreshed table
-    for (int i = 0; i < ui->table_Assignments->rowCount(); i++) {
-        QTableWidgetItem *item = ui->table_Assignments->item(i,1);
-        if (item->data(Qt::UserRole).toString() == savedAssignmentName) {
-            ui->table_Assignments->selectRow(i);
-            break;
+    // --- LAUNCH LINE WRITER ---
+    if (isLineWriting) {
+        if (lines.isEmpty()) {
+            QMessageBox::warning(this, "Error", "This assignment is Type=Lines but has no 'Line=' entries.");
+            mainApp->abortAssignment(assignmentName, isPunishment);
+        } else {
+            QStringList fullExpectedList;
+            QString mode = lineSelectMode.isEmpty() ? "All" : lineSelectMode;
+
+            if (mode.compare("Sequence", Qt::CaseInsensitive) == 0) {
+                for (int i = 0; i < lineCount; ++i) fullExpectedList.append(lines);
+            }
+            else if (mode.compare("Random", Qt::CaseInsensitive) == 0) {
+                QSettings settings(mainApp->getSettingsFilePath(), QSettings::IniFormat);
+                QString selectedLine = settings.value("Assignments/" + assignmentName + "_selected_line").toString();
+                if (selectedLine.isEmpty()) selectedLine = lines[0];
+                for (int i = 0; i < lineCount; ++i) fullExpectedList.append(selectedLine);
+            }
+            else {
+                for (int i = 0; i < lineCount; ++i) {
+                    int idx = ScriptUtils::randomInRange(0, lines.size() - 1, false);
+                    fullExpectedList.append(lines[idx]);
+                }
+            }
+
+            for (QString &s : fullExpectedList) s = mainApp->replaceVariables(s);
+
+            // Get Settings
+            int maxBreakSecs = 0;
+            QString alarmSound;
+            const GeneralSettings &gen = mainApp->getScriptParser()->getScriptData().general;
+            alarmSound = gen.popupAlarm;
+            QString breakStr = gen.maxLineBreak;
+            if (!breakStr.isEmpty()) {
+                QTime t = QTime::fromString(breakStr, "h:mm:ss");
+                if (t.isValid()) {
+                    maxBreakSecs = t.hour() * 3600 + t.minute() * 60 + t.second();
+                } else {
+                    t = QTime::fromString(breakStr, "mm:ss");
+                    if (t.isValid()) maxBreakSecs = t.minute() * 60 + t.second();
+                }
+            }
+
+            LineWriter dlg(fullExpectedList, maxBreakSecs, alarmSound, this);
+            if (dlg.exec() == QDialog::Accepted) {
+                mainApp->markAssignmentDone(assignmentName, isPunishment);
+            } else {
+                mainApp->abortAssignment(assignmentName, isPunishment);
+            }
+        }
+    }
+    // --- LAUNCH DETENTION ---
+    else if (isPunishment && data.punishments.contains(baseName) &&
+             data.punishments.value(baseName).isDetention) {
+
+        const PunishmentDefinition &def = data.punishments.value(baseName);
+        int amount = mainApp->getPunishmentAmount(assignmentName);
+
+        // --- FIX: Always calculate as minutes for Detention ---
+        int totalSeconds = amount * 60;
+        // ----------------------------------------------------
+
+        QString text = def.detentionText.join("\n");
+        if (text.isEmpty()) text = "You are in detention.";
+        text = mainApp->replaceVariables(text);
+
+        Detention dlg(totalSeconds, text, this);
+        if (dlg.exec() == QDialog::Accepted) {
+            mainApp->markAssignmentDone(assignmentName, isPunishment);
+        } else {
+            mainApp->abortAssignment(assignmentName, isPunishment);
         }
     }
 
@@ -239,45 +333,45 @@ void Assignments::on_btn_Done_clicked()
 {
     int selectedRow = ui->table_Assignments->currentRow();
     if (selectedRow < 0) {
-        QMessageBox::warning(this, "No Selection", "Please select an assignment to mark as done.");
+        QMessageBox::warning(this, "No Selection", "Please select an assignment.");
         return;
     }
 
-    // Get assignment details
     QTableWidgetItem *doneItem = ui->table_Assignments->item(selectedRow, 1);
     QString assignmentName = doneItem->data(Qt::UserRole).toString();
-    QString assignmentType = ui->table_Assignments->item(selectedRow, 2)->text();
+
+    // FIX: Use Column 3 for Type
+    QString assignmentType = ui->table_Assignments->item(selectedRow, 3)->text();
     bool isPunishment = (assignmentType.toLower() == "punishment");
 
-    if (!mainApp || !mainApp->getScriptParser()) {
-        QMessageBox::warning(this, "Error", "Application reference lost.");
-        return;
-    }
+    if (!mainApp || !mainApp->getScriptParser()) return;
 
     const ScriptData &data = mainApp->getScriptParser()->getScriptData();
-    QString lowerName = assignmentName.toLower();
+    QString baseName = assignmentName.toLower();
+
+    if (isPunishment) {
+        int lastUnderscore = baseName.lastIndexOf('_');
+        if (lastUnderscore != -1) {
+            bool isNumber;
+            baseName.mid(lastUnderscore + 1).toInt(&isNumber);
+            if (isNumber) baseName = baseName.left(lastUnderscore);
+        }
+    }
+
     bool mustStart = false;
 
-    // Check if the assignment exists and get 'mustStart' property
     if (isPunishment) {
-        if (!data.punishments.contains(lowerName)) {
-            QMessageBox::warning(this, "Error", "Punishment not found in script.");
-            return;
-        }
-        const PunishmentDefinition &def = data.punishments.value(lowerName);
+        if (!data.punishments.contains(baseName)) return;
+        const PunishmentDefinition &def = data.punishments.value(baseName);
         QString vu = def.valueUnit.toLower();
         bool isTimeBased = (vu == "day" || vu == "hour" || vu == "minute");
         mustStart = def.mustStart || def.longRunning || isTimeBased;
     } else {
-        if (!data.jobs.contains(lowerName)) {
-            QMessageBox::warning(this, "Error", "Job not found in script.");
-            return;
-        }
-        const JobDefinition &def = data.jobs.value(lowerName);
+        if (!data.jobs.contains(baseName)) return;
+        const JobDefinition &def = data.jobs.value(baseName);
         mustStart = def.mustStart || def.longRunning;
     }
 
-    // Check if the assignment that requires starting was actually started
     if (mustStart) {
         QString startFlagName = (isPunishment ? "punishment_" : "job_") + assignmentName + "_started";
         if (!mainApp->isFlagSet(startFlagName)) {
@@ -286,28 +380,13 @@ void Assignments::on_btn_Done_clicked()
         }
     }
 
-    // Confirm with the user
     int result = QMessageBox::question(this, "Confirm", "Are you sure you want to mark this " + assignmentType.toLower() + " as done?", QMessageBox::Yes | QMessageBox::No);
+    if (result == QMessageBox::No) return;
 
-    if (result == QMessageBox::No) {
-        return;
-    }
-
-    // Call the markAssignmentDone method in CyberDom
     bool completed = mainApp->markAssignmentDone(assignmentName, isPunishment);
-
-    if (!completed) {
-        return;
-    }
-
-    // Select a new row if available after the refresh
-    if (ui->table_Assignments->rowCount() > 0) {
-        int newRow = qMin(selectedRow, ui->table_Assignments->rowCount() - 1);
-        ui->table_Assignments->selectRow(newRow);
-    }
+    if (!completed) return;
 
     updateStartButtonState();
-
     QMessageBox::information(this, assignmentType + " Completed", assignmentType + " " + assignmentName + " has been marked as completed.");
 }
 
@@ -315,59 +394,28 @@ void Assignments::on_btn_Abort_clicked()
 {
     int selectedRow = ui->table_Assignments->currentRow();
     if (selectedRow < 0) {
-        QMessageBox::warning(this, "No Selection", "Please select an assignment to abort.");
+        QMessageBox::warning(this, "No Selection", "Please select an assignment.");
         return;
     }
 
-    // Get assignment details
     QTableWidgetItem *abortItem = ui->table_Assignments->item(selectedRow, 1);
     QString assignmentName = abortItem->data(Qt::UserRole).toString();
-    QString assignmentType = ui->table_Assignments->item(selectedRow, 2)->text();
+
+    // FIX: Use Column 3 for Type
+    QString assignmentType = ui->table_Assignments->item(selectedRow, 3)->text();
     bool isPunishment = (assignmentType.toLower() == "punishment");
 
-    if (!mainApp) {
-        QMessageBox::warning(this, "Error", "Application reference lost.");
-        return;
-    }
-
-    // Check if the assignment was started
     QString startFlagName = (isPunishment ? "punishment_" : "job_") + assignmentName + "_started";
     if (!mainApp->isFlagSet(startFlagName)) {
         QMessageBox::warning(this, "Not Started", "This " + assignmentType.toLower() + " is not currently started.");
         return;
     }
 
-    // Confirm with the user
-    int result = QMessageBox::question(this, "Confirm", "Are you sure you want to abort this " + assignmentType.toLower() + "?\n\n" + "It will remain in your assignments list and you'll need to start over.", QMessageBox::Yes | QMessageBox::No);
+    int result = QMessageBox::question(this, "Confirm", "Are you sure you want to abort this " + assignmentType.toLower() + "?", QMessageBox::Yes | QMessageBox::No);
+    if (result == QMessageBox::No) return;
 
-    if (result == QMessageBox::No) {
-        return;
-    }
-
-    // Remove the start flag
-    mainApp->removeFlag(startFlagName);
-
-    // Return to previous status if needed
-    QString statusFlagName = (isPunishment ? "punishment_" : "job_") + assignmentName + "_prev_status";
-    QSettings settings(settingsFile, QSettings::IniFormat);
-    QString prevStatus = settings.value("Assignments/" + statusFlagName, "").toString();
-
-    if (!prevStatus.isEmpty()) {
-        mainApp->updateStatus(prevStatus);
-        settings.remove("Assignments/" + statusFlagName);
-    }
-
+    mainApp->abortAssignment(assignmentName, isPunishment);
     QMessageBox::information(this, assignmentType + " Aborted", assignmentType + " " + assignmentName + " has been aborted.");
-
-    // Reselect the same assignment
-    for (int i = 0; i < ui->table_Assignments->rowCount(); i++) {
-        QTableWidgetItem *item = ui->table_Assignments->item(i,1);
-        if (item->data(Qt::UserRole).toString() == assignmentName) {
-            ui->table_Assignments->selectRow(i);
-            break;
-        }
-    }
-
     updateStartButtonState();
 }
 
@@ -375,42 +423,46 @@ void Assignments::on_btn_Delete_clicked()
 {
     int selectedRow = ui->table_Assignments->currentRow();
     if (selectedRow < 0) {
-        QMessageBox::warning(this, "No Selection", "Please select an assignment to deletel");
+        QMessageBox::warning(this, "No Selection", "Please select an assignment.");
         return;
     }
 
     QTableWidgetItem *delItem = ui->table_Assignments->item(selectedRow, 1);
     QString assignmentName = delItem->data(Qt::UserRole).toString();
-    QString assignmentType = ui->table_Assignments->item(selectedRow, 2)->text();
+
+    // FIX: Use Column 3 for Type
+    QString assignmentType = ui->table_Assignments->item(selectedRow, 3)->text();
     bool isPunishment = (assignmentType.toLower() == "punishment");
 
-    if (!mainApp || !mainApp->getScriptParser()) {
-        QMessageBox::warning(this, "Error", "Application reference lost.");
-        return;
-    }
+    if (!mainApp || !mainApp->getScriptParser()) return;
 
     const ScriptData &data = mainApp->getScriptParser()->getScriptData();
-    QString lowerName = assignmentName.toLower();
+    QString baseName = assignmentName.toLower();
+
+    if (isPunishment) {
+        int lastUnderscore = baseName.lastIndexOf('_');
+        if (lastUnderscore != -1) {
+            bool isNumber;
+            baseName.mid(lastUnderscore + 1).toInt(&isNumber);
+            if (isNumber) baseName = baseName.left(lastUnderscore);
+        }
+    }
+
     bool deleteAllowed = false;
     QString beforeDeleteProcedure;
 
-    // --- Get properties from ScriptData ---
     if (isPunishment) {
-        if (!data.punishments.contains(lowerName)) {
-            QMessageBox::warning(this, "Error", "Punishment not found in script.");
-            return;
+        if (data.punishments.contains(baseName)) {
+            const auto& def = data.punishments.value(baseName);
+            deleteAllowed = def.deleteAllowed;
+            beforeDeleteProcedure = def.beforeDeleteProcedure;
         }
-        const auto& def = data.punishments.value(lowerName);
-        deleteAllowed = def.deleteAllowed;
-        beforeDeleteProcedure = def.beforeDeleteProcedure;
     } else {
-        if (!data.jobs.contains(lowerName)) {
-            QMessageBox::warning(this, "Error", "Job not found in script.");
-            return;
+        if (data.jobs.contains(baseName)) {
+            const auto& def = data.jobs.value(baseName);
+            deleteAllowed = def.deleteAllowed;
+            beforeDeleteProcedure = def.beforeDeleteProcedure;
         }
-        const auto& def = data.jobs.value(lowerName);
-        deleteAllowed = def.deleteAllowed;
-        beforeDeleteProcedure = def.beforeDeleteProcedure;
     }
 
     if (!deleteAllowed) {
@@ -418,48 +470,27 @@ void Assignments::on_btn_Delete_clicked()
         return;
     }
 
-    // --- Run BeforeDeleteProcedure and check for zzDeny ---
     if (!beforeDeleteProcedure.isEmpty()) {
         mainApp->runProcedure(beforeDeleteProcedure);
-
         if (mainApp->isFlagSet("zzDeny")) {
-            qDebug() << "[Delete] Deletion of" << assignmentName << "was denied by BeforeDeleteProcedure.";
             mainApp->removeFlag("zzDeny");
-
-            // Show a generic denial message
-            QMessageBox::information(this, "Delete Denied",
-                                     "The request to delete " + assignmentName + " was denied.");
+            QMessageBox::information(this, "Delete Denied", "The request to delete " + assignmentName + " was denied.");
             return;
         }
     }
 
-    int result = QMessageBox::question(this, "Confirm", "Are you sure you want to delete this " + assignmentType.toLower() + "?", QMessageBox::Yes | QMessageBox::No);
-
-    if (result == QMessageBox::No) {
+    if (QMessageBox::question(this, "Confirm", "Are you sure you want to delete this " + assignmentType.toLower() + "?", QMessageBox::Yes | QMessageBox::No) == QMessageBox::No) {
         return;
     }
 
-    // Delegate the remove logic to CyberDom
     mainApp->deleteAssignment(assignmentName, isPunishment);
-
     QMessageBox::information(this, assignmentType + " Deleted", assignmentType + " " + assignmentName + " has been deleted.");
-
-    // Select a new row if available after the refresh
-    if (ui->table_Assignments->rowCount() > 0) {
-        int newRow = qMin(selectedRow, ui->table_Assignments->rowCount() - 1);
-        ui->table_Assignments->selectRow(newRow);
-    }
-
     updateStartButtonState();
 }
 
 void Assignments::updateStartButtonState()
 {
-    if (!mainApp || !mainApp->getScriptParser()) {
-        ui->btn_Start->setEnabled(false);
-        ui->btn_Done->setEnabled(false);
-        return;
-    }
+    if (!mainApp) return;
 
     int row = ui->table_Assignments->currentRow();
     if (row < 0) {
@@ -470,13 +501,14 @@ void Assignments::updateStartButtonState()
 
     QTableWidgetItem *item = ui->table_Assignments->item(row, 1);
     QString assignmentName = item->data(Qt::UserRole).toString();
-    QString type = ui->table_Assignments->item(row, 2)->text();
+
+    // FIX: Use Column 3 for Type
+    QString type = ui->table_Assignments->item(row, 3)->text();
     bool isPunishment = (type.toLower() == "punishment");
 
     QString flag = (isPunishment ? "punishment_" : "job_") + assignmentName + "_started";
     bool isStarted = mainApp->isFlagSet(flag);
 
-    // --- Handle START button ---
     QSet<QString> used = mainApp->getResourcesInUse();
     QStringList needed = mainApp->getAssignmentResources(assignmentName, isPunishment);
 
@@ -493,23 +525,26 @@ void Assignments::updateStartButtonState()
     else
         ui->btn_Start->setEnabled(!isStarted);
 
-    // --- Handle DONE Button ---
     bool mustStart = false;
-
     const ScriptData &data = mainApp->getScriptParser()->getScriptData();
-    QString lowerName = assignmentName.toLower();
+    QString baseName = assignmentName.toLower();
 
     if (isPunishment) {
-        if (data.punishments.contains(lowerName)) {
-            const PunishmentDefinition &def = data.punishments.value(lowerName);
+        int lastUnderscore = baseName.lastIndexOf('_');
+        if (lastUnderscore != -1) {
+            bool isNumber;
+            baseName.mid(lastUnderscore + 1).toInt(&isNumber);
+            if (isNumber) baseName = baseName.left(lastUnderscore);
+        }
+        if (data.punishments.contains(baseName)) {
+            const PunishmentDefinition &def = data.punishments.value(baseName);
             QString vu = def.valueUnit.toLower();
             bool isTimeBased = (vu == "day" || vu == "hour" || vu == "minute");
-            // Rule: MustStart, LongRunning, or TimeBased implies mandatory start
             mustStart = def.mustStart || def.longRunning || isTimeBased;
         }
     } else {
-        if (data.jobs.contains(lowerName)) {
-            const JobDefinition &def = data.jobs.value(lowerName);
+        if (data.jobs.contains(baseName)) {
+            const JobDefinition &def = data.jobs.value(baseName);
             mustStart = def.mustStart || def.longRunning;
         }
     }
@@ -517,7 +552,6 @@ void Assignments::updateStartButtonState()
     if (isStarted) {
         ui->btn_Done->setEnabled(true);
     } else {
-        // Only enable 'Done' if starting isn't required
         ui->btn_Done->setEnabled(!mustStart);
     }
 }

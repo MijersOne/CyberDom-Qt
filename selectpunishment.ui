@@ -38,6 +38,9 @@
      <height>26</height>
     </rect>
    </property>
+   <property name="styleSheet">
+    <string notr="true">combobox-popup: 0;</string>
+   </property>
   </widget>
   <widget class="QLabel" name="lbl_Punishments">
    <property name="geometry">

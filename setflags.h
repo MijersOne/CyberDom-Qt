@@ -7,12 +7,15 @@ namespace Ui {
 class SetFlags;
 }
 
+class ScriptParser; // Forward declaration
+
 class SetFlags : public QDialog
 {
     Q_OBJECT
 
 public:
-    explicit SetFlags(QWidget *parent = nullptr);
+    // Updated constructor to accept ScriptParser
+    explicit SetFlags(QWidget *parent = nullptr, ScriptParser *parser = nullptr);
     ~SetFlags();
 
 signals:
@@ -23,6 +26,7 @@ private slots:
 
 private:
     Ui::SetFlags *ui;
+    ScriptParser *parser;
 };
 
 #endif // SETFLAGS_H

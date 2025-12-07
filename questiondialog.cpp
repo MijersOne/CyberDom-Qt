@@ -64,18 +64,38 @@ void QuestionDialog::onNextClicked()
     if (!buttonGroup)
         return;
 
+    const QuestionDefinition& question = questions[currentIndex];
     QAbstractButton* selected = buttonGroup->checkedButton();
+
     if (!selected) {
+        // No answer selected. Check if "No Input" is allowed.
+        if (!question.noInputProcedure.isEmpty()) {
+            // Allowed! Treat as "No Input" (empty string results)
+            answers.insert(question.variable, "");
+
+            // Proceed
+            ++currentIndex;
+            showNextQuestion();
+            return;
+        }
+
+        // Not allowed
         QMessageBox::warning(this, "No Answer Selected", "Please select an answer before continuing.");
         return;
     }
 
     int id = buttonGroup->id(selected);
-    const QuestionDefinition& question = questions[currentIndex];
     const QuestionAnswerBlock& selectedAnswer = question.answers[id];
 
-    // Store the selected value into the result map
-    answers.insert(question.variable, selectedAnswer.answerText);
+    // Store the PROCEDURE NAME as the value
+    // If procedureName is empty (e.g. *), store answerText
+    QString valToStore = selectedAnswer.procedureName;
+    if (valToStore.isEmpty() || valToStore == "*") {
+        valToStore = selectedAnswer.answerText;
+    }
+
+    // Store the selected value
+    answers.insert(question.variable, valToStore);
 
     ++currentIndex;
     showNextQuestion();

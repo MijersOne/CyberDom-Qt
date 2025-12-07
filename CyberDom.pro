@@ -1,4 +1,4 @@
-QT       += core gui multimedia
+QT       += core gui multimedia multimediawidgets
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
@@ -20,8 +20,11 @@ SOURCES += \
     clothingitem.cpp \
     datainspectordialog.cpp \
     deleteassignments.cpp \
+    detention.cpp \
     main.cpp \
     cyberdom.cpp \
+    pointcameradialog.cpp \
+    posecameradialog.cpp \
     questiondialog.cpp \
     reportclothing.cpp \
     rules.cpp \
@@ -53,6 +56,9 @@ HEADERS += \
     clothingitem.h \
     cyberdom.h \
     datainspectordialog.h \
+    detention.h \
+    pointcameradialog.h \
+    posecameradialog.h \
     questiondialog.h \
     reportclothing.h \
     rules.h \
@@ -82,6 +88,9 @@ FORMS += \
     cyberdom.ui \
     cyberdom_copy.ui.bak \
     datainspectordialog.ui \
+    detention.ui \
+    pointcameradialog.ui \
+    posecameradialog.ui \
     questiondialog.ui \
     reportclothing.ui \
     rules.ui \

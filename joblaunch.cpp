@@ -1,16 +1,25 @@
 #include "joblaunch.h"
 #include "ui_joblaunch.h"
 #include "cyberdom.h"
+#include "scriptparser.h"
 #include <QMessageBox>
+#include <QPushButton>
+#include <QDebug>
 
-extern CyberDom *mainApp; // Reference main application
+extern CyberDom *mainApp;
 
 JobLaunch::JobLaunch(QWidget *parent)
     : QDialog(parent)
     , ui(new Ui::JobLaunch)
 {
     ui->setupUi(this);
-    populateJobDropdown(); // Load jobs into dropdown
+    populateJobDropdown();
+
+    // Connect the ButtonBox accepted signal (OK button) to our launch logic
+    connect(ui->buttonBox, &QDialogButtonBox::accepted, this, &JobLaunch::launchSelectedJob);
+
+    // Reject is automatically handled by QDialog for Cancel
+    connect(ui->buttonBox, &QDialogButtonBox::rejected, this, &QDialog::reject);
 }
 
 JobLaunch::~JobLaunch()
@@ -25,21 +34,17 @@ void JobLaunch::populateJobDropdown()
         return;
     }
 
-    QStringList jobList = mainApp->getAvailableJobs(); // Get jobs from CyberDom
+    QStringList jobList = mainApp->getAvailableJobs();
 
     if (jobList.isEmpty()) {
-        qDebug() << "[WARNING] No jobs found in the script. Check if the script was loaded correctly.";
-    } else {
-        qDebug() << "[INFO] Found " << jobList.size() << " jobs to populate in dropdown.";
+        qDebug() << "[WARNING] No jobs found.";
     }
 
-    ui->jobComboBox->clear(); // Clear the existing items
-    ui->jobComboBox->addItems(jobList); // Populate dropdown
-
-    qDebug() << "[DEBUG] Job dropdown populated with available jobs.";
+    ui->jobComboBox->clear();
+    ui->jobComboBox->addItems(jobList);
 }
 
-void JobLaunch::on_btnLaunchJob_clicked()
+void JobLaunch::launchSelectedJob()
 {
     QString selectedJob = ui->jobComboBox->currentText();
 
@@ -48,46 +53,63 @@ void JobLaunch::on_btnLaunchJob_clicked()
         return;
     }
 
-    qDebug() << "[DEBUG] Job Launched: " << selectedJob;
-
-    if (!mainApp) {
-        qDebug() << "[ERROR] Main app reference is null!";
+    if (!mainApp || !mainApp->getScriptParser()) {
+        qDebug() << "[ERROR] Main app or parser is null!"; // FIX: Lowercase 'q'
         return;
     }
 
+    const ScriptData &data = mainApp->getScriptParser()->getScriptData();
+    QString lowerName = selectedJob.toLower();
+
+    // Validate job existence using the parser
+    if (!data.jobs.contains(lowerName)) {
+        QMessageBox::warning(this, "Error", "Job definition not found in script.");
+        return;
+    }
+
+    const JobDefinition &job = data.jobs.value(lowerName);
+
+    qDebug() << "[DEBUG] Job Launched: " << selectedJob;
+
+    // --- Display Job Information ---
+    // Construct a clean info string from the struct
+    QString jobInfo = QString("Starting Job: %1\n").arg(job.title.isEmpty() ? job.name : job.title);
+
+    if (!job.text.isEmpty()) jobInfo += QString("Text: %1\n").arg(job.text);
+
+    // Duration
+    if (!job.duration.minTimeStart.isEmpty()) {
+        jobInfo += QString("Min Time: %1").arg(job.duration.minTimeStart);
+        if (!job.duration.minTimeEnd.isEmpty() && job.duration.minTimeEnd != job.duration.minTimeStart) {
+            jobInfo += QString(" - %1").arg(job.duration.minTimeEnd);
+        }
+        jobInfo += "\n";
+    }
+
+    // Merits (FIX: Compare strings, not ints)
+    if (!job.merits.add.isEmpty() && job.merits.add != "0") {
+        jobInfo += QString("Merits Reward: %1\n").arg(job.merits.add);
+    }
+    if (!job.merits.subtract.isEmpty() && job.merits.subtract != "0") {
+        jobInfo += QString("Merits Cost: %1\n").arg(job.merits.subtract);
+    }
+
+    // Status Change
+    if (!job.newStatus.isEmpty()) {
+        jobInfo += QString("Status Change: %1\n").arg(job.newStatus);
+    }
+
+    QMessageBox::information(this, "Job Details", jobInfo);
+
+    // --- Launch Logic ---
     mainApp->addJobToAssignments(selectedJob);
 
     emit mainApp->jobListUpdated();
 
-    qDebug() << "[DEBUG] Emitted jobListUpdated Signal!";
-
-    // Use getIniData() to access iniData safely
-    QMap<QString, QMap<QString, QString>> iniData = mainApp->getIniData();
-
-    if (!iniData.contains("job-" + selectedJob)){
-        QMessageBox::warning(this, "Error", "Job details not found in script.");
-        return;
+    // Trigger status change if defined
+    if (!job.newStatus.isEmpty()) {
+        emit jobStatusChanged(job.newStatus);
     }
 
-    QMap<QString, QString> jobDetails = iniData["job-" + selectedJob];
-
-    // Check if job exists in the INI using the accessor
-    if (!iniData.contains("job-" + selectedJob)) {
-        QMessageBox::warning(this, "Error", "Job details not found in script.");
-        return;
-    }
-
-    // Display Job Information
-    QString jobInfo = "Starting Job: " + selectedJob + "\n";
-    for (const auto &key : jobDetails.keys()) {
-        jobInfo += key + ": " + jobDetails[key] + "\n";
-    }
-    QMessageBox::information(this, "Job Details", jobInfo);
-
-    // Change Status if the job defines it
-    if (jobDetails.contains("NewStatus")) {
-        emit jobStatusChanged(jobDetails["NewStatus"]);
-    }
-
-    accept(); // Close the dialog after launching the job
+    accept();
 }

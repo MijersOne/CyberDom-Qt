@@ -38,7 +38,6 @@ public:
     QList<ConfessionDefinition> getConfessionSections() const;
     QList<InstructionDefinition> getInstructionSections() const;
     QuestionDefinition getQuestion(const QString &name) const;
-    void setVariable(const QString &name, const QString &value);
 
     void parseGeneralSection(const QString &sectionName, const QMap<QString, QStringList>& section);
     void parseInitSection(const QMap<QString, QStringList>& section);
@@ -51,8 +50,8 @@ public:
     void parseJobSections(const QMap<QString, QMap<QString, QStringList>>& sections);
     bool loadFromCDS(const QString &cdsPath);
     void parseAssignmentBehavior(const QMap<QString, QStringList>& entries, AssignmentBehavior& a);
-    void parseInstructionSections(const QMap<QString, QMap<QString, QStringList>>& sections);
-    void parseInstructionSets(const QMap<QString, QMap<QString, QStringList>>& sections);
+    void parseInstructionSections(const QStringList& lines);
+    void parseInstructionSets(const QStringList& lines);
     void parseClothingTypes(const QStringList &lines);
     void parseProcedureSections(const QStringList& lines);
     void parsePopupSections(const QMap<QString, QMap<QString, QStringList>>& sections);
@@ -79,7 +78,10 @@ public:
 
     MeritAdjustment merits;
 
+    // Variables
     QString getVariable(const QString &varName) const;
+    void setVariable(const QString &name, const QString &value);
+    void removeVariable(const QString &name);
 
 private:
     QStringList readIniLines(const QString &path);

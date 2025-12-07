@@ -289,6 +289,6 @@ void DataInspectorDialog::populateTree()
 
     // Expand all top-level items for easier viewing
     for (QTreeWidgetItem* item : rootItems) {
-        item->setExpanded(true);
+        item->setExpanded(false);
     }
 }

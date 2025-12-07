@@ -38,6 +38,9 @@
      <height>26</height>
     </rect>
    </property>
+   <property name="styleSheet">
+    <string notr="true">combobox-popup: 0;</string>
+   </property>
   </widget>
   <widget class="QLabel" name="label">
    <property name="geometry">
@@ -55,19 +58,6 @@
    </property>
    <property name="text">
     <string>Select Job:</string>
-   </property>
-  </widget>
-  <widget class="QPushButton" name="btnLaunchJob">
-   <property name="geometry">
-    <rect>
-     <x>10</x>
-     <y>100</y>
-     <width>80</width>
-     <height>26</height>
-    </rect>
-   </property>
-   <property name="text">
-    <string>Launch</string>
    </property>
   </widget>
  </widget>

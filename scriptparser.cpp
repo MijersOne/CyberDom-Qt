@@ -134,8 +134,8 @@ bool ScriptParser::parseScript(const QString& path) {
     parsePermissionSections(iniLines);
     parsePunishmentSections(sections);
     parseJobSections(sections);
-    parseInstructionSets(sections);
-    parseInstructionSections(sections);
+    parseInstructionSets(iniLines);
+    parseInstructionSections(iniLines);
     parseProcedureSections(iniLines);
     parsePopupGroupSections(sections);
     parsePopupSections(sections);
@@ -568,7 +568,7 @@ void ScriptParser::parseStatusSections(const QMap<QString, QMap<QString, QString
             status.allowAutoAssign = entries["AutoAssign"].value(0).trimmed() == "1";
 
         if (entries.contains("PointCamera"))
-            status.cameraPrompt = entries["PointCamera"].value(0);
+            status.pointCameraText = entries["PointCamera"].value(0);
 
         if (entries.contains("CameraInteral")) {
             QStringList parts = entries["CameraInterval"].value(0).split(',', Qt::SkipEmptyParts);
@@ -826,8 +826,28 @@ void ScriptParser::parseReportSections(const QStringList& lines) {
             currentReport.actions.append({ScriptActionType::ClearFlag, value});
         } else if (key.compare("Set#", Qt::CaseInsensitive) == 0) {
             currentReport.actions.append({ScriptActionType::SetCounterVar, value});
+        } else if (key.compare("Input#", Qt::CaseInsensitive) == 0) {
+            currentReport.actions.append({ScriptActionType::InputCounter, value});
+        } else if (key.compare("Change#", Qt::CaseInsensitive) == 0) {
+            currentReport.actions.append({ScriptActionType::ChangeCounter, value});
+        } else if (key.compare("InputNeg#", Qt::CaseInsensitive) == 0) {
+            currentReport.actions.append({ScriptActionType::InputNegCounter, value});
+        } else if (key.compare("Random#", Qt::CaseInsensitive) == 0) {
+            currentReport.actions.append({ScriptActionType::RandomCounter, value});
+        } else if (key.compare("Drop#", Qt::CaseInsensitive) == 0) {
+            currentReport.actions.append({ScriptActionType::DropCounter, value});
         } else if (key.compare("Set$", Qt::CaseInsensitive) == 0) {
             currentReport.actions.append({ScriptActionType::SetString, value});
+        } else if (key.compare("Input$", Qt::CaseInsensitive) == 0) {
+            currentReport.actions.append({ScriptActionType::InputString, value});
+        } else if (key.compare("Change$", Qt::CaseInsensitive) == 0) {
+            currentReport.actions.append({ScriptActionType::ChangeString, value});
+        } else if (key.compare("InputLong$", Qt::CaseInsensitive) == 0) {
+            currentReport.actions.append({ScriptActionType::InputLongString, value});
+        } else if (key.compare("ChangeLong$", Qt::CaseInsensitive) == 0) {
+            currentReport.actions.append({ScriptActionType::ChangeLongString, value});
+        } else if (key.compare("Drop$", Qt::CaseInsensitive) == 0) {
+            currentReport.actions.append({ScriptActionType::DropString, value});
         } else if (key.compare("Set!", Qt::CaseInsensitive) == 0) {
             currentReport.actions.append({ScriptActionType::SetTimeVar, value});
         } else if (key.compare("Add#", Qt::CaseInsensitive) == 0) {
@@ -845,7 +865,13 @@ void ScriptParser::parseReportSections(const QStringList& lines) {
         } else if (key.compare("Input", Qt::CaseInsensitive) == 0) {
             currentReport.actions.append({ScriptActionType::Input, value});
         } else if (key.compare("Clothing", Qt::CaseInsensitive) == 0) {
-            currentReport.actions.append({ScriptActionType::Clothing, value});
+            if (currentReport.clothingInstruction.isEmpty()) {
+                currentReport.actions.append({ScriptActionType::Clothing, value});
+            } else {
+                currentReport.actions.append({ScriptActionType::Clothing, value});
+            }
+        } else if (key.compare("Instructions", Qt::CaseInsensitive) == 0) {
+            currentReport.actions.append({ScriptActionType::Instructions, value});
         } else if (key.compare("NewStatus", Qt::CaseInsensitive) == 0) {
             currentReport.actions.append({ScriptActionType::NewStatus, value});
         } else if (key.compare("NewSubStatus", Qt::CaseInsensitive) == 0) {
@@ -858,6 +884,8 @@ void ScriptParser::parseReportSections(const QStringList& lines) {
             currentReport.actions.append({ScriptActionType::Abort, value});
         } else if (key.compare("Delete", Qt::CaseInsensitive) == 0) {
             currentReport.actions.append({ScriptActionType::Delete, value});
+        } else if (key.compare("Group", Qt::CaseInsensitive) == 0) {
+            currentReport.stopAutoAssign = (value.trimmed() == "1");
         } else if (key.compare("AddMerit", Qt::CaseInsensitive) == 0 || key.compare("AddMerits", Qt::CaseInsensitive) == 0) {
             currentReport.actions.append({ScriptActionType::AddMerit, value});
         } else if (key.compare("SubtractMerit", Qt::CaseInsensitive) == 0 || key.compare("SubtractMerits", Qt::CaseInsensitive) == 0) {
@@ -874,6 +902,34 @@ void ScriptParser::parseReportSections(const QStringList& lines) {
             }
         } else if (key.compare("Punish", Qt::CaseInsensitive) == 0) {
             currentReport.actions.append({ScriptActionType::Punish, value});
+        } else if (key.compare("ClothReport", Qt::CaseInsensitive) == 0) {
+            // Add as an action (value is "1" or "Title Text")
+            if (value != "0") {
+                currentReport.actions.append({ScriptActionType::ClothReport, value});
+            }
+        }
+        else if (key.compare("ClearCloth", Qt::CaseInsensitive) == 0) {
+            currentReport.actions.append({ScriptActionType::ClearCloth, value});
+        }
+        else if (key.compare("CameraInterval", Qt::CaseInsensitive) == 0) {
+            QStringList parts = value.split(',', Qt::SkipEmptyParts);
+            if (parts.size() == 2) {
+                currentReport.cameraIntervalMin = parts[0].trimmed();
+                currentReport.cameraIntervalMax = parts[1].trimmed();
+            } else {
+                currentReport.cameraIntervalMin = currentReport.cameraIntervalMax = value.trimmed();
+            }
+        }
+        else if (key.compare("PointCamera", Qt::CaseInsensitive) == 0) {
+            currentReport.pointCameraText = value;
+            currentReport.actions.append({ScriptActionType::PointCamera, value});
+        }
+        else if (key.compare("PoseCamera", Qt::CaseInsensitive) == 0) {
+            currentReport.poseCameraText = value;
+            currentReport.actions.append({ScriptActionType::PoseCamera, value});
+        }
+        else if (key.compare("input$", Qt::CaseInsensitive) == 0) {
+            currentReport.actions.append({ScriptActionType::InputString, value});
         }
     }
 
@@ -978,6 +1034,16 @@ void ScriptParser::parseConfessionSections(const QStringList& lines) {
             currentConf.actions.append({ScriptActionType::ClearFlag, value});
         } else if (key.compare("Set#", Qt::CaseInsensitive) == 0) {
             currentConf.actions.append({ScriptActionType::SetCounterVar, value});
+        } else if (key.compare("Input#", Qt::CaseInsensitive) == 0) {
+            currentConf.actions.append({ScriptActionType::InputCounter, value});
+        } else if (key.compare("Change#", Qt::CaseInsensitive) == 0) {
+            currentConf.actions.append({ScriptActionType::ChangeCounter, value});
+        } else if (key.compare("InputNeg#", Qt::CaseInsensitive) == 0) {
+            currentConf.actions.append({ScriptActionType::InputNegCounter, value});
+        } else if (key.compare("Random#", Qt::CaseInsensitive) == 0) {
+            currentConf.actions.append({ScriptActionType::RandomCounter, value});
+        } else if (key.compare("Drop#", Qt::CaseInsensitive) == 0) {
+            currentConf.actions.append({ScriptActionType::DropCounter, value});
         }
         // ... (add all other action types just like we did for parseProcedureSections) ...
         else if (key.compare("Add#", Qt::CaseInsensitive) == 0) {
@@ -1020,6 +1086,57 @@ void ScriptParser::parseConfessionSections(const QStringList& lines) {
             }
         } else if (key.compare("Punish", Qt::CaseInsensitive) == 0) {
             currentConf.actions.append({ScriptActionType::Punish, value});
+        } else if (key.compare("Clothing", Qt::CaseInsensitive) == 0) {
+            if (currentConf.clothingInstruction.isEmpty()) {
+                currentConf.actions.append({ScriptActionType::Clothing, value});
+            } else {
+                currentConf.actions.append({ScriptActionType::Clothing, value});
+            }
+        } else if (key.compare("Instructions", Qt::CaseInsensitive) == 0) {
+            currentConf.actions.append({ScriptActionType::Instructions, value});
+        } else if (key.compare("ClothReport", Qt::CaseInsensitive) == 0) {
+            // Add as an action (value is "1" or "Title Text")
+            if (value != "0") {
+                currentConf.actions.append({ScriptActionType::ClothReport, value});
+            }
+        }
+        else if (key.compare("ClearCloth", Qt::CaseInsensitive) == 0) {
+            currentConf.actions.append({ScriptActionType::ClearCloth, value});
+        }
+        else if (key.compare("CameraInterval", Qt::CaseInsensitive) == 0) {
+            QStringList parts = value.split(',', Qt::SkipEmptyParts);
+            if (parts.size() == 2) {
+                currentConf.cameraIntervalMin = parts[0].trimmed();
+                currentConf.cameraIntervalMax = parts[1].trimmed();
+            } else {
+                currentConf.cameraIntervalMin = currentConf.cameraIntervalMax = value.trimmed();
+            }
+        }
+        else if (key.compare("PointCamera", Qt::CaseInsensitive) == 0) {
+            currentConf.pointCameraText = value;
+            currentConf.actions.append({ScriptActionType::PointCamera, value});
+        }
+        else if (key.compare("PoseCamera", Qt::CaseInsensitive) == 0) {
+            currentConf.poseCameraText = value;
+            currentConf.actions.append({ScriptActionType::PoseCamera, value});
+        }
+        else if (key.compare("Set$", Qt::CaseInsensitive) == 0) {
+            currentConf.actions.append({ScriptActionType::SetString, value});
+        }
+        else if (key.compare("Input$", Qt::CaseInsensitive) == 0) {
+            currentConf.actions.append({ScriptActionType::InputString, value});
+        }
+        else if (key.compare("Change$", Qt::CaseInsensitive) == 0) {
+            currentConf.actions.append({ScriptActionType::ChangeString, value});
+        }
+        else if (key.compare("InputLong$", Qt::CaseInsensitive) == 0) {
+            currentConf.actions.append({ScriptActionType::InputLongString, value});
+        }
+        else if (key.compare("ChangeLong$", Qt::CaseInsensitive) == 0) {
+            currentConf.actions.append({ScriptActionType::ChangeLongString, value});
+        }
+        else if (key.compare("Drop$", Qt::CaseInsensitive) == 0) {
+            currentConf.actions.append({ScriptActionType::DropString, value});
         }
     }
 
@@ -1179,8 +1296,28 @@ void ScriptParser::parsePermissionSections(const QStringList& lines) {
             currentPermission.actions.append({ScriptActionType::ClearFlag, value});
         } else if (key.compare("Set#", Qt::CaseInsensitive) == 0) {
             currentPermission.actions.append({ScriptActionType::SetCounterVar, value});
+        } else if (key.compare("Input#", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::InputCounter, value});
+        } else if (key.compare("Change#", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::ChangeCounter, value});
+        } else if (key.compare("InputNeg#", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::InputNegCounter, value});
+        } else if (key.compare("Random#", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::RandomCounter, value});
+        } else if (key.compare("Drop#", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::DropCounter, value});
         } else if (key.compare("Set$", Qt::CaseInsensitive) == 0) {
             currentPermission.actions.append({ScriptActionType::SetString, value});
+        } else if (key.compare("Input$", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::InputString, value});
+        } else if (key.compare("Change$", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::ChangeString, value});
+        } else if (key.compare("InputLong$", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::InputLongString, value});
+        } else if (key.compare("ChangeLong$", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::ChangeLongString, value});
+        } else if (key.compare("Drop$", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::DropString, value});
         } else if (key.compare("Set!", Qt::CaseInsensitive) == 0) {
             currentPermission.actions.append({ScriptActionType::SetTimeVar, value});
         } else if (key.compare("Add#", Qt::CaseInsensitive) == 0) {
@@ -1198,7 +1335,13 @@ void ScriptParser::parsePermissionSections(const QStringList& lines) {
         } else if (key.compare("Input", Qt::CaseInsensitive) == 0) {
             currentPermission.actions.append({ScriptActionType::Input, value});
         } else if (key.compare("Clothing", Qt::CaseInsensitive) == 0) {
-            currentPermission.actions.append({ScriptActionType::Clothing, value});
+            if (currentPermission.clothingInstruction.isEmpty()) {
+                currentPermission.actions.append({ScriptActionType::Clothing, value});
+            } else {
+                currentPermission.actions.append({ScriptActionType::Clothing, value});
+            }
+        } else if (key.compare("Instructions", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::Instructions, value});
         } else if (key.compare("NewStatus", Qt::CaseInsensitive) == 0) {
             currentPermission.actions.append({ScriptActionType::NewStatus, value});
         } else if (key.compare("NewSubStatus", Qt::CaseInsensitive) == 0) {
@@ -1227,6 +1370,34 @@ void ScriptParser::parsePermissionSections(const QStringList& lines) {
             }
         } else if (key.compare("Punish", Qt::CaseInsensitive) == 0) {
             currentPermission.actions.append({ScriptActionType::Punish, value});
+        } else if (key.compare("ClothReport", Qt::CaseInsensitive) == 0) {
+            // Add as an action (value is "1" or "Title Text")
+            if (value != "0") {
+                currentPermission.actions.append({ScriptActionType::ClothReport, value});
+            }
+        }
+        else if (key.compare("ClearCloth", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::ClearCloth, value});
+        }
+        else if (key.compare("CameraInterval", Qt::CaseInsensitive) == 0) {
+            QStringList parts = value.split(',', Qt::SkipEmptyParts);
+            if (parts.size() == 2) {
+                currentPermission.cameraIntervalMin = parts[0].trimmed();
+                currentPermission.cameraIntervalMax = parts[1].trimmed();
+            } else {
+                currentPermission.cameraIntervalMin = currentPermission.cameraIntervalMax = value.trimmed();
+            }
+        }
+        else if (key.compare("PointCamera", Qt::CaseInsensitive) == 0) {
+            currentPermission.pointCameraText = value;
+            currentPermission.actions.append({ScriptActionType::PointCamera, value});
+        }
+        else if (key.compare("PoseCamera", Qt::CaseInsensitive) == 0) {
+            currentPermission.poseCameraText = value;
+            currentPermission.actions.append({ScriptActionType::PoseCamera, value});
+        }
+        else if (key.compare("input$", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::InputString, value});
         }
     }
 
@@ -1243,13 +1414,21 @@ void ScriptParser::parsePunishmentSections(const QMap<QString, QMap<QString, QSt
             continue;
 
         QString punishmentName = sectionName.mid(QString("punishment-").length());
-        const QMap<QString, QStringList>& entries = it.value();
+
+        // --- FIX: Create Case-Insensitive Entry Map ---
+        QMap<QString, QStringList> entries;
+        const QMap<QString, QStringList>& rawEntries = it.value();
+        for (auto e = rawEntries.begin(); e != rawEntries.end(); ++e) {
+            entries.insert(e.key().toLower(), e.value());
+        }
+        // ----------------------------------------------
 
         PunishmentDefinition p;
         p.name = punishmentName;
 
-        if (entries.contains("ValueUnit"))
-            p.valueUnit = entries["ValueUnit"].value(0).trimmed().toLower();
+        // Now use lowercase keys for EVERYTHING
+        if (entries.contains("valueunit"))
+            p.valueUnit = entries["valueunit"].value(0).trimmed().toLower();
 
         if (entries.contains("value"))
             p.value = entries["value"].value(0).toDouble();
@@ -1260,128 +1439,110 @@ void ScriptParser::parsePunishmentSections(const QMap<QString, QMap<QString, QSt
         if (entries.contains("max"))
             p.max = entries["max"].value(0).toInt();
 
-        if (entries.contains("MinSeverity"))
-            p.minSeverity = entries["MinSeverity"].value(0).toInt();
+        if (entries.contains("minseverity"))
+            p.minSeverity = entries["minseverity"].value(0).toInt();
 
-        if (entries.contains("MaxSeverity"))
-            p.maxSeverity = entries["MaxSeverity"].value(0).toInt();
+        if (entries.contains("maxseverity"))
+            p.maxSeverity = entries["maxseverity"].value(0).toInt();
 
-        if (entries.contains("Weight")) {
-            QStringList parts = entries["Weight"].value(0).split(',', Qt::SkipEmptyParts);
+        if (entries.contains("weight")) {
+            QStringList parts = entries["weight"].value(0).split(',', Qt::SkipEmptyParts);
             p.weightMin = parts.value(0).trimmed();
             p.weightMax = parts.value(1, p.weightMin).trimmed();
         }
 
-        if (entries.contains("Group")) {
-            for (const QString& g : entries["Group"])
+        if (entries.contains("group")) {
+            for (const QString& g : entries["group"])
                 p.groups.append(g.split(',', Qt::SkipEmptyParts));
         }
 
-        if (entries.contains("GroupOnly"))
-            p.groupOnly = entries["GroupOnly"].value(0).trimmed() == "1";
+        if (entries.contains("grouponly"))
+            p.groupOnly = entries["grouponly"].value(0).trimmed() == "1";
 
-        if (entries.contains("LongRunning"))
-            p.longRunning = entries["LongRunning"].value(0).trimmed() == "1";
+        if (entries.contains("longrunning"))
+            p.longRunning = entries["longrunning"].value(0).trimmed() == "1";
 
-        if (entries.contains("MustStart"))
-            p.mustStart = entries["MustStart"].value(0).trimmed() == "1";
+        if (entries.contains("muststart"))
+            p.mustStart = entries["muststart"].value(0).trimmed() == "1";
 
-        if (entries.contains("DeleteAllowed"))
-            p.deleteAllowed = entries["DeleteAllowed"].value(0).trimmed() == "1";
+        if (entries.contains("deleteallowed"))
+            p.deleteAllowed = entries["deleteallowed"].value(0).trimmed() == "1";
 
-        if (entries.contains("StartProcedure"))
-            p.startProcedure = entries["StartProcedure"].value(0).trimmed();
+        if (entries.contains("startflag"))
+            p.startFlag = entries["startflag"].value(0).trimmed();
 
-        if (entries.contains("BeforeDoneProcedure"))
-            p.beforeDoneProcedure = entries["BeforeDoneProcedure"].value(0).trimmed();
-
-        if (entries.contains("AbortProcedure"))
-            p.abortProcedure = entries["AbortProcedure"].value(0).trimmed();
-
-        if (entries.contains("DoneProcedure"))
-            p.doneProcedure = entries["DoneProcedure"].value(0).trimmed();
-
-        if (entries.contains("RemindProcedure"))
-            p.remindProcedure = entries["RemindProcedure"].value(0).trimmed();
-
-        if (entries.contains("AnnounceProcedure"))
-            p.announceProcedure = entries["AnnounceProcedure"].value(0).trimmed();
-
-        if (entries.contains("BeforeProcedure"))
-            p.beforeProcedure = entries["BeforeProcedure"].value(0).trimmed();
-
-        if (entries.contains("DeleteProcedure"))
-            p.deleteProcedure = entries["DeleteProcedure"].value(0).trimmed();
-
-        if (entries.contains("BeforeDeleteProcedure"))
-            p.beforeDeleteProcedure = entries["BeforeDeleteProcedure"].value(0).trimmed();
-
-        if (entries.contains("StartFlag"))
-            p.startFlag = entries["StartFlag"].value(0).trimmed();
-
-        if (entries.contains("Interruptable") || entries.contains("Interruptible")) {
-            QString val = entries.value("Interruptable", entries.value("Interruptible")).value(0).trimmed();
-            if (val == "0") {
-                p.interruptable = false;
-            }
+        if (entries.contains("interruptable") || entries.contains("interruptible")) {
+            QString val = entries.value("interruptable", entries.value("interruptible")).value(0).trimmed();
+            if (val == "0") p.interruptable = false;
         }
 
-        if (entries.contains("Accumulative"))
-            p.accumulative = entries["Accumulative"].value(0).trimmed() == "1";
+        if (entries.contains("accumulative"))
+            p.accumulative = entries["accumulative"].value(0).trimmed() == "1";
 
-        if (entries.contains("Respite"))
-            p.respite = entries["Respite"].value(0).trimmed();
-        if (entries.contains("Respit"))
-            p.respite = entries["Respit"].value(0).trimmed();
+        if (entries.contains("respite"))
+            p.respite = entries["respite"].value(0).trimmed();
+        if (entries.contains("respit"))
+            p.respite = entries["respit"].value(0).trimmed();
 
-        if (entries.contains("Estimate"))
-            p.estimate = entries["Estimate"].value(0).trimmed();
+        if (entries.contains("estimate"))
+            p.estimate = entries["estimate"].value(0).trimmed();
 
-        if (entries.contains("Forbid")) {
-            for (const QString& f : entries["Forbid"])
+        if (entries.contains("forbid")) {
+            for (const QString& f : entries["forbid"])
                 p.forbids.append(f.split(',', Qt::SkipEmptyParts));
         }
 
-        if (entries.contains("AddMerit") || entries.contains("AddMerits"))
-            p.merits.add = entries.value("AddMerit", entries.value("AddMerits")).value(0);
+        // Procedures
+        if (entries.contains("startprocedure")) p.startProcedure = entries["startprocedure"].value(0).trimmed();
+        if (entries.contains("beforedoneprocedure")) p.beforeDoneProcedure = entries["beforedoneprocedure"].value(0).trimmed();
+        if (entries.contains("abortprocedure")) p.abortProcedure = entries["abortprocedure"].value(0).trimmed();
+        if (entries.contains("doneprocedure")) p.doneProcedure = entries["doneprocedure"].value(0).trimmed();
+        if (entries.contains("remindprocedure")) p.remindProcedure = entries["remindprocedure"].value(0).trimmed();
+        if (entries.contains("announceprocedure")) p.announceProcedure = entries["announceprocedure"].value(0).trimmed();
+        if (entries.contains("beforeprocedure")) p.beforeProcedure = entries["beforeprocedure"].value(0).trimmed();
+        if (entries.contains("deleteprocedure")) p.deleteProcedure = entries["deleteprocedure"].value(0).trimmed();
+        if (entries.contains("beforedeleteprocedure")) p.beforeDeleteProcedure = entries["beforedeleteprocedure"].value(0).trimmed();
 
-        if (entries.contains("SubtractMerit") || entries.contains("SubtractMerits"))
-            p.merits.subtract = entries.value("SubtractMerit", entries.value("SubtractMerits")).value(0);
+        // Merits
+        if (entries.contains("addmerit") || entries.contains("addmerits"))
+            p.merits.add = entries.value("addmerit", entries.value("addmerits")).value(0);
+        if (entries.contains("subtractmerit") || entries.contains("subtractmerits"))
+            p.merits.subtract = entries.value("subtractmerit", entries.value("subtractmerits")).value(0);
+        if (entries.contains("setmerit") || entries.contains("setmerits"))
+            p.merits.set = entries.value("setmerit", entries.value("setmerits")).value(0);
 
-        if (entries.contains("SetMerit") || entries.contains("SetMerits"))
-            p.merits.set = entries.value("SetMerit", entries.value("SetMerits")).value(0);
+        if (entries.contains("centerrandom"))
+            p.centerRandom = entries["centerrandom"].value(0).trimmed() == "1";
 
-        if (entries.contains("CenterRandom"))
-            p.centerRandom = entries["CenterRandom"].value(0).trimmed() == "1";
+        if (entries.contains("title"))
+            p.title = entries["title"].value(0);
 
-        if (entries.contains("Title"))
-            p.title = entries["Title"].value(0);
+        if (entries.contains("newstatus"))
+            p.newStatus = entries["newstatus"].value(0);
 
+        // Messages (Use rawEntries to preserve casing/order of values)
         MessageGroup currentGroup;
         bool inMessageBlock = false;
-
-        for (auto keyIt = entries.begin(); keyIt != entries.end(); ++keyIt) {
+        for (auto keyIt = rawEntries.begin(); keyIt != rawEntries.end(); ++keyIt) {
             QString key = keyIt.key();
             const QStringList& values = keyIt.value();
-
             for (const QString& val : values) {
-                if (key == "Select") {
+                if (key.compare("Select", Qt::CaseInsensitive) == 0) {
                     if (val.compare("Random", Qt::CaseInsensitive) == 0)
                         currentGroup.mode = MessageSelectMode::Random;
                     else
                         currentGroup.mode = MessageSelectMode::All;
-
                     inMessageBlock = true;
                     if (!currentGroup.messages.isEmpty()) {
                         p.messages.append(currentGroup);
                         currentGroup = MessageGroup();
                     }
                 }
-                else if (key == "Message") {
+                else if (key.compare("Message", Qt::CaseInsensitive) == 0) {
                     inMessageBlock = true;
                     currentGroup.messages.append(val.trimmed());
                 }
-                else if (key == "Text") {
+                else if (key.compare("Text", Qt::CaseInsensitive) == 0) {
                     p.statusTexts.append(val.trimmed());
                 }
             }
@@ -1390,218 +1551,144 @@ void ScriptParser::parsePunishmentSections(const QMap<QString, QMap<QString, QSt
             p.messages.append(currentGroup);
         }
 
-        if (entries.contains("Input"))
-            p.inputQuestions.append(entries["Input"]);
+        if (entries.contains("input"))
+            p.inputQuestions.append(entries["input"]);
+        if (entries.contains("noinputprocedure"))
+            p.noInputProcedure = entries["noinputprocedure"].value(0);
+        if (entries.contains("question"))
+            p.advancedQuestions.append(entries["question"]);
 
-        if (entries.contains("NoInputProcedure"))
-            p.noInputProcedure = entries["NoInputProcedure"].value(0);
-
-        if (entries.contains("Question"))
-            p.advancedQuestions.append(entries["Question"]);
-
-        if (entries.contains("Resource")) {
-            for (const QString& value : entries["Resource"])
+        if (entries.contains("resource")) {
+            for (const QString& value : entries["resource"])
                 p.resources.append(value.trimmed());
         }
 
-        if (entries.contains("Estimate"))
-            p.estimate = entries["Estimate"].value(0);
-
-        if (entries.contains("AutoAssign")) {
-            QStringList parts = entries["AutoAssign"].value(0).split(',', Qt::SkipEmptyParts);
+        if (entries.contains("autoassign")) {
+            QStringList parts = entries["autoassign"].value(0).split(',', Qt::SkipEmptyParts);
             p.autoAssignMin = parts.value(0).toInt();
             p.autoAssignMax = parts.value(1, parts.value(0)).toInt();
         }
 
-        if (entries.contains("Clothing"))
-            p.clothingInstruction = entries["Clothing"].value(0);
+        if (entries.contains("clothing"))
+            p.clothingInstruction = entries["clothing"].value(0);
+        if (entries.contains("clearcheck"))
+            p.clearClothingCheck = entries["clearcheck"].value(0).trimmed() == "1";
 
-        if (entries.contains("ClearCheck"))
-            p.clearClothingCheck = entries["ClearCheck"].value(0).trimmed() == "1";
-
-        if (entries.contains("Type") && entries["Type"].value(0).trimmed().compare("Lines", Qt::CaseInsensitive) == 0)
+        // --- Line Writing Checks ---
+        if (entries.contains("type") && entries["type"].value(0).trimmed().compare("Lines", Qt::CaseInsensitive) == 0)
             p.isLineWriting = true;
 
-        if (entries.contains("Line"))
-            p.lines = entries["Line"];
+        if (entries.contains("line"))
+            p.lines = entries["line"];
 
-        if (entries.contains("Select"))
-            p.lineSelectMode = entries["Select"].value(0).trimmed();
+        if (entries.contains("select"))
+            p.lineSelectMode = entries["select"].value(0).trimmed();
 
-        if (entries.contains("PageSize")) {
-            QStringList parts = entries["PageSize"].value(0).split(',', Qt::SkipEmptyParts);
+        if (entries.contains("pagesize")) {
+            QStringList parts = entries["pagesize"].value(0).split(',', Qt::SkipEmptyParts);
             p.pageSizeMin = parts.value(0);
             p.pageSizeMax = parts.value(1, parts.value(0));
         }
+        // ---------------------------
 
-        if (entries.contains("Type") && entries["Type"].value(0).trimmed().compare("Detention", Qt::CaseInsensitive) == 0)
+        if (entries.contains("type") && entries["type"].value(0).trimmed().compare("Detention", Qt::CaseInsensitive) == 0)
             p.isDetention = true;
 
-        if (entries.contains("Text")) {
-            for (const QString& line : entries["Text"])
+        if (entries.contains("text")) {
+            // Note: statusTexts logic above handles this, but detention text might need this loop if separate
+            for (const QString& line : entries["text"])
                 p.detentionText.append(line.trimmed());
         }
 
-        if (entries.contains("PoseCamera"))
-            p.poseCameraText = entries["PoseCamera"].value(0);
+        if (entries.contains("posecamera"))
+            p.poseCameraText = entries["posecamera"].value(0);
+        if (entries.contains("pointcamera"))
+            p.pointCameraText = entries["pointcamera"].value(0);
 
-        if (entries.contains("PointCamera"))
-            p.pointCameraText = entries["PointCamera"].value(0);
+        if (entries.contains("camerainterval")) {
+            QStringList parts = entries["camerainterval"].value(0).split(',', Qt::SkipEmptyParts);
+            p.cameraIntervalMin = parts.value(0).trimmed();
+            p.cameraIntervalMax = parts.value(1, p.cameraIntervalMin).trimmed();
+        }
 
-        if (entries.contains("SetFlag"))
-            p.setFlags = entries["SetFlag"];
+        // (Include all your other flag/counter parsing here, using 'entries' and lowercase keys)
+        if (entries.contains("setflag")) p.setFlags = entries["setflag"];
+        if (entries.contains("clearflag")) p.clearFlags = entries["clearflag"];
+        if (entries.contains("set$")) p.setStringVars = entries["set$"];
+        if (entries.contains("set#")) p.setCounterVars = entries["set#"];
+        if (entries.contains("set@")) p.setTimeVars = entries["set@"];
+        if (entries.contains("counter+")) p.incrementCounters = entries["counter+"];
+        if (entries.contains("counter-")) p.decrementCounters = entries["counter-"];
+        if (entries.contains("random#")) p.randomCounters = entries["random#"];
+        if (entries.contains("random$")) p.randomStrings = entries["random$"];
+        if (entries.contains("removeflag")) p.removeFlags = entries["removeflag"];
+        if (entries.contains("setflaggroup")) p.setFlagGroups = entries["setflaggroup"];
+        if (entries.contains("removeflaggroup")) p.removeFlagGroups = entries["removeflaggroup"];
+        if (entries.contains("if")) p.ifFlags = entries["if"];
+        if (entries.contains("notif")) p.notIfFlags = entries["notif"];
+        if (entries.contains("denyif")) p.denyIfFlags = entries["denyif"];
+        if (entries.contains("permitif")) p.permitIfFlags = entries["permitif"];
+        if (entries.contains("set#")) p.setCounters = entries["set#"];
+        if (entries.contains("add#")) p.addCounters = entries["add#"];
+        if (entries.contains("subtract#")) p.subtractCounters = entries["subtract#"];
+        if (entries.contains("multiply#")) p.multiplyCounters = entries["multiply#"];
+        if (entries.contains("divide#")) p.divideCounters = entries["divide#"];
+        if (entries.contains("drop#")) p.dropCounters = entries["drop#"];
+        if (entries.contains("input#")) p.inputCounters = entries["input#"];
+        if (entries.contains("inputneg#")) p.inputNegCounters = entries["inputneg#"];
 
-        if (entries.contains("ClearFlag"))
-            p.clearFlags = entries["ClearFlag"];
-
-        if (entries.contains("Set$"))
-            p.setStringVars = entries["Set$"];
-
-        if (entries.contains("Set#"))
-            p.setCounterVars = entries["Set#"];
-
-        if (entries.contains("Set@"))
-            p.setTimeVars = entries["Set@"];
-
-        if (entries.contains("Counter+"))
-            p.incrementCounters = entries["Counter+"];
-
-        if (entries.contains("Counter-"))
-            p.decrementCounters = entries["Counter-"];
-
-        if (entries.contains("Random#"))
-            p.randomCounters = entries["Random#"];
-
-        if (entries.contains("Random$"))
-            p.randomStrings = entries["Random$"];
-
-        if (entries.contains("SetFlag"))
-            p.setFlags = entries["SetFlag"];
-
-        if (entries.contains("RemoveFlag"))
-            p.removeFlags = entries["RemoveFlag"];
-
-        if (entries.contains("SetFlagGroup"))
-            p.setFlagGroups = entries["SetFlagGroup"];
-
-        if (entries.contains("RemoveFlagGroup"))
-            p.removeFlagGroups = entries["RemoveFlagGroup"];
-
-        if (entries.contains("If"))
-            p.ifFlags = entries["If"];
-
-        if (entries.contains("NotIf"))
-            p.notIfFlags = entries["NotIf"];
-
-        if (entries.contains("DenyIf"))
-            p.denyIfFlags = entries["DenyIf"];
-
-        if (entries.contains("PermitIf"))
-            p.permitIfFlags = entries["PermitIf"];
-
-        if (entries.contains("Set#"))
-            p.setCounters = entries["Set#"];
-
-        if (entries.contains("Add#"))
-            p.addCounters = entries["Add#"];
-
-        if (entries.contains("Subtract#"))
-            p.subtractCounters = entries["Subtract#"];
-
-        if (entries.contains("Multiply#"))
-            p.multiplyCounters = entries["Multiply#"];
-
-        if (entries.contains("Divide#"))
-            p.divideCounters = entries["Divide#"];
-
-        if (entries.contains("Drop#"))
-            p.dropCounters = entries["Drop#"];
-
-        if (entries.contains("Input#"))
-            p.inputCounters = entries["Input#"];
-
-        if (entries.contains("InputNeg#"))
-            p.inputNegCounters = entries["InputNeg#"];
-
-        if (entries.contains("Random#"))
-            p.randomCounters = entries["Random#"];
-
-        if (entries.contains("RemindInterval")) {
-            QStringList parts = entries["RemindInterval"].value(0).split(',', Qt::SkipEmptyParts);
+        if (entries.contains("remindinterval")) {
+            QStringList parts = entries["remindinterval"].value(0).split(',', Qt::SkipEmptyParts);
             if (parts.size() == 2) {
                 p.remindIntervalMin = parts[0].trimmed();
                 p.remindIntervalMax = parts[1].trimmed();
             } else {
-                p.remindIntervalMin = p.remindIntervalMax = entries["RemindInterval"].value(0).trimmed();
+                p.remindIntervalMin = p.remindIntervalMax = entries["remindinterval"].value(0).trimmed();
             }
         }
 
-        if (entries.contains("RemindPenalty")) {
-            QStringList parts = entries["RemindPenalty"].value(0).split(',', Qt::SkipEmptyParts);
+        if (entries.contains("remindpenalty")) {
+            QStringList parts = entries["remindpenalty"].value(0).split(',', Qt::SkipEmptyParts);
             p.remindPenaltyMin = parts.value(0).trimmed().toInt();
             p.remindPenaltyMax = parts.value(1, parts.value(0)).trimmed().toInt();
         }
 
-        if (entries.contains("RemindPenaltyGroup")) {
-            p.remindPenaltyGroup = entries["RemindPenaltyGroup"].value(0);
+        if (entries.contains("remindpenaltygroup")) {
+            p.remindPenaltyGroup = entries["remindpenaltygroup"].value(0);
         }
 
-        if (entries.contains("Set!"))
-            p.setTimeVars = entries["Set!"];
-        if (entries.contains("Add!"))
-            p.addTimeVars = entries["Add!"];
-        if (entries.contains("Subtract!"))
-            p.subtractTimeVars = entries["Subtract!"];
-        if (entries.contains("Multiply!"))
-            p.multiplyTimeVars = entries["Multiply!"];
-        if (entries.contains("Divide!"))
-            p.divideTimeVars = entries["Divide!"];
-        if (entries.contains("Round!"))
-            p.roundTimeVars = entries["Round!"];
-        if (entries.contains("Drop!"))
-            p.dropTimeVars = entries["Drop!"];
-        if (entries.contains("InputDate!"))
-            p.inputDateVars = entries["InputDate!"];
-        if (entries.contains("InputDateDef!"))
-            p.inputDateDefVars = entries["InputDateDef!"];
-        if (entries.contains("InputTime!"))
-            p.inputTimeVars = entries["InputTime!"];
-        if (entries.contains("InputTimeDef!"))
-            p.inputTimeDefVars = entries["InputTimeDef!"];
-        if (entries.contains("InputInterval!"))
-            p.inputIntervalVars = entries["InputInterval!"];
-        if (entries.contains("Random!"))
-            p.randomTimeVars = entries["Random!"];
-        if (entries.contains("AddDays!"))
-            p.addDaysVars = entries["AddDays!"];
-        if (entries.contains("SubtractDays!"))
-            p.subtractDaysVars = entries["SubtractDays!"];
-        if (entries.contains("Days#"))
-            p.extractToCounter += entries["Days#"];
-        if (entries.contains("Hours#"))
-            p.extractToCounter += entries["Hours#"];
-        if (entries.contains("Minutes#"))
-            p.extractToCounter += entries["Minutes#"];
-        if (entries.contains("Seconds#"))
-            p.extractToCounter += entries["Seconds#"];
-        if (entries.contains("Days!"))
-            p.convertFromCounter += entries["Days!"];
-        if (entries.contains("Hours!"))
-            p.convertFromCounter += entries["Hours!"];
-        if (entries.contains("Minutes!"))
-            p.convertFromCounter += entries["Minutes!"];
-        if (entries.contains("Seconds!"))
-            p.convertFromCounter += entries["Seconds!"];
-        if (entries.contains("If"))
-            p.ifConditions = entries["If"];
-        if (entries.contains("NotIf"))
-            p.notIfConditions = entries["NotIf"];
-        if (entries.contains("DenyIf"))
-            p.denyIfConditions = entries["DenyIf"];
-        if (entries.contains("PermitIf"))
-            p.permitIfConditions = entries["PermitIf"];
+        // Time vars (lower case keys)
+        if (entries.contains("set!")) p.setTimeVars = entries["set!"];
+        if (entries.contains("add!")) p.addTimeVars = entries["add!"];
+        if (entries.contains("subtract!")) p.subtractTimeVars = entries["subtract!"];
+        if (entries.contains("multiply!")) p.multiplyTimeVars = entries["multiply!"];
+        if (entries.contains("divide!")) p.divideTimeVars = entries["divide!"];
+        if (entries.contains("round!")) p.roundTimeVars = entries["round!"];
+        if (entries.contains("drop!")) p.dropTimeVars = entries["drop!"];
+        if (entries.contains("inputdate!")) p.inputDateVars = entries["inputdate!"];
+        if (entries.contains("inputdatedef!")) p.inputDateDefVars = entries["inputdatedef!"];
+        if (entries.contains("inputtime!")) p.inputTimeVars = entries["inputtime!"];
+        if (entries.contains("inputtimedef!")) p.inputTimeDefVars = entries["inputtimedef!"];
+        if (entries.contains("inputinterval!")) p.inputIntervalVars = entries["inputinterval!"];
+        if (entries.contains("random!")) p.randomTimeVars = entries["random!"];
+        if (entries.contains("adddays!")) p.addDaysVars = entries["adddays!"];
+        if (entries.contains("subtractdays!")) p.subtractDaysVars = entries["subtractdays!"];
 
-        parseDurationControl(entries, p.duration);
+        if (entries.contains("days#")) p.extractToCounter += entries["days#"];
+        if (entries.contains("hours#")) p.extractToCounter += entries["hours#"];
+        if (entries.contains("minutes#")) p.extractToCounter += entries["minutes#"];
+        if (entries.contains("seconds#")) p.extractToCounter += entries["seconds#"];
+        if (entries.contains("days!")) p.convertFromCounter += entries["days!"];
+        if (entries.contains("hours!")) p.convertFromCounter += entries["hours!"];
+        if (entries.contains("minutes!")) p.convertFromCounter += entries["minutes!"];
+        if (entries.contains("seconds!")) p.convertFromCounter += entries["seconds!"];
+
+        if (entries.contains("if")) p.ifConditions = entries["if"];
+        if (entries.contains("notif")) p.notIfConditions = entries["notif"];
+        if (entries.contains("denyif")) p.denyIfConditions = entries["denyif"];
+        if (entries.contains("permitif")) p.permitIfConditions = entries["permitif"];
+
+        parseDurationControl(entries, p.duration); // (Note: ensure parseDurationControl also uses lowercase keys or handle it)
 
         scriptData.punishments.insert(punishmentName, p);
     }
@@ -1614,13 +1701,21 @@ void ScriptParser::parseJobSections(const QMap<QString, QMap<QString, QStringLis
             continue;
 
         QString jobName = sectionName.mid(QString("job-").length());
-        const QMap<QString, QStringList>& entries = it.value();
+
+        // --- Create Case-Insensitive Entry Map ---
+        QMap<QString, QStringList> entries;
+        const QMap<QString, QStringList>& rawEntries = it.value();
+        for (auto e = rawEntries.begin(); e != rawEntries.end(); ++e) {
+            entries.insert(e.key().toLower(), e.value());
+        }
+        // -----------------------------------------
 
         JobDefinition job;
         job.name = jobName;
 
-        if (entries.contains("Text"))
-            job.text = entries["Text"].value(0);
+        // Update ALL lookups to use lowercase keys
+        if (entries.contains("text"))
+            job.text = entries["text"].value(0).trimmed().toLower();
 
         auto parseIntRange = [](const QString& s, int& min, int& max) {
             QStringList parts = s.split(',', Qt::SkipEmptyParts);
@@ -1632,34 +1727,34 @@ void ScriptParser::parseJobSections(const QMap<QString, QMap<QString, QStringLis
             }
         };
 
-        if (entries.contains("Interval"))
-            parseIntRange(entries["Interval"].value(0), job.intervalMin, job.intervalMax);
+        if (entries.contains("interval"))
+            parseIntRange(entries["interval"].value(0), job.intervalMin, job.intervalMax);
 
-        if (entries.contains("FirstInterval"))
-            parseIntRange(entries["FirstInterval"].value(0), job.firstIntervalMin, job.firstIntervalMax);
+        if (entries.contains("firstinterval"))
+            parseIntRange(entries["firstinterval"].value(0), job.firstIntervalMin, job.firstIntervalMax);
 
-        if (entries.contains("Run")) {
-            for (const QString& val : entries["Run"])
+        if (entries.contains("run")) {
+            for (const QString& val : entries["run"])
                 job.runDays.append(val.split(',', Qt::SkipEmptyParts));
         }
 
-        if (entries.contains("NoRun")) {
-            for (const QString& val : entries["NoRun"])
+        if (entries.contains("norun")) {
+            for (const QString& val : entries["norun"])
                 job.noRunDays.append(val.split(',', Qt::SkipEmptyParts));
         }
 
-        if (entries.contains("EndTime")) {
-            QStringList parts = entries["EndTime"].value(0).split(',', Qt::SkipEmptyParts);
+        if (entries.contains("endtime")) {
+            QStringList parts = entries["endtime"].value(0).split(',', Qt::SkipEmptyParts);
             if (parts.size() == 2) {
                 job.endTimeMin = parts[0].trimmed();
                 job.endTimeMax = parts[1].trimmed();
             } else {
-                job.endTimeMin = job.endTimeMax = entries["EndTime"].value(0).trimmed();
+                job.endTimeMin = job.endTimeMax = entries["endtime"].value(0).trimmed();
             }
         }
 
-        if (entries.contains("Announce")) {
-            QString val = entries["Announce"].value(0).trimmed();
+        if (entries.contains("announce")) {
+            QString val = entries["announce"].value(0).trimmed();
             if (val == "0") {
                 job.announce = 0;
             } else if (val == "1") {
@@ -1667,144 +1762,146 @@ void ScriptParser::parseJobSections(const QMap<QString, QMap<QString, QStringLis
             }
         }
 
-        if (entries.contains("Respite"))
-            job.respite = entries["Respite"].value(0).trimmed();
-        if (entries.contains("Respit"))
-            job.respite = entries["Respit"].value(0).trimmed();
+        if (entries.contains("respite"))
+            job.respite = entries["respite"].value(0).trimmed();
+        if (entries.contains("respit"))
+            job.respite = entries["respit"].value(0).trimmed();
 
-        if (entries.contains("Estimate"))
-            job.estimate = entries["Estimate"].value(0).trimmed();
+        if (entries.contains("estimate"))
+            job.estimate = entries["estimate"].value(0).trimmed();
 
-        if (entries.contains("RemindInterval")) {
-            QStringList parts = entries["RemindInterval"].value(0).split(',', Qt::SkipEmptyParts);
+        if (entries.contains("remindinterval")) {
+            QStringList parts = entries["remindinterval"].value(0).split(',', Qt::SkipEmptyParts);
             if (parts.size() == 2) {
                 job.remindIntervalMin = parts[0].trimmed();
                 job.remindIntervalMax = parts[1].trimmed();
             } else {
-                job.remindIntervalMin = job.remindIntervalMax = entries["RemindInterval"].value(0).trimmed();
+                job.remindIntervalMin = job.remindIntervalMax = entries["remindinterval"].value(0).trimmed();
             }
         }
 
-        if (entries.contains("RemindPenalty"))
-            parseIntRange(entries["RemindPenalty"].value(0), job.remindPenaltyMin, job.remindPenaltyMax);
+        if (entries.contains("remindpenalty"))
+            parseIntRange(entries["remindpenalty"].value(0), job.remindPenaltyMin, job.remindPenaltyMax);
 
-        if (entries.contains("RemindPenaltyGroup"))
-            job.remindPenaltyGroup = entries["RemindPenaltyGroup"].value(0);
+        if (entries.contains("remindpenaltygroup"))
+            job.remindPenaltyGroup = entries["remindpenaltygroup"].value(0);
 
-        if (entries.contains("LateMerits")) {
-            QStringList parts = entries["LateMerits"].value(0).split(',', Qt::SkipEmptyParts);
+        if (entries.contains("latemerits")) {
+            QStringList parts = entries["latemerits"].value(0).split(',', Qt::SkipEmptyParts);
             job.lateMeritsMin = parts.value(0).trimmed();
             job.lateMeritsMax = parts.value(1, job.lateMeritsMin).trimmed();
         }
 
-        if (entries.contains("ExpireAfter")) {
-            QStringList parts = entries["ExpireAfter"].value(0).split(',', Qt::SkipEmptyParts);
+        if (entries.contains("expireafter")) {
+            QStringList parts = entries["expireafter"].value(0).split(',', Qt::SkipEmptyParts);
             if (parts.size() == 2) {
                 job.expireAfterMin = parts[0].trimmed();
                 job.expireAfterMax = parts[1].trimmed();
             } else {
-                job.expireAfterMin = job.expireAfterMax = entries["ExpireAfter"].value(0).trimmed();
+                job.expireAfterMin = job.expireAfterMax = entries["expireafter"].value(0).trimmed();
             }
         }
 
-        if (entries.contains("MustStart"))
-            job.mustStart = entries["MustStart"].value(0).trimmed() == "1";
+        if (entries.contains("muststart"))
+            job.mustStart = entries["muststart"].value(0).trimmed() == "1";
 
-        if (entries.contains("DeleteAllowed"))
-            job.deleteAllowed = (entries["DeleteAllowed"].value(0).trimmed() == "1");
+        if (entries.contains("deleteallowed"))
+            job.deleteAllowed = (entries["deleteallowed"].value(0).trimmed() == "1");
 
-        if (entries.contains("StartFlag"))
-            job.startFlag = entries["StartFlag"].value(0).trimmed();
+        if (entries.contains("startflag"))
+            job.startFlag = entries["startflag"].value(0).trimmed();
 
-        if (entries.contains("AnnounceProcedure"))
-            job.announceProcedure = entries["AnnounceProcedure"].value(0).trimmed();
+        if (entries.contains("announceprocedure"))
+            job.announceProcedure = entries["announceprocedure"].value(0).trimmed();
 
-        if (entries.contains("BeforeDoneProcedure"))
-            job.beforeDoneProcedure = entries["BeforeDoneProcedure"].value(0).trimmed();
+        if (entries.contains("beforedoneprocedure"))
+            job.beforeDoneProcedure = entries["beforedoneprocedure"].value(0).trimmed();
 
-        if (entries.contains("StartProcedure"))
-            job.startProcedure = entries["StartProcedure"].value(0).trimmed();
+        if (entries.contains("startprocedure"))
+            job.startProcedure = entries["startprocedure"].value(0).trimmed();
 
-        if (entries.contains("AbortProcedure"))
-            job.abortProcedure = entries["AbortProcedure"].value(0).trimmed();
+        if (entries.contains("abortprocedure"))
+            job.abortProcedure = entries["abortprocedure"].value(0).trimmed();
 
-        if (entries.contains("DoneProcedure"))
-            job.doneProcedure = entries["DoneProcedure"].value(0).trimmed();
+        if (entries.contains("doneprocedure"))
+            job.doneProcedure = entries["doneprocedure"].value(0).trimmed();
 
-        if (entries.contains("BeforeProcedure"))
-            job.beforeProcedure = entries["AnnounceProcedure"].value(0).trimmed();
+        if (entries.contains("beforeprocedure"))
+            job.beforeProcedure = entries["beforeprocedure"].value(0).trimmed();
 
-        if (entries.contains("RemindProcedure"))
-            job.remindProcedure = entries["RemindProcedure"].value(0).trimmed();
+        if (entries.contains("remindprocedure"))
+            job.remindProcedure = entries["remindprocedure"].value(0).trimmed();
 
-        if (entries.contains("DeleteProcedure"))
-            job.deleteProcedure = entries["DeleteProcedure"].value(0).trimmed();
+        if (entries.contains("deleteprocedure"))
+            job.deleteProcedure = entries["deleteprocedure"].value(0).trimmed();
 
-        if (entries.contains("BeforeDeleteProcedure"))
-            job.beforeDeleteProcedure = entries["BeforeDeleteProcedure"].value(0).trimmed();
+        if (entries.contains("beforedeleteprocedure"))
+            job.beforeDeleteProcedure = entries["beforedeleteprocedure"].value(0).trimmed();
 
-        if (entries.contains("Interruptable") || entries.contains("Interruptible")) {
-            QString val = entries.value("Interruptable", entries.value("Interruptible")).value(0).trimmed();
+        if (entries.contains("interruptable") || entries.contains("interruptible")) {
+            QString val = entries.value("interruptable", entries.value("interruptible")).value(0).trimmed();
             if (val == "0") {
                 job.interruptable = false;
             }
         }
 
-        if (entries.contains("ExpirePenalty"))
-            parseIntRange(entries["ExpirePenalty"].value(0), job.expirePenaltyMin, job.expirePenaltyMax);
+        if (entries.contains("expirepenalty"))
+            parseIntRange(entries["expirepenalty"].value(0), job.expirePenaltyMin, job.expirePenaltyMax);
 
-        if (entries.contains("ExpirePenaltyGroup"))
-            job.expirePenaltyGroup = entries["ExpirePenaltyGroup"].value(0);
+        if (entries.contains("expirepenaltygroup"))
+            job.expirePenaltyGroup = entries["expirepenaltygroup"].value(0);
 
-        if (entries.contains("ExpireProcedure"))
-            job.expireProcedure = entries["ExpireProcedure"].value(0);
+        if (entries.contains("expireprocedure"))
+            job.expireProcedure = entries["expireprocedure"].value(0);
 
-        if (entries.contains("OneTime"))
-            job.oneTime = entries["OneTime"].value(0).trimmed() == "1";
+        if (entries.contains("onetime"))
+            job.oneTime = entries["onetime"].value(0).trimmed() == "1";
 
-        if (entries.contains("Announce"))
-            job.announce = entries["Announce"].value(0).trimmed() != "0";
+        if (entries.contains("announce"))
+            job.announce = entries["announce"].value(0).trimmed() != "0";
 
-        if (entries.contains("AddMerit") || entries.contains("AddMerits"))
-            job.merits.add = entries.value("AddMerit", entries.value("AddMerits")).value(0);
+        if (entries.contains("addmerit") || entries.contains("addmerits"))
+            job.merits.add = entries.value("addmerit", entries.value("addmerits")).value(0);
 
-        if (entries.contains("SubtractMerit") || entries.contains("SubtractMerits"))
-            job.merits.subtract = entries.value("SubtractMerit", entries.value("SubtractMerits")).value(0);
+        if (entries.contains("subtractmerit") || entries.contains("subtractmerits"))
+            job.merits.subtract = entries.value("subtractmerit", entries.value("subtractmerits")).value(0);
 
-        if (entries.contains("SetMerit") || entries.contains("SetMerits"))
-            job.merits.set = entries.value("SetMerit", entries.value("SetMerits")).value(0);
+        if (entries.contains("setmerit") || entries.contains("setmerits"))
+            job.merits.set = entries.value("setmerit", entries.value("setmerits")).value(0);
 
-        if (entries.contains("CenterRandom"))
-            job.centerRandom = entries["CenterRandom"].value(0).trimmed() == "1";
+        if (entries.contains("centerrandom"))
+            job.centerRandom = entries["centerrandom"].value(0).trimmed() == "1";
 
-        if (entries.contains("Title"))
-            job.title = entries["Title"].value(0);
+        if (entries.contains("title"))
+            job.title = entries["title"].value(0);
 
+        if (entries.contains("newstatus"))
+            job.newStatus = entries["newstatus"].value(0).trimmed();
+
+        // Re-process messages using the original rawEntries to preserve order/case of values
+        // but we check keys case-insensitively
         MessageGroup currentGroup;
         bool inMessageBlock = false;
-
-        for (auto keyIt = entries.begin(); keyIt != entries.end(); ++keyIt) {
+        for (auto keyIt = rawEntries.begin(); keyIt != rawEntries.end(); ++keyIt) {
             QString key = keyIt.key();
             const QStringList& values = keyIt.value();
-
             for (const QString& val : values) {
-                if (key == "Select") {
+                if (key.compare("Select", Qt::CaseInsensitive) == 0) {
                     if (val.compare("Random", Qt::CaseInsensitive) == 0)
                         currentGroup.mode = MessageSelectMode::Random;
                     else
                         currentGroup.mode = MessageSelectMode::All;
-
                     inMessageBlock = true;
                     if (!currentGroup.messages.isEmpty()) {
                         job.messages.append(currentGroup);
                         currentGroup = MessageGroup();
                     }
                 }
-                else if (key == "Message") {
+                else if (key.compare("Message", Qt::CaseInsensitive) == 0) {
                     inMessageBlock = true;
                     currentGroup.messages.append(val.trimmed());
                 }
-                else if (key == "Text") {
+                else if (key.compare("Text", Qt::CaseInsensitive) == 0) {
                     job.statusTexts.append(val.trimmed());
                 }
             }
@@ -1813,213 +1910,130 @@ void ScriptParser::parseJobSections(const QMap<QString, QMap<QString, QStringLis
             job.messages.append(currentGroup);
         }
 
-        if (entries.contains("Resource")) {
-            for (const QString& value : entries["Resource"])
+        if (entries.contains("resource")) {
+            for (const QString& value : entries["resource"])
                 job.resources.append(value.trimmed());
         }
 
-        if (entries.contains("Estimate"))
-            job.estimate = entries["Estimates"].value(0);
+        if (entries.contains("estimate"))
+            job.estimate = entries["estimate"].value(0);
 
-        if (entries.contains("AutoAssign")) {
-            QStringList parts = entries["AutoAssign"].value(0).split(',', Qt::SkipEmptyParts);
+        if (entries.contains("autoassign")) {
+            QStringList parts = entries["autoassign"].value(0).split(',', Qt::SkipEmptyParts);
             job.autoAssignMin = parts.value(0).toInt();
             job.autoAssignMax = parts.value(1, parts.value(0)).toInt();
         }
 
-        if (entries.contains("Clothing"))
-            job.clothingInstruction = entries["Clothing"].value(0);
+        if (entries.contains("clothing"))
+            job.clothingInstruction = entries["clothing"].value(0);
 
-        if (entries.contains("ClearCheck"))
-            job.clearClothingCheck = entries["ClearCheck"].value(0).trimmed() == "1";
+        if (entries.contains("clearcheck"))
+            job.clearClothingCheck = entries["clearcheck"].value(0).trimmed() == "1";
 
-        if (entries.contains("Type") && entries["Type"].value(0).trimmed().compare("Lines", Qt::CaseInsensitive) == 0)
-            job.isLineWriting = true;
+        // --- Line Writing Checks ---
+        if (entries.contains("type")) {
+            QString typeVal = entries["type"].value(0).trimmed();
+            if (typeVal.compare("Lines", Qt::CaseInsensitive) == 0) {
+                job.isLineWriting = true;
+            }
+        }
+        // ---------------------------
 
-        if (entries.contains("Line"))
-            job.lines = entries["Line"];
+        if (entries.contains("line"))
+            job.lines = entries["line"];
 
-        if (entries.contains("Select"))
-            job.lineSelectMode = entries["Select"].value(0).trimmed();
+        if (entries.contains("select"))
+            job.lineSelectMode = entries["select"].value(0).trimmed();
 
-        if (entries.contains("Linenumber"))
-            job.lineCount = entries["Linenumber"].value(0).toInt();
+        if (entries.contains("linenumber"))
+            job.lineCount = entries["linenumber"].value(0).toInt();
 
-        if (entries.contains("PageSize")) {
-            QStringList parts = entries["PageSize"].value(0).split(',', Qt::SkipEmptyParts);
+        if (entries.contains("pagesize")) {
+            QStringList parts = entries["pagesize"].value(0).split(',', Qt::SkipEmptyParts);
             job.pageSizeMin = parts.value(0);
             job.pageSizeMax = parts.value(1, parts.value(0));
         }
 
-        if (entries.contains("PoseCamera"))
-            job.poseCameraText = entries["PoseCamera"].value(0);
+        if (entries.contains("posecamera"))
+            job.poseCameraText = entries["posecamera"].value(0);
 
-        if (!entries["PointCamera"].isEmpty())
-            job.pointCameraText = entries["PointCamera"].first();
+        if (entries.contains("pointcamera"))
+            job.pointCameraText = entries["pointcamera"].value(0);
 
-        if (entries.contains("SetFlag"))
-            job.setFlags = entries["SetFlag"];
-
-        if (entries.contains("ClearFlag"))
-            job.clearFlags = entries["ClearFlag"];
-
-        if (entries.contains("Set$"))
-            job.setStringVars = entries["Set$"];
-
-        if (entries.contains("Set#"))
-            job.setCounterVars = entries["Set#"];
-
-        if (entries.contains("Set@"))
-            job.setTimeVars = entries["Set@"];
-
-        if (entries.contains("Counter+"))
-            job.incrementCounters = entries["Counter+"];
-
-        if (entries.contains("Counter-"))
-            job.decrementCounters = entries["Counter-"];
-
-        if (entries.contains("Random#"))
-            job.randomCounters = entries["Random#"];
-
-        if (entries.contains("Random$"))
-            job.randomStrings = entries["Random$"];
-
-        if (entries.contains("SetFlag"))
-            job.setFlags = entries["SetFlag"];
-
-        if (entries.contains("RemoveFlag"))
-            job.removeFlags = entries["RemoveFlag"];
-
-        if (entries.contains("SetFlagGroup"))
-            job.setFlagGroups = entries["SetFlagGroup"];
-
-        if (entries.contains("RemoveFlagGroup"))
-            job.removeFlagGroups = entries["RemoveFlagGroup"];
-
-        if (entries.contains("If"))
-            job.ifFlags = entries["If"];
-
-        if (entries.contains("NotIf"))
-            job.notIfFlags = entries["NotIf"];
-
-        if (entries.contains("DenyIf"))
-            job.denyIfFlags = entries["DenyIf"];
-
-        if (entries.contains("PermitIf"))
-            job.permitIfFlags = entries["PermitIf"];
-
-        if (entries.contains("Set#"))
-            job.setCounters = entries["Set#"];
-
-        if (entries.contains("Add#"))
-            job.addCounters = entries["Add#"];
-
-        if (entries.contains("Subtract#"))
-            job.subtractCounters = entries["Subtract#"];
-
-        if (entries.contains("Multiply#"))
-            job.multiplyCounters = entries["Multiply#"];
-
-        if (entries.contains("Divide#"))
-            job.divideCounters = entries["Divide#"];
-
-        if (entries.contains("Drop#"))
-            job.dropCounters = entries["Drop#"];
-
-        if (entries.contains("Input#"))
-            job.inputCounters = entries["Input#"];
-
-        if (entries.contains("InputNeg#"))
-            job.inputNegCounters = entries["InputNeg#"];
-
-        if (entries.contains("Random#"))
-            job.randomCounters = entries["Random#"];
-
-        if (entries.contains("NewStatus")) {
-            job.newStatus = entries["NewStatus"].value(0).trimmed();
+        if (entries.contains("camerainterval")) {
+            QStringList parts = entries["camerainterval"].value(0).split(',', Qt::SkipEmptyParts);
+            job.cameraIntervalMin = parts.value(0).trimmed();
+            job.cameraIntervalMax = parts.value(1, job.cameraIntervalMin).trimmed();
         }
 
-        if (entries.contains("Set!"))
-            job.setTimeVars = entries["Set!"];
-        if (entries.contains("Add!"))
-            job.addTimeVars = entries["Add!"];
-        if (entries.contains("Subtract!"))
-            job.subtractTimeVars = entries["Subtract!"];
-        if (entries.contains("Multiply!"))
-            job.multiplyTimeVars = entries["Multiply!"];
-        if (entries.contains("Divide!"))
-            job.divideTimeVars = entries["Divide!"];
-        if (entries.contains("Round!"))
-            job.roundTimeVars = entries["Round!"];
-        if (entries.contains("Drop!"))
-            job.dropTimeVars = entries["Drop!"];
-        if (entries.contains("InputDate!"))
-            job.inputDateVars = entries["InputDate!"];
-        if (entries.contains("InputDateDef!"))
-            job.inputDateDefVars = entries["InputDateDef!"];
-        if (entries.contains("InputTime!"))
-            job.inputTimeVars = entries["InputTime!"];
-        if (entries.contains("InputTimeDef!"))
-            job.inputTimeDefVars = entries["InputTimeDef!"];
-        if (entries.contains("InputInterval!"))
-            job.inputIntervalVars = entries["InputInterval!"];
-        if (entries.contains("Random!"))
-            job.randomTimeVars = entries["Random!"];
-        if (entries.contains("AddDays!"))
-            job.addDaysVars = entries["AddDays!"];
-        if (entries.contains("SubtractDays!"))
-            job.subtractDaysVars = entries["SubtractDays!"];
-        if (entries.contains("Days#"))
-            job.extractToCounter += entries["Days#"];
-        if (entries.contains("Hours#"))
-            job.extractToCounter += entries["Hours#"];
-        if (entries.contains("Minutes#"))
-            job.extractToCounter += entries["Minutes#"];
-        if (entries.contains("Seconds#"))
-            job.extractToCounter += entries["Seconds#"];
-        if (entries.contains("Days!"))
-            job.convertFromCounter += entries["Days!"];
-        if (entries.contains("Hours!"))
-            job.convertFromCounter += entries["Hours!"];
-        if (entries.contains("Minutes!"))
-            job.convertFromCounter += entries["Minutes!"];
-        if (entries.contains("Seconds!"))
-            job.convertFromCounter += entries["Seconds!"];
-        if (entries.contains("If"))
-            job.ifConditions = entries["If"];
-        if (entries.contains("NotIf"))
-            job.notIfConditions = entries["NotIf"];
-        if (entries.contains("DenyIf"))
-            job.denyIfConditions = entries["DenyIf"];
-        if (entries.contains("PermitIf"))
-            job.permitIfConditions = entries["PermitIf"];
-        if (entries.contains("Set*"))
-            job.listSets = entries["Set*"];
-        if (entries.contains("SetSplit*"))
-            job.listSetSplits = entries["SetSplit*"];
-        if (entries.contains("Add*"))
-            job.listAdds = entries["Add*"];
-        if (entries.contains("AddNoDub*"))
-            job.listAddNoDubs = entries["AddNoDub*"];
-        if (entries.contains("AddSplit*"))
-            job.listAddSplits = entries["AddSplit*"];
-        if (entries.contains("Push*"))
-            job.listPushes = entries["Push*"];
-        if (entries.contains("Remove*"))
-            job.listRemoves = entries["Remove*"];
-        if (entries.contains("RemoveAll*"))
-            job.listRemoveAlls = entries["RemoveAll*"];
-        if (entries.contains("Pull*"))
-            job.listPulls = entries["Pull*"];
-        if (entries.contains("Intersect*"))
-            job.listIntersects = entries["Intersect*"];
-        if (entries.contains("Clear*"))
-            job.listClears = entries["Clear*"];
-        if (entries.contains("Drop*"))
-            job.listDrops = entries["Drop*"];
-        if (entries.contains("Sort*"))
-            job.listSorts = entries["Sort*"];
+        if (entries.contains("setflag")) job.setFlags = entries["setflag"];
+        if (entries.contains("clearflag")) job.clearFlags = entries["clearflag"];
+        if (entries.contains("set$")) job.setStringVars = entries["set$"];
+        if (entries.contains("set#")) job.setCounterVars = entries["set#"];
+        if (entries.contains("set@")) job.setTimeVars = entries["set@"];
+        if (entries.contains("counter+")) job.incrementCounters = entries["counter+"];
+        if (entries.contains("counter-")) job.decrementCounters = entries["counter-"];
+        if (entries.contains("random#")) job.randomCounters = entries["random#"];
+        if (entries.contains("random$")) job.randomStrings = entries["random$"];
+        if (entries.contains("removeflag")) job.removeFlags = entries["removeflag"];
+        if (entries.contains("setflaggroup")) job.setFlagGroups = entries["setflaggroup"];
+        if (entries.contains("removeflaggroup")) job.removeFlagGroups = entries["removeflaggroup"];
+        if (entries.contains("if")) job.ifFlags = entries["if"];
+        if (entries.contains("notif")) job.notIfFlags = entries["notif"];
+        if (entries.contains("denyif")) job.denyIfFlags = entries["denyif"];
+        if (entries.contains("permitif")) job.permitIfFlags = entries["permitif"];
+        if (entries.contains("set#")) job.setCounters = entries["set#"];
+        if (entries.contains("add#")) job.addCounters = entries["add#"];
+        if (entries.contains("subtract#")) job.subtractCounters = entries["subtract#"];
+        if (entries.contains("multiply#")) job.multiplyCounters = entries["multiply#"];
+        if (entries.contains("divide#")) job.divideCounters = entries["divide#"];
+        if (entries.contains("drop#")) job.dropCounters = entries["drop#"];
+        if (entries.contains("input#")) job.inputCounters = entries["input#"];
+        if (entries.contains("inputneg#")) job.inputNegCounters = entries["inputneg#"];
 
+        if (entries.contains("set!")) job.setTimeVars = entries["set!"];
+        if (entries.contains("add!")) job.addTimeVars = entries["add!"];
+        if (entries.contains("subtract!")) job.subtractTimeVars = entries["subtract!"];
+        if (entries.contains("multiply!")) job.multiplyTimeVars = entries["multiply!"];
+        if (entries.contains("divide!")) job.divideTimeVars = entries["divide!"];
+        if (entries.contains("round!")) job.roundTimeVars = entries["round!"];
+        if (entries.contains("drop!")) job.dropTimeVars = entries["drop!"];
+        if (entries.contains("inputdate!")) job.inputDateVars = entries["inputdate!"];
+        if (entries.contains("inputdatedef!")) job.inputDateDefVars = entries["inputdatedef!"];
+        if (entries.contains("inputtime!")) job.inputTimeVars = entries["inputtime!"];
+        if (entries.contains("inputtimedef!")) job.inputTimeDefVars = entries["inputtimedef!"];
+        if (entries.contains("inputinterval!")) job.inputIntervalVars = entries["inputinterval!"];
+        if (entries.contains("random!")) job.randomTimeVars = entries["random!"];
+        if (entries.contains("adddays!")) job.addDaysVars = entries["adddays!"];
+        if (entries.contains("subtractdays!")) job.subtractDaysVars = entries["subtractdays!"];
+
+        if (entries.contains("days#")) job.extractToCounter += entries["days#"];
+        if (entries.contains("hours#")) job.extractToCounter += entries["hours#"];
+        if (entries.contains("minutes#")) job.extractToCounter += entries["minutes#"];
+        if (entries.contains("seconds#")) job.extractToCounter += entries["seconds#"];
+        if (entries.contains("days!")) job.convertFromCounter += entries["days!"];
+        if (entries.contains("hours!")) job.convertFromCounter += entries["hours!"];
+        if (entries.contains("minutes!")) job.convertFromCounter += entries["minutes!"];
+        if (entries.contains("seconds!")) job.convertFromCounter += entries["seconds!"];
+
+        if (entries.contains("if")) job.ifConditions = entries["if"];
+        if (entries.contains("notif")) job.notIfConditions = entries["notif"];
+        if (entries.contains("denyif")) job.denyIfConditions = entries["denyif"];
+        if (entries.contains("permitif")) job.permitIfConditions = entries["permitif"];
+
+        if (entries.contains("set*")) job.listSets = entries["set*"];
+        if (entries.contains("setsplit*")) job.listSetSplits = entries["setsplit*"];
+        if (entries.contains("add*")) job.listAdds = entries["add*"];
+        if (entries.contains("addnodub*")) job.listAddNoDubs = entries["addnodub*"];
+        if (entries.contains("addsplit*")) job.listAddSplits = entries["addsplit*"];
+        if (entries.contains("push*")) job.listPushes = entries["push*"];
+        if (entries.contains("remove*")) job.listRemoves = entries["remove*"];
+        if (entries.contains("removeall*")) job.listRemoveAlls = entries["removeall*"];
+        if (entries.contains("pull*")) job.listPulls = entries["pull*"];
+        if (entries.contains("intersect*")) job.listIntersects = entries["intersect*"];
+        if (entries.contains("clear*")) job.listClears = entries["clear*"];
+        if (entries.contains("drop*")) job.listDrops = entries["drop*"];
+        if (entries.contains("sort*")) job.listSorts = entries["sort*"];
 
         parseDurationControl(entries, job.duration);
 
@@ -2104,297 +2118,357 @@ void ScriptParser::parseAssignmentBehavior(const QMap<QString, QStringList>& ent
     }
 }
 
-void ScriptParser::parseInstructionSections(const QMap<QString, QMap<QString, QStringList>>& sections) {
-    for (auto it = sections.begin(); it != sections.end(); ++it) {
-        QString sectionName = it.key();
+void ScriptParser::parseInstructionSections(const QStringList& lines) {
+    InstructionDefinition currentInstr;
+    InstructionSet currentSet; // Implicit set for the instruction
+    InstructionChoice currentChoice;
 
-        bool isClothing = false;
-        if (sectionName.startsWith("instruction-")) {
-            sectionName = sectionName.mid(QString("instruction-").length());
-        } else if (sectionName.startsWith("instructions-")) {
-            sectionName = sectionName.mid(QString("instructions-").length());
-        } else if (sectionName.startsWith("clothing-")) {
-            isClothing = true;
-            sectionName = sectionName.mid(QString("clothing-").length());
-        } else {
+    bool inSection = false;
+    bool inChoice = false;
+    QString currentSectionName;
+
+    for (const QString& line : lines) {
+        if (line.isEmpty() || line.startsWith("#") || line.startsWith(";"))
+            continue;
+
+        // Check for section headers
+        if (line.startsWith("[") && line.endsWith("]")) {
+            if (inSection) {
+                // Save previous instruction
+                if (inChoice) {
+                    // Finish the last choice and add it as a step
+                    InstructionStep step;
+                    step.type = InstructionStepType::Choice;
+                    step.choice = currentChoice;
+                    currentSet.steps.append(step);
+                }
+                currentInstr.sets.append(currentSet);
+                scriptData.instructions.insert(currentInstr.name, currentInstr);
+            }
+
+            // Reset state
+            inSection = false;
+            inChoice = false;
+            currentInstr = InstructionDefinition();
+            currentSet = InstructionSet();
+            currentChoice = InstructionChoice();
+
+            currentSectionName = line.mid(1, line.length() - 2).trimmed();
+
+            if (currentSectionName.startsWith("instruction-", Qt::CaseInsensitive)) {
+                currentInstr.name = currentSectionName.mid(12).toLower();
+                currentInstr.isClothing = false;
+                inSection = true;
+            } else if (currentSectionName.startsWith("instructions-", Qt::CaseInsensitive)) {
+                currentInstr.name = currentSectionName.mid(13).toLower();
+                currentInstr.isClothing = false;
+                inSection = true;
+            } else if (currentSectionName.startsWith("clothing-", Qt::CaseInsensitive)) {
+                currentInstr.name = currentSectionName.mid(9).toLower();
+                currentInstr.isClothing = true;
+                inSection = true;
+            }
             continue;
         }
 
-        const QMap<QString, QStringList>& entries = it.value();
-        InstructionDefinition instr;
-        instr.name = sectionName;
-        instr.isClothing = isClothing;
+        if (!inSection) continue;
 
-        InstructionSet currentSet;
-        InstructionChoice currentChoice;
-        bool inChoice = false;
-        bool inSet = false;
-        bool insideSelectBlock = false;
+        int equalsIndex = line.indexOf('=');
+        if (equalsIndex == -1) continue;
 
-        for (auto keyIt = entries.begin(); keyIt != entries.end(); ++keyIt) {
-            QString key = keyIt.key();
-            const QStringList& values = keyIt.value();
+        QString key = line.left(equalsIndex).trimmed();
+        QString value = line.mid(equalsIndex + 1).trimmed();
 
-            for (const QString& rawValue : values) {
-                QString value = rawValue.trimmed();
+        // --- Properties ---
+        if (key.compare("Askable", Qt::CaseInsensitive) == 0) {
+            currentInstr.askable = (value != "0");
+        } else if (key.compare("Title", Qt::CaseInsensitive) == 0) {
+            currentInstr.title = value;
+        } else if (key.compare("Select", Qt::CaseInsensitive) == 0) {
+            if (value.compare("first", Qt::CaseInsensitive) == 0)
+                currentInstr.selectMode = InstructionSelectMode::First;
+            else if (value.compare("random", Qt::CaseInsensitive) == 0)
+                currentInstr.selectMode = InstructionSelectMode::Random;
+            else
+                currentInstr.selectMode = InstructionSelectMode::All;
+            currentSet.selectMode = currentInstr.selectMode;
+        } else if (key.compare("Clothing", Qt::CaseInsensitive) == 0) {
+            currentInstr.clothingInstruction = value;
+        } else if (key.compare("ClearCheck", Qt::CaseInsensitive) == 0) {
+            currentInstr.clearClothingCheck = (value.trimmed() == "1");
+        } else if (key.compare("Text", Qt::CaseInsensitive) == 0) {
+            currentInstr.statusTexts.append(value);
+        }
 
-                if (key == "Askable") {
-                    instr.askable = (value != "0");
-                } else if (key == "Change") {
-                    if (value.compare("program", Qt::CaseInsensitive) == 0)
-                        instr.changeMode = InstructionChangeMode::Program;
-                    else if (value.compare("always", Qt::CaseInsensitive) == 0)
-                        instr.changeMode = InstructionChangeMode::Always;
-                    else
-                        instr.changeMode = InstructionChangeMode::Daily;
-                } else if (key == "Select") {
-                    insideSelectBlock = true;
-                    if (value.compare("first", Qt::CaseInsensitive) == 0)
-                        instr.selectMode = InstructionSelectMode::First;
-                    else if (value.compare("random", Qt::CaseInsensitive) == 0)
-                        instr.selectMode = InstructionSelectMode::Random;
-                    else
-                        instr.selectMode = InstructionSelectMode::All;
-                } else if (key == "None") {
-                    instr.noneText = value;
-                } else if (key == "Set") {
-                    if (inChoice) {
-                        currentSet.choices.append(currentChoice);
-                        currentChoice = InstructionChoice();
-                        inChoice = false;
-                    }
-                    inSet = true;
-                    currentSet.includedSets.append(value);
-                } else if (key == "Weight") {
-                    bool ok = false;
-                    int w = value.toInt(&ok);
-                    if (ok) {
-                        if (inChoice && !currentChoice.options.isEmpty()) {
-                            currentChoice.options.last().weight = w;
-                        } else if (inSet) {
-                            currentSet.weight = w;
-                        }
-                    }
-                } else if (key == "Choice") {
-                    if (inChoice) {
-                        currentSet.choices.append(currentChoice);
-                        currentChoice = InstructionChoice();
-                    }
-                    inChoice = true;
-                    currentChoice.name = value;
-                } else if (key == "Option") {
-                    InstructionOption option;
-                    option.text = value;
+        // --- Structure (Sets, Choices, Options) ---
 
-                    if (value == "*") {
-                        option.skip = true;
-                    } else if (value.startsWith('%')) {
-                        option.hidden = true;
-                        option.text = value.mid(1).trimmed();
-                    }
-
-                    currentChoice.options.append(option);
-                } else if (key == "OptionSet") {
-                    if (inChoice && !currentChoice.options.isEmpty()) {
-                        currentChoice.options.last().optionSet = value;
-                    } else {
-                        qWarning() << "parseInstructionSections: 'OptionSet' without Option in choice for" << instr.name;
-                    }
-                }
+        else if (key.compare("Set", Qt::CaseInsensitive) == 0) {
+            // 1. Close pending choice if any
+            if (inChoice) {
+                InstructionStep step;
+                step.type = InstructionStepType::Choice;
+                step.choice = currentChoice;
+                currentSet.steps.append(step);
+                currentChoice = InstructionChoice();
+                inChoice = false;
             }
+            // 2. Add Set Reference Step
+            InstructionStep step;
+            step.type = InstructionStepType::SetReference;
+            step.setReference = "set:" + value.trimmed().toLower();
+            currentSet.steps.append(step);
         }
-
-        if (inChoice) {
-            currentSet.choices.append(currentChoice);
-            inChoice = false;
-        }
-        instr.sets.append(currentSet);
-
-        MessageGroup currentGroup;
-        bool inMessageBlock = false;
-
-        for (auto keyIt = entries.begin(); keyIt != entries.end(); ++keyIt) {
-            QString key = keyIt.key();
-            const QStringList& values = keyIt.value();
-
-            for (const QString& val : values) {
-                if (key == "Select") {
-                    if (val.compare("Random", Qt::CaseInsensitive) == 0)
-                        currentGroup.mode = MessageSelectMode::Random;
-                    else
-                        currentGroup.mode = MessageSelectMode::All;
-
-                    inMessageBlock = true;
-                    if (!currentGroup.messages.isEmpty()) {
-                        instr.messages.append(currentGroup);
-                        currentGroup = MessageGroup();
-                    }
-                }
-                else if (key == "Message") {
-                    inMessageBlock = true;
-                    currentGroup.messages.append(val.trimmed());
-                }
-                else if (key == "Text") {
-                    instr.statusTexts.append(val.trimmed());
-                }
+        else if (key.compare("Choice", Qt::CaseInsensitive) == 0) {
+            // 1. Close pending choice if any
+            if (inChoice) {
+                InstructionStep step;
+                step.type = InstructionStepType::Choice;
+                step.choice = currentChoice;
+                currentSet.steps.append(step);
+                currentChoice = InstructionChoice();
             }
-        }
-        if (!currentGroup.messages.isEmpty()) {
-            instr.messages.append(currentGroup);
-        }
+            inChoice = true;
 
-        if (entries.contains("Clothing"))
-            instr.clothingInstruction = entries["Clothing"].value(0);
-
-        if (entries.contains("ClearCheck"))
-            instr.clearClothingCheck = entries["ClearCheck"].value(0).trimmed() == "1";
-
-        QStringList lines;
-        for (auto keyIt = entries.begin(); keyIt != entries.end(); ++keyIt) {
-            for (const QString &val : keyIt.value())
-                lines.append(val);
-        }
-
-        int index = 0;
-        while (index < lines.size()) {
-            if (lines[index].startsWith("Case=", Qt::CaseInsensitive)) {
-                CaseBlock block = parseCaseBlock(lines, index);
-                instr.cases.append(block);
+            // 2. Start new choice
+            if (value.contains(',')) {
+                // Legacy format
+                QStringList parts = value.split(',', Qt::SkipEmptyParts);
+                for (const QString& opt : parts) {
+                    InstructionOption o;
+                    o.text = opt.trimmed();
+                    currentChoice.options.append(o);
+                }
+                // Close immediately
+                InstructionStep step;
+                step.type = InstructionStepType::Choice;
+                step.choice = currentChoice;
+                currentSet.steps.append(step);
+                currentChoice = InstructionChoice();
+                inChoice = false;
             } else {
-                ++index;
+                if (value.compare("new", Qt::CaseInsensitive) == 0) currentChoice.name.clear();
+                else currentChoice.name = value;
             }
         }
+        else if (key.compare("Option", Qt::CaseInsensitive) == 0) {
+            InstructionOption option;
+            option.text = value;
+            // ... (keep your existing * skip and % hidden logic) ...
+            currentChoice.options.append(option);
+            if (!inChoice) inChoice = true;
+        }
 
-        scriptData.instructions.insert(instr.name, instr);
+        // --- WEIGHT LOGIC ---
+        else if (key.compare("Weight", Qt::CaseInsensitive) == 0) {
+            bool ok = false;
+            int w = value.toInt(&ok);
+            if (ok) {
+                // Because we parse line-by-line, 'last()' is definitely the Option above this line
+                if (inChoice && !currentChoice.options.isEmpty()) {
+                    currentChoice.options.last().weight = w;
+                } else {
+                    currentSet.weight = w;
+                }
+            }
+        }
+        // --- END WEIGHT LOGIC ---
+
+        else if (key.compare("Check", Qt::CaseInsensitive) == 0) {
+            if (!currentChoice.options.isEmpty()) currentChoice.options.last().check.append(value);
+        }
+        else if (key.compare("CheckOff", Qt::CaseInsensitive) == 0) {
+            if (!currentChoice.options.isEmpty()) currentChoice.options.last().checkOff.append(value);
+        }
+    }
+
+    // Save the very last instruction
+    if (inSection) {
+        if (inChoice) {
+            InstructionStep step;
+            step.type = InstructionStepType::Choice;
+            step.choice = currentChoice;
+            currentSet.steps.append(step);
+        }
+        currentInstr.sets.append(currentSet);
+        scriptData.instructions.insert(currentInstr.name, currentInstr);
     }
 }
 
-void ScriptParser::parseInstructionSets(const QMap<QString, QMap<QString, QStringList>>& sections) {
-    for (auto it = sections.begin(); it != sections.end(); ++it) {
-        QString sectionName = it.key();
-        if (!sectionName.startsWith("set-"))
+void ScriptParser::parseInstructionSets(const QStringList& lines) {
+    InstructionSet currentSet;
+    InstructionChoice currentChoice;
+
+    bool inSection = false;
+    bool inChoice = false;
+    QString currentSectionName;
+
+    for (const QString& line : lines) {
+        if (line.isEmpty() || line.startsWith("#") || line.startsWith(";"))
             continue;
 
-        QString setName = sectionName.mid(QString("set-").length());
-        const QMap<QString, QStringList>& entries = it.value();
+        // Check for section headers
+        if (line.startsWith("[") && line.endsWith("]")) {
+            if (inSection) {
+                // Save the previous set
+                if (inChoice) {
+                    InstructionStep step;
+                    step.type = InstructionStepType::Choice;
+                    step.choice = currentChoice;
+                    currentSet.steps.append(step);
+                }
 
-        InstructionSet set;
-        set.name = setName;
+                // Wrap the set in a definition so resolveInstruction can find it
+                InstructionDefinition def;
+                def.name = currentSet.name;
+                def.sets.append(currentSet);
+                scriptData.instructions.insert(def.name, def);
+            }
 
-        InstructionChoice currentChoice;
-        bool inChoice = false;
+            // Reset state
+            inSection = false;
+            inChoice = false;
+            currentSet = InstructionSet();
+            currentChoice = InstructionChoice();
 
-        for (auto keyIt = entries.begin(); keyIt != entries.end(); ++keyIt) {
-            QString key = keyIt.key();
-            const QStringList& values = keyIt.value();
+            currentSectionName = line.mid(1, line.length() - 2).trimmed();
 
-            for (const QString& rawValue : values) {
-                QString value = rawValue.trimmed();
+            if (currentSectionName.startsWith("set-", Qt::CaseInsensitive)) {
+                inSection = true;
+                currentSet.name = "set:" + currentSectionName.mid(4).toLower();
+            }
+            continue;
+        }
 
-                if (key == "Option") {
-                    InstructionOption option;
-                    option.text = value;
-                    if (value == "*") option.skip = true;
-                    else if (value.startsWith('%')) {
-                        option.hidden = true;
-                        option.text = value.mid(1).trimmed();
-                    }
-                    currentChoice.options.append(option);
-                } else if (key == "OptionSet") {
-                    if (!currentChoice.options.isEmpty()) {
-                        currentChoice.options.last().optionSet = value;
-                    }
-                } else if (key == "Weight") {
-                    bool ok = false;
-                    int w = value.toInt(&ok);
-                    if (ok) {
-                        if (inChoice && !currentChoice.options.isEmpty()) {
-                            currentChoice.options.last().weight = w;
-                        } else {
-                            set.weight = w;
-                        }
-                    }
-                } else if (key == "Choice") {
-                    if (!currentChoice.options.isEmpty()) {
-                        set.choices.append(currentChoice);
-                        currentChoice = InstructionChoice();
-                    }
-                    inChoice = true;
+        if (!inSection) continue;
 
-                    // legacy format
-                    if (value.contains(',')) {
-                        QStringList parts = value.split(',', Qt::SkipEmptyParts);
-                        for (int i = 0; i < parts.size(); ++i) {
-                            QString opt = parts[i].trimmed();
-                            InstructionOption o;
-                            bool isWeight = false;
-                            int weight = opt.toInt(&isWeight);
-                            if (isWeight && i > 0) {
-                                if (!currentChoice.options.isEmpty()) {
-                                    currentChoice.options.last().weight = weight;
-                                } else {
-                                    qWarning() << "parseInstructionSets: legacy weight found but no previous Option for set" << setName;
-                                }
-                                continue;
-                            } else {
-                                o.text = opt;
-                                currentChoice.options.append(o);
-                            }
-                        }
-                        set.choices.append(currentChoice);
-                        currentChoice = InstructionChoice();
-                        inChoice = false;
-                    }
-                } else if (key == "Set") {
-                    set.includedSets.append(value);
-                } else if (key == "Select") {
-                    if (value.compare("first", Qt::CaseInsensitive) == 0)
-                        set.selectMode = InstructionSelectMode::First;
-                    else if (value.compare("random", Qt::CaseInsensitive) == 0)
-                        set.selectMode = InstructionSelectMode::Random;
-                    else
-                        set.selectMode = InstructionSelectMode::All;
-                }else if (key == "If") {
-                    set.ifFlags.append(value.split(',', Qt::SkipEmptyParts));
-                } else if (key == "NotIf") {
-                    set.notIfFlags.append(value.split(',', Qt::SkipEmptyParts));
-                } else if (key == "IfChosen") {
-                    set.ifChosen.append(value.split(',', Qt::SkipEmptyParts));
-                } else if (key == "IfNotChosen") {
-                    set.ifNotChosen.append(value.split(',', Qt::SkipEmptyParts));
-                } else if (key == "Flag")
-                    set.setFlags.append(value);
-                else if (key == "OptionFlag") {
-                    if (!currentChoice.options.isEmpty())
-                        currentChoice.options.last().optionFlags.append(value);
-                    else
-                        qWarning() << "parseInstructionSets: 'OptionFlag' without Option in choice for set" << setName;
-                } else if (key == "Check") {
-                    if (!currentChoice.options.isEmpty())
-                        currentChoice.options.last().check.append(value);
-                    else
-                        qWarning() << "parseInstructionSets: 'Check' without Option in choice for set" << setName;
-                } else if (key == "CheckOff") {
-                    if (!currentChoice.options.isEmpty())
-                        currentChoice.options.last().checkOff.append(value);
-                    else
-                        qWarning() << "parseInstructionSets: 'CheckOff' without Option in choice for set" << setName;
+        int equalsIndex = line.indexOf('=');
+        if (equalsIndex == -1) continue;
+
+        QString key = line.left(equalsIndex).trimmed();
+        QString value = line.mid(equalsIndex + 1).trimmed();
+
+        // --- Parse Logic ---
+
+        if (key.compare("Select", Qt::CaseInsensitive) == 0) {
+            if (value.compare("first", Qt::CaseInsensitive) == 0)
+                currentSet.selectMode = InstructionSelectMode::First;
+            else if (value.compare("random", Qt::CaseInsensitive) == 0)
+                currentSet.selectMode = InstructionSelectMode::Random;
+            else
+                currentSet.selectMode = InstructionSelectMode::All;
+        }
+        else if (key.compare("Set", Qt::CaseInsensitive) == 0) {
+            // 1. Close pending choice if any
+            if (inChoice) {
+                InstructionStep step;
+                step.type = InstructionStepType::Choice;
+                step.choice = currentChoice;
+                currentSet.steps.append(step);
+                currentChoice = InstructionChoice();
+                inChoice = false;
+            }
+
+            // 2. Add Set Reference Step (Preserves Order)
+            InstructionStep step;
+            step.type = InstructionStepType::SetReference;
+            step.setReference = "set:" + value.trimmed().toLower(); // Store the set name (e.g., "Bra")
+            currentSet.steps.append(step);
+        }
+        else if (key.compare("Choice", Qt::CaseInsensitive) == 0) {
+            // 1. Close pending choice if any
+            if (inChoice) {
+                InstructionStep step;
+                step.type = InstructionStepType::Choice;
+                step.choice = currentChoice;
+                currentSet.steps.append(step);
+                currentChoice = InstructionChoice();
+            }
+            inChoice = true;
+
+            if (value.contains(',')) {
+                // Legacy format: Choice=Option1,Option2
+                QStringList parts = value.split(',', Qt::SkipEmptyParts);
+                for (const QString& opt : parts) {
+                    InstructionOption o;
+                    o.text = opt.trimmed();
+                    currentChoice.options.append(o);
+                }
+                InstructionStep step;
+                step.type = InstructionStepType::Choice;
+                step.choice = currentChoice;
+                currentSet.steps.append(step);
+                currentChoice = InstructionChoice();
+                inChoice = false;
+            } else {
+                if (value.compare("new", Qt::CaseInsensitive) == 0) {
+                    currentChoice.name.clear();
+                } else {
+                    currentChoice.name = value;
                 }
             }
         }
+        else if (key.compare("Option", Qt::CaseInsensitive) == 0) {
+            InstructionOption option;
+            option.text = value;
+            if (value == "*") option.skip = true;
+            else if (value.startsWith('%')) {
+                option.hidden = true;
+                option.text = value.mid(1).trimmed();
+            }
+            currentChoice.options.append(option);
+            if (!inChoice) inChoice = true; // Implicit choice if none started
+        }
+        else if (key.compare("Weight", Qt::CaseInsensitive) == 0) {
+            bool ok = false;
+            int w = value.toInt(&ok);
+            if (ok) {
+                if (inChoice && !currentChoice.options.isEmpty()) {
+                    currentChoice.options.last().weight = w;
+                } else {
+                    currentSet.weight = w;
+                }
+            }
+        }
+        else if (key.compare("Check", Qt::CaseInsensitive) == 0) {
+            if (!currentChoice.options.isEmpty()) currentChoice.options.last().check.append(value);
+        }
+        else if (key.compare("CheckOff", Qt::CaseInsensitive) == 0) {
+            if (!currentChoice.options.isEmpty()) currentChoice.options.last().checkOff.append(value);
+        }
+        else if (key.compare("OptionSet", Qt::CaseInsensitive) == 0) {
+            if (inChoice && !currentChoice.options.isEmpty()) {
+                currentChoice.options.last().optionSet = value;
+            }
+        }
+        else if (key.compare("If", Qt::CaseInsensitive) == 0) {
+            currentSet.ifFlagGroups.append(value.split(',', Qt::SkipEmptyParts));
+        }
+        else if (key.compare("NotIf", Qt::CaseInsensitive) == 0) {
+            currentSet.notIfFlagGroups.append(value.split(',', Qt::SkipEmptyParts));
+        }
+        else if (key.compare("IfChosen", Qt::CaseInsensitive) == 0) {
+            currentSet.ifChosen.append(value.split(',', Qt::SkipEmptyParts));
+        }
+        else if (key.compare("IfNotChosen", Qt::CaseInsensitive) == 0) {
+            currentSet.ifNotChosen.append(value.split(',', Qt::SkipEmptyParts));
+        }
+        else if (key.compare("Flag", Qt::CaseInsensitive) == 0) {
+            currentSet.setFlags.append(value);
+        }
+    }
 
-        if (!currentChoice.options.isEmpty())
-            set.choices.append(currentChoice);
+    // Save the very last set
+    if (inSection) {
+        if (inChoice) {
+            InstructionStep step;
+            step.type = InstructionStepType::Choice;
+            step.choice = currentChoice;
+            currentSet.steps.append(step);
+        }
 
         InstructionDefinition def;
-        def.name = set.name;
-        def.isClothing = false;
-        def.askable = true;
-        def.changeMode = InstructionChangeMode::Daily;
-        def.selectMode = InstructionSelectMode::All;
-        def.noneText = "";
-        def.sets.append(set);
-
+        def.name = currentSet.name;
+        def.sets.append(currentSet);
         scriptData.instructions.insert(def.name, def);
     }
 }
@@ -2534,8 +2608,28 @@ void ScriptParser::parseProcedureSections(const QStringList& lines) {
             currentProc.actions.append({ScriptActionType::ClearFlag, value});
         } else if (key.compare("Set#", Qt::CaseInsensitive) == 0) {
             currentProc.actions.append({ScriptActionType::SetCounterVar, value});
+        } else if (key.compare("Input#", Qt::CaseInsensitive) == 0) {
+            currentProc.actions.append({ScriptActionType::InputCounter, value});
+        } else if (key.compare("Change#", Qt::CaseInsensitive) == 0) {
+            currentProc.actions.append({ScriptActionType::ChangeCounter, value});
+        } else if (key.compare("InputNeg#", Qt::CaseInsensitive) == 0) {
+            currentProc.actions.append({ScriptActionType::InputNegCounter, value});
+        } else if (key.compare("Random#", Qt::CaseInsensitive) == 0) {
+            currentProc.actions.append({ScriptActionType::RandomCounter, value});
+        } else if (key.compare("Drop#", Qt::CaseInsensitive) == 0) {
+            currentProc.actions.append({ScriptActionType::DropCounter, value});
         } else if (key.compare("Set$", Qt::CaseInsensitive) == 0) {
             currentProc.actions.append({ScriptActionType::SetString, value});
+        } else if (key.compare("Input$", Qt::CaseInsensitive) == 0) {
+            currentProc.actions.append({ScriptActionType::InputString, value});
+        } else if (key.compare("Change$", Qt::CaseInsensitive) == 0) {
+            currentProc.actions.append({ScriptActionType::ChangeString, value});
+        } else if (key.compare("InputLong$", Qt::CaseInsensitive) == 0) {
+            currentProc.actions.append({ScriptActionType::InputLongString, value});
+        } else if (key.compare("ChangeLong$", Qt::CaseInsensitive) == 0) {
+            currentProc.actions.append({ScriptActionType::ChangeLongString, value});
+        } else if (key.compare("Drop$", Qt::CaseInsensitive) == 0) {
+            currentProc.actions.append({ScriptActionType::DropString, value});
         } else if (key.compare("Set!", Qt::CaseInsensitive) == 0) {
             currentProc.actions.append({ScriptActionType::SetTimeVar, value});
         } else if (key.compare("Add#", Qt::CaseInsensitive) == 0) {
@@ -2553,7 +2647,13 @@ void ScriptParser::parseProcedureSections(const QStringList& lines) {
         } else if (key.compare("Input", Qt::CaseInsensitive) == 0) {
             currentProc.actions.append({ScriptActionType::Input, value});
         } else if (key.compare("Clothing", Qt::CaseInsensitive) == 0) {
-            currentProc.actions.append({ScriptActionType::Clothing, value});
+            if (currentProc.clothingInstruction.isEmpty()) {
+                currentProc.actions.append({ScriptActionType::Clothing, value});
+            } else {
+                currentProc.actions.append({ScriptActionType::Clothing, value});
+            }
+        } else if (key.compare("Instructions", Qt::CaseInsensitive) == 0) {
+            currentProc.actions.append({ScriptActionType::Instructions, value});
         } else if (key.compare("Timer", Qt::CaseInsensitive) == 0) {
             currentProc.actions.append({ScriptActionType::Timer, value});
         } else if (key.compare("NewStatus", Qt::CaseInsensitive) == 0) {
@@ -2582,6 +2682,31 @@ void ScriptParser::parseProcedureSections(const QStringList& lines) {
             }
         } else if (key.compare("Punish", Qt::CaseInsensitive) == 0) {
             currentProc.actions.append({ScriptActionType::Punish, value});
+        } else if (key.compare("ClothReport", Qt::CaseInsensitive) == 0) {
+            // Add as an action (value is "1" or "Title Text")
+            if (value != "0") {
+                currentProc.actions.append({ScriptActionType::ClothReport, value});
+            }
+        }
+        else if (key.compare("ClearCloth" , Qt::CaseInsensitive) == 0) {
+            currentProc.actions.append({ScriptActionType::ClearCloth, value});
+        }
+        else if (key.compare("CameraInterval", Qt::CaseInsensitive) == 0) {
+            QStringList parts = value.split(',', Qt::SkipEmptyParts);
+            if (parts.size() == 2) {
+                currentProc.cameraIntervalMin = parts[0].trimmed();
+                currentProc.cameraIntervalMax = parts[1].trimmed();
+            } else {
+                currentProc.cameraIntervalMin = currentProc.cameraIntervalMax = value.trimmed();
+            }
+        }
+        else if (key.compare("PointCamera", Qt::CaseInsensitive) == 0) {
+            currentProc.pointCameraText = value;
+            currentProc.actions.append({ScriptActionType::PointCamera, value});
+        }
+        else if (key.compare("PoseCamera", Qt::CaseInsensitive) == 0) {
+            currentProc.poseCameraText = value;
+            currentProc.actions.append({ScriptActionType::PoseCamera, value});
         }
 
         if (inProcSection) {
@@ -2790,6 +2915,16 @@ void ScriptParser::parseTimerSections(const QStringList& lines) {
             currentTimer.actions.append({ScriptActionType::SetFlag, value});
         } else if (key.compare("Set#", Qt::CaseInsensitive) == 0) {
             currentTimer.actions.append({ScriptActionType::SetCounterVar, value});
+        } else if (key.compare("Input#", Qt::CaseInsensitive) == 0) {
+            currentTimer.actions.append({ScriptActionType::InputCounter, value});
+        } else if (key.compare("Change#", Qt::CaseInsensitive) == 0) {
+            currentTimer.actions.append({ScriptActionType::ChangeCounter, value});
+        } else if (key.compare("InputNeg#", Qt::CaseInsensitive) == 0) {
+            currentTimer.actions.append({ScriptActionType::InputNegCounter, value});
+        } else if (key.compare("Random#", Qt::CaseInsensitive) == 0) {
+            currentTimer.actions.append({ScriptActionType::RandomCounter, value});
+        } else if (key.compare("Drop#", Qt::CaseInsensitive) == 0) {
+            currentTimer.actions.append({ScriptActionType::DropCounter, value});
         } else if (key.compare("Add#", Qt::CaseInsensitive) == 0) {
             currentTimer.actions.append({ScriptActionType::AddCounter, value});
         } else if (key.compare("Subtract#", Qt::CaseInsensitive) == 0) {
@@ -2820,6 +2955,58 @@ void ScriptParser::parseTimerSections(const QStringList& lines) {
             }
         } else if (key.compare("Punish", Qt::CaseInsensitive) == 0) {
             currentTimer.actions.append({ScriptActionType::Punish, value});
+        } else if (key.compare("Clothing", Qt::CaseInsensitive) == 0) {
+            if (currentTimer.clothingInstruction.isEmpty()) {
+                currentTimer.actions.append({ScriptActionType::Clothing, value});
+            } else {
+                currentTimer.actions.append({ScriptActionType::Clothing, value});
+            }
+        } else if (key.compare("Instructions", Qt::CaseInsensitive) == 0) {
+            currentTimer.actions.append({ScriptActionType::Instructions, value});
+        } else if (key.compare("ClothReport", Qt::CaseInsensitive) == 0) {
+            // Add as an action (value is "1" or "Title Text"
+            if (value != "0") {
+                currentTimer.actions.append({ScriptActionType::ClothReport, value});
+            }
+        }
+        else if (key.compare("ClearCloth", Qt::CaseInsensitive) == 0) {
+            currentTimer.actions.append({ScriptActionType::ClearCloth, value});
+        }
+
+        else if (key.compare("CameraInterval", Qt::CaseInsensitive) == 0) {
+            QStringList parts = value.split(',', Qt::SkipEmptyParts);
+            if (parts.size() == 2) {
+                currentTimer.cameraIntervalMin = parts[0].trimmed();
+                currentTimer.cameraIntervalMax = parts[1].trimmed();
+            } else {
+                currentTimer.cameraIntervalMin = currentTimer.cameraIntervalMax = value.trimmed();
+            }
+        }
+        else if (key.compare("PointCamera", Qt::CaseInsensitive) == 0) {
+            currentTimer.pointCameraText = value;
+            currentTimer.actions.append({ScriptActionType::PointCamera, value});
+        }
+        else if (key.compare("PoseCamera", Qt::CaseInsensitive) == 0) {
+            currentTimer.poseCameraText = value;
+            currentTimer.actions.append({ScriptActionType::PoseCamera, value});
+        }
+        else if (key.compare("Set$", Qt::CaseInsensitive) == 0) {
+            currentTimer.actions.append({ScriptActionType::SetString, value});
+        }
+        else if (key.compare("Input$", Qt::CaseInsensitive) == 0) {
+            currentTimer.actions.append({ScriptActionType::InputString, value});
+        }
+        else if (key.compare("Change$", Qt::CaseInsensitive) == 0) {
+            currentTimer.actions.append({ScriptActionType::ChangeString, value});
+        }
+        else if (key.compare("InputLong$", Qt::CaseInsensitive) == 0) {
+            currentTimer.actions.append({ScriptActionType::InputLongString, value});
+        }
+        else if (key.compare("ChangeLong$", Qt::CaseInsensitive) == 0) {
+            currentTimer.actions.append({ScriptActionType::ChangeLongString, value});
+        }
+        else if (key.compare("Drop$", Qt::CaseInsensitive) == 0) {
+            currentTimer.actions.append({ScriptActionType::DropString, value});
         }
         // ... (add all other action types as needed) ...
     }
@@ -2884,16 +3071,19 @@ void ScriptParser::parseQuestionSections(const QMap<QString, QMap<QString, QStri
                         }
                     }
                 } else if (key.compare("NoInputProcedure", Qt::CaseInsensitive) == 0) {
-                    QuestionAnswerBlock defaultAnswer;
-                    defaultAnswer.answerText = "(no input)";
-                    defaultAnswer.procedureName = value.trimmed().toLower();
-                    question.answers.append(defaultAnswer);
+                    // Store directly in the struct, DO NOT append to answers
+                    question.noInputProcedure = value.trimmed().toLower();
                 } else if (key.compare("If", Qt::CaseInsensitive) == 0) {
                     question.ifConditions.append(value);
                 } else if (key.compare("NotIf", Qt::CaseInsensitive) == 0) {
                     question.notIfConditions.append(value);
                 }
             }
+        }
+
+        // Ensure a variable name exists
+        if (question.variable.isEmpty()) {
+            question.variable = question.name; // Default to question name
         }
 
         // Save last answer
@@ -3508,4 +3698,8 @@ void ScriptParser::setVariable(const QString &name, const QString &value) {
 QString ScriptParser::getVariable(const QString &varName) const
 {
     return scriptData.stringVariables.value(varName, "0");
+}
+
+void ScriptParser::removeVariable(const QString &name) {
+    scriptData.stringVariables.remove(name);
 }

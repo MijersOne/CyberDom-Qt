@@ -1,109 +1,131 @@
 #include "setflags.h"
 #include "ui_setflags.h"
 #include "cyberdom.h"
+#include "scriptparser.h"
 
 #include <QMessageBox>
 #include <QListWidgetItem>
 #include <QInputDialog>
 #include <QDebug>
 
-SetFlags::SetFlags(QWidget *parent)
+SetFlags::SetFlags(QWidget *parent, ScriptParser *parser)
     : QDialog(parent)
     , ui(new Ui::SetFlags)
+    , parser(parser)
 {
     ui->setupUi(this);
 
-    // Get a reference to the main application
+    // Get a reference to the main application to get ACTIVE flags
     CyberDom *mainApp = qobject_cast<CyberDom*>(parent);
-    if (!mainApp) {
-        qDebug() << "[ERROR] Could not get reference to main application";
-        return;
-    }
-
-    // Get the list of all sections of the INI data
-    QMap<QString, QMap<QString, QString>> iniData = mainApp->getIniData();
-
-    // Find all flag definitions in the INI data
-    QStringList availableFlags;
     QMap<QString, FlagData> activeFlags;
-
-    // If we can get the activeFlags from the main app, do so
     if (mainApp) {
         activeFlags = mainApp->getActiveFlags();
     }
 
-    // Collect all flag definitions from the INI file
-    for (auto it = iniData.begin(); it != iniData.end(); ++it) {
-        QString section = it.key();
+    QStringList availableFlags;
 
-        // Check if this is a flag definition
-        if (section.startsWith("flag-", Qt::CaseInsensitive)) {
-            QString flagName = section.mid(5); // Remove "flag-" prefix
+    // 1. Get flags defined in the script
+    if (parser) {
+        const auto& flagDefs = parser->getScriptData().flagDefinitions;
 
-            // Only include flags that aren't already active
-            if (!activeFlags.contains(flagName)) {
+        for (auto it = flagDefs.begin(); it != flagDefs.end(); ++it) {
+            QString flagName = it.key(); // This is usually lowercase from parser
+
+            // Check if this flag is already active (Case Insensitive)
+            bool isActive = false;
+            for(const QString& activeKey : activeFlags.keys()) {
+                if(activeKey.compare(flagName, Qt::CaseInsensitive) == 0) {
+                    isActive = true;
+                    break;
+                }
+            }
+
+            if (!isActive) {
                 availableFlags.append(flagName);
             }
         }
     }
 
-    // Also include common flags from the script manual
+    // 2. Add common/built-in flags (if not already present)
     QStringList commonFlags = {"naked", "plugged", "Kneeling", "TV", "NoPhoneCall"};
     for (const QString &flag : commonFlags) {
-        if (!availableFlags.contains(flag) && !activeFlags.contains(flag)) {
+        // Check if active
+        bool isActive = false;
+        for(const QString& activeKey : activeFlags.keys()) {
+            if(activeKey.compare(flag, Qt::CaseInsensitive) == 0) {
+                isActive = true;
+                break;
+            }
+        }
+
+        // Check if already added from script definitions
+        bool alreadyInList = false;
+        for(const QString& existing : availableFlags) {
+            if(existing.compare(flag, Qt::CaseInsensitive) == 0) {
+                alreadyInList = true;
+                break;
+            }
+        }
+
+        if (!isActive && !alreadyInList) {
             availableFlags.append(flag);
         }
     }
 
+    // Sort alphabetically for better UX
+    availableFlags.sort(Qt::CaseInsensitive);
+
     // Add items to the list widget
     for (const QString &flagName : availableFlags) {
-        QListWidgetItem *item = new QListWidgetItem(flagName, ui->lw_AvailableFlags);
-        item->setFlags(item->flags() | Qt::ItemIsUserCheckable); // Make item checkable
-        item->setCheckState(Qt::Unchecked); // Initially unchecked
+        // Capitalize first letter for display
+        QString displayName = flagName;
+        if (!displayName.isEmpty()) displayName[0] = displayName[0].toUpper();
+
+        QListWidgetItem *item = new QListWidgetItem(displayName, ui->lw_AvailableFlags);
+        item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
+        item->setCheckState(Qt::Unchecked);
+        // Store exact internal name in data
+        item->setData(Qt::UserRole, flagName);
     }
 
-    // If no flags are available, show a message
+    // If no flags are available
     if (availableFlags.isEmpty()) {
         QListWidgetItem *item = new QListWidgetItem("No flags available to set", ui->lw_AvailableFlags);
-        item->setFlags(item->flags() & ~Qt::ItemIsEnabled); // Disable the item
+        item->setFlags(item->flags() & ~Qt::ItemIsEnabled);
     }
 
-    // Connect the button box accepted signal to our custom slot
     connect(ui->buttonBox, &QDialogButtonBox::accepted, this, &SetFlags::setSelectedFlags);
+    connect(ui->buttonBox, &QDialogButtonBox::rejected, this, &QDialog::reject);
 }
 
 void SetFlags::setSelectedFlags()
 {
-    // Get the list of selected items from the list widget
     QList<QString> selectedFlags;
 
     for (int i = 0; i < ui->lw_AvailableFlags->count(); i++) {
         QListWidgetItem *item = ui->lw_AvailableFlags->item(i);
         if (item->checkState() == Qt::Checked) {
-            selectedFlags.append(item->text());
+            // Retrieve the actual flag name we stored
+            selectedFlags.append(item->data(Qt::UserRole).toString());
         }
     }
 
-    // If no flags were selected, show a message and return
     if (selectedFlags.isEmpty()) {
-        QMessageBox::information(this, "No Flags Selected", "No flags were selected. Please select at least one flag or cancel.");
+        QMessageBox::information(this, "No Flags Selected", "No flags were selected.");
         return;
     }
 
     // Ask for duration
     bool ok;
-    int durationMinutes = QInputDialog::getInt(this, "Flag Duration", "Enter duration in minutes (0 for permanent):", 0, 0, 10080, 5, &ok); // 7 days max
+    int durationMinutes = QInputDialog::getInt(this, "Flag Duration", "Enter duration in minutes (0 for permanent):", 0, 0, 10080, 5, &ok);
     if (!ok) {
-        // User cancelled the duration dialog
         return;
     }
 
-    // Emit the signal for each selected flag
     for (const QString &flagName : selectedFlags) {
         emit flagSetRequested(flagName, durationMinutes);
     }
 
-    // Accept the dialog (close it)
     accept();
 }
 

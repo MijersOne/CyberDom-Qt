@@ -18,7 +18,7 @@ public:
     void populateJobDropdown();
 
 private slots:
-    void on_btnLaunchJob_clicked();
+    void launchSelectedJob();
 
 signals:
     void jobStatusChanged(QString newStatus);

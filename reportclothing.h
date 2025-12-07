@@ -18,7 +18,8 @@ class ReportClothing : public QDialog
     Q_OBJECT
 
 public:
-    explicit ReportClothing(QWidget *parent = nullptr, ScriptParser* parser = nullptr);
+    explicit ReportClothing(QWidget *parent = nullptr, ScriptParser* parser = nullptr,
+                            bool forced = false, const QString &customTitle = "");
     ~ReportClothing();
 
     QString getSelectedType() const; // Method to get the selected item
@@ -46,6 +47,8 @@ private:
     void addClothingItemToList(const QString &itemName);
     void addClothingItemToList(const ClothingItem &item);
 
+    bool isForced = false;
+
 private slots:
     void onTypeSelected(const QString &type); // When type is selected in dropdown
     void onAvailableItemSelected(); // When item is selected from available list
@@ -68,6 +71,9 @@ private slots:
     
     void editSelectedItem(); // Edit selected item
     void deleteSelectedItem(); // Delete selected item
+
+protected:
+    void reject() override;
 };
 
 #endif // REPORTCLOTHING_H

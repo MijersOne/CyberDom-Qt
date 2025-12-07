@@ -16,7 +16,6 @@ enum class ScriptActionType {
     RemoveFlag,
     ClearFlag,
     SetCounterVar,
-    SetString,
     SetTimeVar,
     AddCounter,
     SubtractCounter,
@@ -36,7 +35,23 @@ enum class ScriptActionType {
     AddMerit,
     SubtractMerit,
     SetMerit,
-    Punish
+    Punish,
+    Instructions,
+    ClothReport,
+    ClearCloth,
+    PointCamera,
+    PoseCamera,
+    InputString,
+    SetString,
+    ChangeString,
+    InputLongString,
+    ChangeLongString,
+    DropString,
+    InputCounter,
+    ChangeCounter,
+    InputNegCounter,
+    RandomCounter,
+    DropCounter
 };
 
 struct ScriptAction {
@@ -233,6 +248,14 @@ struct TimerDefinition {
 
     QString punishMessage;
     QString punishGroup;
+
+    QString clothingInstruction;
+
+    // Camera
+    QString pointCameraText;
+    QString cameraIntervalMin;
+    QString cameraIntervalMax;
+    QString poseCameraText;
 };
 
 enum class MessageSelectMode {
@@ -278,11 +301,18 @@ struct ProcedureDefinition {
     bool stopAutoAssign = false;
     bool clearClothingCheck = false;
     QList<CaseBlock> cases;
+    QString clothingInstruction;
 
     // --- Actions ---
     QList<ScriptAction> actions;
     QString punishMessage;
     QString punishGroup;
+
+    // --- Camera ---
+    QString pointCameraText;
+    QString cameraIntervalMin;
+    QString cameraIntervalMax;
+    QString poseCameraText;
 };
 
 struct QuestionAnswerBlock {
@@ -306,6 +336,7 @@ struct QuestionDefinition {
     QString text;
     QStringList ifConditions;
     QStringList notIfConditions;
+    QString noInputProcedure;
 };
 
 struct AssignmentBehavior {
@@ -503,10 +534,6 @@ struct StatusDefinition {
 
     bool allowAutoAssign = false;
 
-    QString cameraPrompt;
-    QString cameraIntervalMin;
-    QString cameraIntervalMax;
-
     QStringList pictureList;
     QStringList localPictureList;
     QString statisticsLabel;
@@ -568,12 +595,16 @@ struct StatusDefinition {
     QStringList denyIfConditions;
     QStringList permitIfConditions;
 
-    QString poseCameraText;
-
     bool hideTime = false;
     bool hasHideTime = false;
 
     bool autoAssignMessage = true;
+
+    // Camera
+    QString pointCameraText;
+    QString cameraIntervalMin;
+    QString cameraIntervalMax;
+    QString poseCameraText;
 };
 
 struct ReportDefinition {
@@ -646,6 +677,12 @@ struct ReportDefinition {
 
     QString punishMessage;
     QString punishGroup;
+
+    // Camera
+    QString pointCameraText;
+    QString cameraIntervalMin;
+    QString cameraIntervalMax;
+    QString poseCameraText;
 };
 
 struct ConfessionDefinition {
@@ -687,6 +724,14 @@ struct ConfessionDefinition {
 
     QString punishMessage;
     QString punishGroup;
+
+    QString clothingInstruction;
+
+    // Camera
+    QString pointCameraText;
+    QString cameraIntervalMin;
+    QString cameraIntervalMax;
+    QString poseCameraText;
 };
 
 struct TimeRange {
@@ -762,9 +807,6 @@ struct PermissionDefinition {
     QStringList masterAttachments;
     QStringList subMailLines;
 
-    QString poseCameraText;
-    QString pointCameraText;
-
     QList<ScriptAction> actions;
 
     QMap<QString, QStringList> lists;
@@ -773,6 +815,14 @@ struct PermissionDefinition {
 
     QString punishMessage;
     QString punishGroup;
+
+    QString clothingInstruction;
+
+    // Camera
+    QString pointCameraText;
+    QString cameraIntervalMin;
+    QString cameraIntervalMax;
+    QString poseCameraText;
 };
 
 struct PunishmentDefinition : public AssignmentBehavior {
@@ -836,9 +886,6 @@ struct PunishmentDefinition : public AssignmentBehavior {
     bool isDetention = false;
     QStringList detentionText;
 
-    QString poseCameraText;
-    QString pointCameraText;
-
     QStringList clearFlags;
     QStringList setStringVars;
     QStringList setCounterVars;
@@ -891,6 +938,12 @@ struct PunishmentDefinition : public AssignmentBehavior {
     QStringList notIfConditions;
     QStringList denyIfConditions;
     QStringList permitIfConditions;
+
+    // Camera
+    QString pointCameraText;
+    QString cameraIntervalMin;
+    QString cameraIntervalMax;
+    QString poseCameraText;
 };
 
 struct JobDefinition : public AssignmentBehavior {
@@ -958,9 +1011,6 @@ struct JobDefinition : public AssignmentBehavior {
     QString pageSizeMin;
     QString pageSizeMax;
 
-    QString poseCameraText;
-    QString pointCameraText;
-
     QStringList clearFlags;
     QStringList setStringVars;
     QStringList setCounterVars;
@@ -1027,6 +1077,12 @@ struct JobDefinition : public AssignmentBehavior {
     QStringList listClears;
     QStringList listDrops;
     QStringList listSorts;
+
+    // Camera
+    QString pointCameraText;
+    QString cameraIntervalMin;
+    QString cameraIntervalMax;
+    QString poseCameraText;
 };
 
 struct AssignmentAction {
@@ -1063,13 +1119,23 @@ enum class InstructionSelectMode {
     Random
 };
 
+enum class InstructionStepType {
+    Choice,
+    SetReference
+};
+
+struct InstructionStep {
+    InstructionStepType type;
+    InstructionChoice choice;
+    QString setReference;
+};
+
 struct InstructionSet {
     QString name;
-    QList<InstructionChoice> choices;
-    QList<QString> includedSets;
+    QList<InstructionStep> steps;
     int weight = 1;
-    QStringList ifFlags;
-    QStringList notIfFlags;
+    QList<QStringList> ifFlagGroups;
+    QList<QStringList> notIfFlagGroups;
     QStringList ifChosen;
     QStringList ifNotChosen;
     InstructionSelectMode selectMode = InstructionSelectMode::All;

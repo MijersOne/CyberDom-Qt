@@ -4,7 +4,12 @@
 #include <QDebug>
 #include <QTextStream>
 #include <QFile>
+#include <QDir>
+#include <QDateTime>
 #include <csignal>
+#include <unistd.h>
+#include <stdlib.h>
+#include <stdio.h>
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
 #include <QStringConverter>
 #endif
@@ -15,76 +20,97 @@
 #include <windows.h>
 #endif
 
+static QString g_logFilePath;
+
 void customMessageHandler(QtMsgType type, const QMessageLogContext &context, const QString &msg)
 {
-    Q_UNUSED(type);
     Q_UNUSED(context);
 
-    QFile logFile("debug_output.log");
-    if (logFile.open(QIODevice::WriteOnly | QIODevice::Append))
-    {
-        QTextStream out(&logFile);
+    // Determine the message type tag
+    QString typeStr;
+    switch (type) {
+    case QtDebugMsg:    typeStr = "[DEBUG]"; break;
+    case QtInfoMsg:     typeStr = "[INFO]"; break;
+    case QtWarningMsg:  typeStr = "[WARN]"; break;
+    case QtCriticalMsg: typeStr = "[CRIT]"; break;
+    case QtFatalMsg:    typeStr = "[FATAL]"; break;
+}
+
+// Get System Time (formatted)
+QString timeStr = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
+
+// Open the file (using the global path)
+QFile logFile(g_logFilePath);
+if (logFile.open(QIODevice::WriteOnly | QIODevice::Append))
+{
+    QTextStream out(&logFile);
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
-        out.setEncoding(QStringConverter::Utf8);
+    out.setEncoding(QStringConverter::Utf8);
 #else
-        out.setCodec("UTF-8");
+    out.setCodec("UTF-8");
 #endif
-        out << msg << Qt::endl;
+        // Write the formatted line
+        // Format: [Date Time] [Type] Message
+        out << QString("[%1] %2 %3").arg(timeStr, typeStr, msg) << Qt::endl;
     }
 }
 
 CyberDom *mainApp = nullptr;
 
-#ifndef _WIN32
-static void crashHandler(int signum)
-{
-    void *array[50];
-    int size = backtrace(array, 50);
-    QFile file("crash.log");
+void crashHandler(int sig) {
+    void *array[10];
+    size_t size;
+
+    // Get void*'s for all entries on the stack
+    size = backtrace(array, 10);
+
+    // Print out all the frames to stderr
+    fprintf(stderr, "Error: signal %d:\n", sig);
+    backtrace_symbols_fd(array, size, STDERR_FILENO);
+
+    // Also try to write to our log file
+    QFile file(g_logFilePath);
     if (file.open(QIODevice::WriteOnly | QIODevice::Append)) {
         QTextStream out(&file);
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
-        out.setEncoding(QStringConverter::Utf8);
-#else
-        out.setCodec("UTF-8");
-#endif
-        out << "Signal " << signum << " received\n";
-        char **symbols = backtrace_symbols(array, size);
-        for (int i = 0; i < size; ++i) {
-            out << symbols[i] << '\n';
+        out << "\n[CRITICAL] APP CRASHED with Signal " << sig << "\nStack Trace:\n";
+
+        char **messages = backtrace_symbols(array, size);
+        for (size_t i = 0; i < size; ++i) {
+            out << messages[i] << "\n";
         }
-        free(symbols);
-        file.close();
+        free(messages);
     }
 
-    // Re-raise default handler to terminate
-    signal(signum, SIG_DFL);
-    raise(signum);
+    exit(1);
 }
-#else
-LONG WINAPI winCrashHandler(struct _EXCEPTION_POINTERS* ExceptionInfo)
-{
-    QFile file("crash.log");
-    if (file.open(QIODevice::WriteOnly | QIODevice::Append)) {
-        QTextStream out(&file);
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
-        out.setEncoding(QStringConverter::Utf8);
-#else
-        out.setCodec("UTF-8");
-#endif
-        out << "Unhandled exception caught! Code: 0x"
-            << QString::number(ExceptionInfo->ExceptionRecord->ExceptionCode, 16).toUpper()
-            <<"\n";
-        file.close();
-    }
-    // Optional: call abort() or exit() if you want immediate termination
-    return EXCEPTION_EXECUTE_HANDLER;
-}
-#endif
 
 int main(int argc, char *argv[])
 {
+    // Instantiate QApplication
     QApplication a(argc, argv);
+
+    // --- LOGGING SETUP ---
+
+    // Ensure "Logs" directory exists
+    QString logDir = QCoreApplication::applicationDirPath() + "/Logs";
+    QDir dir(logDir);
+    if (!dir.exists()) {
+        dir.mkpath(".");
+    }
+
+    // Generate Filename based on System Date/Time
+    // Format: Log_YYYY-MM-DD_HH-mm-ss.txt
+    QString timeStamp = QDateTime::currentDateTime().toString("yyyy-MM-dd_HH-mm-ss");
+    g_logFilePath = logDir + "/Log_" + timeStamp + ".txt";
+
+    // Install the handler
+    qInstallMessageHandler(customMessageHandler);
+
+    signal(SIGSEGV, crashHandler);
+    signal(SIGABRT, crashHandler);
+
+    // --- END LOGGING SETUP ---
+
 #ifndef _WIN32
     std::signal(SIGSEGV, crashHandler);
     std::signal(SIGABRT, crashHandler);
@@ -92,8 +118,17 @@ int main(int argc, char *argv[])
     SetUnhandledExceptionFilter(winCrashHandler);
 #endif
     qInstallMessageHandler(customMessageHandler);
+
+    // Log that the app has started
+    qDebug() << "==========================================";
+    qDebug() << "   CyberDom Application Started";
+    qDebug() << "   Session Log:" << g_logFilePath;
+    qDebug() << "==========================================";
+
+    // Create and show the main window
     CyberDom w;
     mainApp = &w;
     w.show();
+
     return a.exec();
 }
