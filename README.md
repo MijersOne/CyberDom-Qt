@@ -1,100 +1,108 @@
-# CyberDom-Qt
+# CyberDom
 
-CyberDom-Qt is a Qt-based graphical interface for running CyberDom training scripts. The application guides the user through tasks defined in a script while handling jobs, punishments and rewards.
+**CyberDom** is a robust, script-driven protocol enforcement and task management application built using C++ and the Qt Framework. It allows users to load custom `.ini` scripts that define dynamic rules, statuses, assignments, and behavior logic, creating a fully interactive and automated experience.
 
-## Prerequisites
+## Overview
 
-Install the following Qt packages on Debian/Ubuntu:
+CyberDom functions as an automated controller that parses logic files to manage a user's daily routine, tasks, and compliance. It features a comprehensive event system that tracks merits, clothing requirements, and time-based events.
 
-```bash
-sudo apt-get install qt6-base-dev qt6-multimedia-dev qt6-tools-dev qmake6
-```
+### Key Features
+* **Script Engine:** Parses complex `.ini` scripts to define state machines, rules, and logic.
+* **Assignment System:** Manages Jobs and Punishments with support for deadlines, reminders, and penalties.
+* **Interactive Tasks:** Includes specialized interactive punishment modules like "Line Writing" (with anti-cheat mechanisms) and "Detention" (fullscreen lock with presence checks).
+* **Multimedia Integration:** Supports webcam integration for "Point" and "Pose" tasks, as well as audio playback for alarms.
+* **Economy System:** Tracks "Merits" with visual indicators for progress and penalty thresholds.
+* **Reporting:** Generates detailed HTML daily activity reports tracking tasks completed, merits earned/lost, and permissions requested.
+* **Status Management:** Handles hierarchical status changes (Primary and Sub-statuses) with history tracking.
 
-A helper script `setup-debian.sh` is provided to automate this. After installing the packages, rerun `cmake ..` in the `build` directory if you configured the project before installing dependencies.
+## Technologies Used
 
-## Build
+* **Language:** C++17
+* **Framework:** Qt 6 (Core, Gui, Widgets, Multimedia, Network)
+* **Build Systems:** CMake / qmake
 
-Ensure a Qt development environment is available and CMake 3.14 or newer is installed:
+## Requirements
 
-```bash
-mkdir build && cd build
-cmake ..
-make
-```
+To build CyberDom from source, you will need the following installed on your system:
 
-Alternatively, build directly with `qmake6`:
+* **C++ Compiler:** GCC, Clang, or MSVC supporting C++17.
+* **Qt 6 SDK:** Ensure the following modules are installed:
+    * `Qt6::Core`
+    * `Qt6::Gui`
+    * `Qt6::Widgets`
+    * `Qt6::Multimedia`
+    * `Qt6::MultimediaWidgets`
+    * `Qt6::Network`
+* **Build Tool:** CMake (3.16 or higher) OR qmake.
 
-```bash
-qmake6 CyberDom.pro
-make
-```
+## Build Instructions
 
-### Tests
+You can build the application using either CMake or qmake.
 
-Unit tests use the Qt Test framework and rely on `qmake6`. Make sure the
-`qmake6` package is installed before building:
+### Option 1: Using CMake (Recommended)
 
-```bash
-qmake6 tests/tests.pro
-make -C tests
-```
+1.  Clone the repository:
+    ```bash
+    git clone [https://github.com/yourusername/CyberDom.git](https://github.com/yourusername/CyberDom.git)
+    cd CyberDom
+    ```
 
-Execute the tests in a headless environment:
+2.  Create a build directory:
+    ```bash
+    mkdir build
+    cd build
+    ```
 
-```bash
-QT_QPA_PLATFORM=offscreen ./tests/runtests
-```
+3.  Configure the project (ensure Qt is in your PATH or specify `CMAKE_PREFIX_PATH`):
+    ```bash
+    cmake ..
+    ```
 
-Alternatively you can run `make -C tests test` to build and execute the tests in one step.
+4.  Build the application:
+    ```bash
+    cmake --build .
+    ```
 
-You can also open `CyberDom.pro` in Qt Creator and build directly from the IDE.
+### Option 2: Using qmake
 
-## Run
+1.  Clone the repository:
+    ```bash
+    git clone [https://github.com/yourusername/CyberDom.git](https://github.com/yourusername/CyberDom.git)
+    cd CyberDom
+    ```
 
-After compiling, execute the generated binary:
+2.  Run qmake:
+    ```bash
+    qmake CyberDom.pro
+    ```
 
-```bash
-./CyberDom
-```
+3.  Build the application:
+    * **Linux/macOS:** `make`
+    * **Windows (MinGW):** `mingw32-make`
+    * **Windows (MSVC):** `nmake`
 
-## Features
+## Usage
 
-- Dynamic **Report** submenu under Communication. Items are populated on startup.
-- The submenu includes **Add Clothing** which opens a popup to create clothing items.
+1.  Launch the `CyberDom` executable.
+2.  On the first run, you will be prompted to select a valid script file (`.ini`).
+3.  The application will initialize based on the parameters defined in the script.
+4.  Use the top menu bar to access Reports, Permissions, and other tools.
 
-### Birthday sections
+## Folder Structure
 
-Define birthdays in the training script using `[birthday-*]` sections. The part after
-`birthday-` becomes the default title unless a `Title` key is provided. Each section
-requires one or more `Date` lines in `YYYY-MM-DD` format.
+The source code is organized as follows:
 
-Example:
+* `src/Core`: Backend logic, script parsing, and utilities.
+* `src/Gui`: Main window and primary UI logic.
+* `src/Widgets`: Custom reusable widgets (Calendar, etc.).
+* `src/Dialogs`: Popups for specific tasks (Line Writing, Clothing, etc.).
 
-```ini
-[birthday-jane]
-Title=Jane Doe
-Date=2025-03-14
-```
+## Disclaimer
 
-Birthday entries show up in the calendar view as events of type **Birthday**.
+This software is provided "as is", without warranty of any kind. Use at your own risk.
 
-The Calendar view now highlights the current day and displays color coded bars
-for multiple events similar to Google Calendar.
+## Licensing
 
-## Debugging
-
-Runtime messages are written to `debug_output.log` in the application directory. Use this log when diagnosing crashes or other issues.
-
-
-### Report menu troubleshooting
-
-The Report menu is generated at runtime from the loaded script. If the application crashes when the window first appears, open `debug_output.log` while launching `CyberDom` from a terminal:
-
-```bash
-./CyberDom &
-tail -f debug_output.log
-```
-
-Each menu entry will be listed with a `[ReportMenu]` prefix as it is created. A crash after a specific entry often indicates a problem in the script definition for that report.
-
-For additional help, review the example scripts included with the project and open an issue if problems persist.
+This application uses the **Qt Toolkit** (http://www.qt.io), licensed under the **LGPLv3**.
+* The source code for Qt can be obtained from [http://download.qt.io](http://download.qt.io).
+* The Qt libraries used are dynamically linked. Users may substitute them with their own compatible versions of the Qt libraries.
