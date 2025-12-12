@@ -1,0 +1,728 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>800</width>
+    <height>600</height>
+   </rect>
+  </property>
+  <property name="palette">
+   <palette>
+    <active>
+     <colorrole role="WindowText">
+      <brush brushstyle="SolidPattern">
+       <color alpha="255">
+        <red>255</red>
+        <green>255</green>
+        <blue>255</blue>
+       </color>
+      </brush>
+     </colorrole>
+     <colorrole role="Base">
+      <brush brushstyle="SolidPattern">
+       <color alpha="255">
+        <red>71</red>
+        <green>71</green>
+        <blue>71</blue>
+       </color>
+      </brush>
+     </colorrole>
+     <colorrole role="Window">
+      <brush brushstyle="SolidPattern">
+       <color alpha="255">
+        <red>71</red>
+        <green>71</green>
+        <blue>71</blue>
+       </color>
+      </brush>
+     </colorrole>
+    </active>
+    <inactive>
+     <colorrole role="WindowText">
+      <brush brushstyle="SolidPattern">
+       <color alpha="255">
+        <red>255</red>
+        <green>255</green>
+        <blue>255</blue>
+       </color>
+      </brush>
+     </colorrole>
+     <colorrole role="Base">
+      <brush brushstyle="SolidPattern">
+       <color alpha="255">
+        <red>71</red>
+        <green>71</green>
+        <blue>71</blue>
+       </color>
+      </brush>
+     </colorrole>
+     <colorrole role="Window">
+      <brush brushstyle="SolidPattern">
+       <color alpha="255">
+        <red>71</red>
+        <green>71</green>
+        <blue>71</blue>
+       </color>
+      </brush>
+     </colorrole>
+    </inactive>
+    <disabled>
+     <colorrole role="Base">
+      <brush brushstyle="SolidPattern">
+       <color alpha="255">
+        <red>71</red>
+        <green>71</green>
+        <blue>71</blue>
+       </color>
+      </brush>
+     </colorrole>
+     <colorrole role="Window">
+      <brush brushstyle="SolidPattern">
+       <color alpha="255">
+        <red>71</red>
+        <green>71</green>
+        <blue>71</blue>
+       </color>
+      </brush>
+     </colorrole>
+    </disabled>
+   </palette>
+  </property>
+  <property name="windowTitle">
+   <string>MainWindow</string>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <widget class="QLabel" name="label_Status">
+    <property name="geometry">
+     <rect>
+      <x>10</x>
+      <y>20</y>
+      <width>71</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>16</pointsize>
+     </font>
+    </property>
+    <property name="text">
+     <string>Status:</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="Status">
+    <property name="geometry">
+     <rect>
+      <x>80</x>
+      <y>20</y>
+      <width>101</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>16</pointsize>
+     </font>
+    </property>
+    <property name="text">
+     <string>TextLabel</string>
+    </property>
+   </widget>
+   <widget class="QTextBrowser" name="assignment_Info">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>70</y>
+      <width>761</width>
+      <height>381</height>
+     </rect>
+    </property>
+    <property name="palette">
+     <palette>
+      <active>
+       <colorrole role="Base">
+        <brush brushstyle="SolidPattern">
+         <color alpha="255">
+          <red>255</red>
+          <green>255</green>
+          <blue>255</blue>
+         </color>
+        </brush>
+       </colorrole>
+       <colorrole role="Window">
+        <brush brushstyle="SolidPattern">
+         <color alpha="255">
+          <red>255</red>
+          <green>255</green>
+          <blue>255</blue>
+         </color>
+        </brush>
+       </colorrole>
+      </active>
+      <inactive>
+       <colorrole role="Base">
+        <brush brushstyle="SolidPattern">
+         <color alpha="255">
+          <red>255</red>
+          <green>255</green>
+          <blue>255</blue>
+         </color>
+        </brush>
+       </colorrole>
+       <colorrole role="Window">
+        <brush brushstyle="SolidPattern">
+         <color alpha="255">
+          <red>255</red>
+          <green>255</green>
+          <blue>255</blue>
+         </color>
+        </brush>
+       </colorrole>
+      </inactive>
+      <disabled>
+       <colorrole role="Base">
+        <brush brushstyle="SolidPattern">
+         <color alpha="255">
+          <red>255</red>
+          <green>255</green>
+          <blue>255</blue>
+         </color>
+        </brush>
+       </colorrole>
+       <colorrole role="Window">
+        <brush brushstyle="SolidPattern">
+         <color alpha="255">
+          <red>255</red>
+          <green>255</green>
+          <blue>255</blue>
+         </color>
+        </brush>
+       </colorrole>
+      </disabled>
+     </palette>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_Merits">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>460</y>
+      <width>61</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>12</pointsize>
+     </font>
+    </property>
+    <property name="text">
+     <string>Merits:</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="Merits">
+    <property name="geometry">
+     <rect>
+      <x>80</x>
+      <y>460</y>
+      <width>49</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>14</pointsize>
+      <bold>true</bold>
+     </font>
+    </property>
+    <property name="text">
+     <string>597</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_Clock">
+    <property name="geometry">
+     <rect>
+      <x>690</x>
+      <y>460</y>
+      <width>91</width>
+      <height>41</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>12</pointsize>
+     </font>
+    </property>
+    <property name="text">
+     <string>10:30:55 PM</string>
+    </property>
+   </widget>
+   <widget class="QProgressBar" name="meritBar">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>510</y>
+      <width>761</width>
+      <height>23</height>
+     </rect>
+    </property>
+    <property name="palette">
+     <palette>
+      <active>
+       <colorrole role="Base">
+        <brush brushstyle="SolidPattern">
+         <color alpha="255">
+          <red>255</red>
+          <green>255</green>
+          <blue>255</blue>
+         </color>
+        </brush>
+       </colorrole>
+      </active>
+      <inactive>
+       <colorrole role="Base">
+        <brush brushstyle="SolidPattern">
+         <color alpha="255">
+          <red>255</red>
+          <green>255</green>
+          <blue>255</blue>
+         </color>
+        </brush>
+       </colorrole>
+      </inactive>
+      <disabled/>
+     </palette>
+    </property>
+    <property name="value">
+     <number>24</number>
+    </property>
+    <property name="format">
+     <string>%p%</string>
+    </property>
+   </widget>
+  </widget>
+  <widget class="QMenuBar" name="menubar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>800</width>
+     <height>21</height>
+    </rect>
+   </property>
+   <property name="palette">
+    <palette>
+     <active>
+      <colorrole role="Base">
+       <brush brushstyle="SolidPattern">
+        <color alpha="255">
+         <red>255</red>
+         <green>255</green>
+         <blue>255</blue>
+        </color>
+       </brush>
+      </colorrole>
+      <colorrole role="Window">
+       <brush brushstyle="SolidPattern">
+        <color alpha="255">
+         <red>255</red>
+         <green>255</green>
+         <blue>255</blue>
+        </color>
+       </brush>
+      </colorrole>
+     </active>
+     <inactive>
+      <colorrole role="Base">
+       <brush brushstyle="SolidPattern">
+        <color alpha="255">
+         <red>255</red>
+         <green>255</green>
+         <blue>255</blue>
+        </color>
+       </brush>
+      </colorrole>
+      <colorrole role="Window">
+       <brush brushstyle="SolidPattern">
+        <color alpha="255">
+         <red>255</red>
+         <green>255</green>
+         <blue>255</blue>
+        </color>
+       </brush>
+      </colorrole>
+     </inactive>
+     <disabled>
+      <colorrole role="Base">
+       <brush brushstyle="SolidPattern">
+        <color alpha="255">
+         <red>255</red>
+         <green>255</green>
+         <blue>255</blue>
+        </color>
+       </brush>
+      </colorrole>
+      <colorrole role="Window">
+       <brush brushstyle="SolidPattern">
+        <color alpha="255">
+         <red>255</red>
+         <green>255</green>
+         <blue>255</blue>
+        </color>
+       </brush>
+      </colorrole>
+     </disabled>
+    </palette>
+   </property>
+   <widget class="QMenu" name="menuFile">
+    <property name="title">
+     <string>File</string>
+    </property>
+    <addaction name="actionMake_New_Report_File"/>
+    <addaction name="actionView_Report"/>
+    <addaction name="actionEncrypt_Script"/>
+    <addaction name="actionDelete_Status_File"/>
+    <addaction name="actionExit"/>
+   </widget>
+   <widget class="QMenu" name="menuCommunication">
+    <property name="title">
+     <string>Communication</string>
+    </property>
+    <addaction name="actionAsk_Permission"/>
+    <addaction name="menuReport"/>
+    <addaction name="actionReport_Clothing"/>
+    <addaction name="actionConfess"/>
+    <addaction name="actionAsk_for_Clothing_Instruction"/>
+    <addaction name="actionAsk_for_Other_Instructions"/>
+   </widget>
+  <widget class="QMenu" name="menuAssignments">
+   <property name="title">
+    <string>Assignments</string>
+   </property>
+   <addaction name="actionCalendar"/>
+  </widget>
+   <widget class="QMenu" name="menuRules">
+    <property name="title">
+     <string>Rules</string>
+    </property>
+    <addaction name="actionPermissions"/>
+    <addaction name="actionReports"/>
+    <addaction name="actionConfessions"/>
+    <addaction name="actionClothing"/>
+    <addaction name="actionInstructions"/>
+    <addaction name="actionOther_Rules"/>
+   </widget>
+   <widget class="QMenu" name="menuTest">
+    <property name="title">
+     <string>Test</string>
+    </property>
+    <widget class="QMenu" name="menuTime_Add">
+     <property name="title">
+      <string>Time Add</string>
+     </property>
+     <addaction name="action1_Minute"/>
+     <addaction name="action2_Minutes"/>
+     <addaction name="action5_Minutes"/>
+     <addaction name="action10_Minutes"/>
+     <addaction name="action20_Minutes"/>
+     <addaction name="action30_Minutes"/>
+     <addaction name="action1_Hour"/>
+     <addaction name="action2_Hours"/>
+     <addaction name="action3_Hours"/>
+     <addaction name="action6_Hours"/>
+     <addaction name="action12_Hours"/>
+     <addaction name="action24_Hours"/>
+     <addaction name="action2_Days"/>
+     <addaction name="action4_Days"/>
+     <addaction name="action7_Days"/>
+    </widget>
+    <addaction name="menuTime_Add"/>
+    <addaction name="actionIgnore_Remind_Punishments"/>
+    <addaction name="actionRandomize"/>
+    <addaction name="actionPop_Ups_Quick"/>
+    <addaction name="actionAlways_Permit"/>
+    <addaction name="actionAlways_Deny"/>
+    <addaction name="actionChange_Merit_Points"/>
+    <addaction name="actionStatus_Change"/>
+    <addaction name="actionJob_Launch"/>
+    <addaction name="actionPunish"/>
+    <addaction name="actionExport_Clothes"/>
+    <addaction name="actionImport_Clothes"/>
+    <addaction name="actionPop_Up_Launch"/>
+    <addaction name="actionList_and_Remove_Flags"/>
+    <addaction name="actionSet_Flags"/>
+    <addaction name="actionList_and_Delete_Assignments"/>
+   </widget>
+   <widget class="QMenu" name="menuReport">
+   <property name="title">
+    <string>Report</string>
+   </property>
+   <addaction name="actionAdd_Clothing"/>
+  </widget>
+   <widget class="QMenu" name="menuHelp">
+    <property name="title">
+     <string>Help</string>
+    </property>
+    <addaction name="actionAbout"/>
+   </widget>
+   <addaction name="menuFile"/>
+   <addaction name="menuCommunication"/>
+   <addaction name="menuAssignments"/>
+   <addaction name="menuRules"/>
+   <addaction name="menuTest"/>
+   <addaction name="menuHelp"/>
+  </widget>
+  <widget class="QStatusBar" name="statusbar"/>
+  <action name="actionMake_New_Report_File">
+   <property name="text">
+    <string>Make New Report File</string>
+   </property>
+  </action>
+  <action name="actionView_Report">
+   <property name="text">
+    <string>View Report</string>
+   </property>
+  </action>
+  <action name="actionEncrypt_Script">
+   <property name="text">
+    <string>Encrypt Script</string>
+   </property>
+  </action>
+  <action name="actionDelete_Status_File">
+   <property name="text">
+    <string>Delete Status File</string>
+   </property>
+  </action>
+  <action name="actionExit">
+   <property name="text">
+    <string>Exit</string>
+   </property>
+  </action>
+  <action name="actionAsk_Permission">
+   <property name="text">
+    <string>Ask Permission</string>
+   </property>
+  </action>
+  <action name="actionAdd_Clothing">
+   <property name="text">
+    <string>Add Clothing</string>
+   </property>
+  </action>
+  <action name="actionReport_Clothing">
+   <property name="text">
+    <string>Report Clothing</string>
+   </property>
+  </action>
+  <action name="actionConfess">
+   <property name="text">
+    <string>Confess</string>
+   </property>
+  </action>
+  <action name="actionAsk_for_Clothing_Instruction">
+   <property name="text">
+    <string>Ask for Clothing Instruction</string>
+   </property>
+  </action>
+  <action name="actionAsk_for_Other_Instructions">
+   <property name="text">
+    <string>Ask for Other Instructions</string>
+   </property>
+  </action>
+  <action name="actionPermissions">
+   <property name="text">
+    <string>Permissions</string>
+   </property>
+  </action>
+  <action name="actionReports">
+   <property name="text">
+    <string>Reports</string>
+   </property>
+  </action>
+  <action name="actionConfessions">
+   <property name="text">
+    <string>Confessions</string>
+   </property>
+  </action>
+  <action name="actionClothing">
+   <property name="text">
+    <string>Clothing</string>
+   </property>
+  </action>
+  <action name="actionInstructions">
+   <property name="text">
+    <string>Instructions</string>
+   </property>
+  </action>
+  <action name="actionOther_Rules">
+   <property name="text">
+    <string>Other Rules</string>
+   </property>
+  </action>
+  <action name="actionIgnore_Remind_Punishments">
+   <property name="text">
+    <string>Ignore Remind Punishments</string>
+   </property>
+  </action>
+  <action name="actionRandomize">
+   <property name="text">
+    <string>Randomize</string>
+   </property>
+  </action>
+  <action name="actionPop_Ups_Quick">
+   <property name="text">
+    <string>Pop-Ups Quick</string>
+   </property>
+  </action>
+  <action name="actionAlways_Permit">
+   <property name="text">
+    <string>Always Permit</string>
+   </property>
+  </action>
+  <action name="actionAlways_Deny">
+   <property name="text">
+    <string>Always Deny</string>
+   </property>
+  </action>
+  <action name="actionChange_Merit_Points">
+   <property name="text">
+    <string>Change Merit Points</string>
+   </property>
+  </action>
+  <action name="actionStatus_Change">
+   <property name="text">
+    <string>Status Change</string>
+   </property>
+  </action>
+  <action name="actionJob_Launch">
+   <property name="text">
+    <string>Job Launch</string>
+   </property>
+  </action>
+  <action name="actionPunish">
+   <property name="text">
+    <string>Punish</string>
+   </property>
+  </action>
+  <action name="actionExport_Clothes">
+   <property name="text">
+    <string>Export Clothes</string>
+   </property>
+  </action>
+  <action name="actionImport_Clothes">
+   <property name="text">
+    <string>Import Clothes</string>
+   </property>
+  </action>
+  <action name="actionPop_Up_Launch">
+   <property name="text">
+    <string>Pop-Up Launch</string>
+   </property>
+  </action>
+  <action name="actionList_and_Remove_Flags">
+   <property name="text">
+    <string>List and Remove Flags</string>
+   </property>
+  </action>
+  <action name="actionSet_Flags">
+   <property name="text">
+    <string>Set Flags</string>
+   </property>
+  </action>
+  <action name="actionList_and_Delete_Assignments">
+   <property name="text">
+    <string>List and Delete Assignments</string>
+   </property>
+  </action>
+  <action name="action1_Minute">
+   <property name="text">
+    <string>1 Minute</string>
+   </property>
+  </action>
+  <action name="action2_Minutes">
+   <property name="text">
+    <string>2 Minutes</string>
+   </property>
+  </action>
+  <action name="action5_Minutes">
+   <property name="text">
+    <string>5 Minutes</string>
+   </property>
+  </action>
+  <action name="action10_Minutes">
+   <property name="text">
+    <string>10 Minutes</string>
+   </property>
+  </action>
+  <action name="action20_Minutes">
+   <property name="text">
+    <string>20 Minutes</string>
+   </property>
+  </action>
+  <action name="action30_Minutes">
+   <property name="text">
+    <string>30 Minutes</string>
+   </property>
+  </action>
+  <action name="action1_Hour">
+   <property name="text">
+    <string>1 Hour</string>
+   </property>
+  </action>
+  <action name="action2_Hours">
+   <property name="text">
+    <string>2 Hours</string>
+   </property>
+  </action>
+  <action name="action3_Hours">
+   <property name="text">
+    <string>3 Hours</string>
+   </property>
+  </action>
+  <action name="action6_Hours">
+   <property name="text">
+    <string>6 Hours</string>
+   </property>
+  </action>
+  <action name="action12_Hours">
+   <property name="text">
+    <string>12 Hours</string>
+   </property>
+  </action>
+  <action name="action24_Hours">
+   <property name="text">
+    <string>24 Hours</string>
+   </property>
+  </action>
+  <action name="action2_Days">
+   <property name="text">
+    <string>2 Days</string>
+   </property>
+  </action>
+  <action name="action4_Days">
+   <property name="text">
+    <string>4 Days</string>
+   </property>
+  </action>
+  <action name="action7_Days">
+   <property name="text">
+    <string>7 Days</string>
+   </property>
+  </action>
+  <action name="actionCalendar">
+   <property name="text">
+    <string>Calendar</string>
+   </property>
+  </action>
+  <action name="actionAbout">
+   <property name="text">
+    <string>About</string>
+   </property>
+  </action>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>
