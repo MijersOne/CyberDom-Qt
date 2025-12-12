@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+    <class>ListFlags</class>
+    <widget class="QDialog" name="ListFlags">
+        <property name="geometry">
+            <rect>
+                <x>0</x>
+                <y>0</y>
+                <width>800</width>
+                <height>450</height>
+            </rect>
+        </property>
+        <property name="windowTitle">
+            <string>List and Remove Flags</string>
+        </property>
+        <layout class="QHBoxLayout" name="horizontalLayout">
+            <item>
+                <widget class="QListWidget" name="lw_Flags">
+                    <property name="selectionMode">
+                        <enum>QAbstractItemView::MultiSelection</enum>
+                    </property>
+                </widget>
+            </item>
+            <item>
+                <layout class="QVBoxLayout" name="verticalLayout_Buttons">
+                    <item>
+                        <widget class="QPushButton" name="btn_Remove">
+                            <property name="text">
+                                <string>Remove</string>
+                            </property>
+                        </widget>
+                    </item>
+                    <item>
+                        <widget class="QPushButton" name="btn_Cancel">
+                            <property name="text">
+                                <string>Cancel</string>
+                            </property>
+                        </widget>
+                    </item>
+                    <item>
+                        <spacer name="verticalSpacer">
+                            <property name="orientation">
+                                <enum>Qt::Vertical</enum>
+                            </property>
+                            <property name="sizeHint" stdset="0">
+                                <size>
+                                    <width>20</width>
+                                    <height>40</height>
+                                </size>
+                            </property>
+                        </spacer>
+                    </item>
+                    <item>
+                        <widget class="QPushButton" name="btn_SelectAll">
+                            <property name="text">
+                                <string>Select All</string>
+                            </property>
+                        </widget>
+                    </item>
+                    <item>
+                        <widget class="QPushButton" name="btn_SelectNone">
+                            <property name="text">
+                                <string>Select None</string>
+                            </property>
+                        </widget>
+                    </item>
+                </layout>
+            </item>
+        </layout>
+    </widget>
+    <resources/>
+    <connections>
+        <connection>
+            <sender>btn_Cancel</sender>
+            <signal>clicked()</signal>
+            <receiver>ListFlags</receiver>
+            <slot>reject()</slot>
+            <hints>
+                <hint type="sourcelabel">
+                    <x>795</x>
+                    <y>82</y>
+                </hint>
+                <hint type="destinationlabel">
+                    <x>430</x>
+                    <y>217</y>
+                </hint>
+            </hints>
+        </connection>
+    </connections>
+</ui>

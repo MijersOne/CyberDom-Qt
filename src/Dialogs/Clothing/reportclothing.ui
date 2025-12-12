@@ -1,0 +1,230 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+    <class>ReportClothing</class>
+    <widget class="QDialog" name="ReportClothing">
+        <property name="geometry">
+            <rect>
+                <x>0</x>
+                <y>0</y>
+                <width>800</width>
+                <height>600</height>
+            </rect>
+        </property>
+        <property name="windowTitle">
+            <string>Report Clothing</string>
+        </property>
+        <layout class="QVBoxLayout" name="verticalLayout_Main">
+            <item>
+                <widget class="QLabel" name="lbl_Title">
+                    <property name="font">
+                        <font>
+                            <pointsize>14</pointsize>
+                            <bold>true</bold>
+                        </font>
+                    </property>
+                    <property name="text">
+                        <string>Report Clothing</string>
+                    </property>
+                    <property name="alignment">
+                        <set>Qt::AlignCenter</set>
+                    </property>
+                </widget>
+            </item>
+            <item>
+                <layout class="QHBoxLayout" name="horizontalLayout_Content">
+                    <item>
+                        <layout class="QVBoxLayout" name="verticalLayout_Wearing">
+                            <item>
+                                <widget class="QLabel" name="lbl_Wearing">
+                                    <property name="font">
+                                        <font>
+                                            <pointsize>12</pointsize>
+                                        </font>
+                                    </property>
+                                    <property name="text">
+                                        <string>You are wearing:</string>
+                                    </property>
+                                </widget>
+                            </item>
+                            <item>
+                                <widget class="QListWidget" name="lst_Wearing"/>
+                            </item>
+                            <item>
+                                <layout class="QHBoxLayout" name="horizontalLayout_WearingTools">
+                                    <item>
+                                        <widget class="QCheckBox" name="chk_Naked">
+                                            <property name="text">
+                                                <string>I am Naked</string>
+                                            </property>
+                                        </widget>
+                                    </item>
+                                    <item>
+                                        <widget class="QPushButton" name="btn_Remove">
+                                            <property name="text">
+                                                <string>Remove</string>
+                                            </property>
+                                        </widget>
+                                    </item>
+                                    <item>
+                                        <spacer name="horizontalSpacer_Wearing">
+                                            <property name="orientation">
+                                                <enum>Qt::Horizontal</enum>
+                                            </property>
+                                            <property name="sizeHint" stdset="0">
+                                                <size>
+                                                    <width>40</width>
+                                                    <height>20</height>
+                                                </size>
+                                            </property>
+                                        </spacer>
+                                    </item>
+                                </layout>
+                            </item>
+                        </layout>
+                    </item>
+                    <item>
+                        <layout class="QVBoxLayout" name="verticalLayout_Available">
+                            <item>
+                                <layout class="QHBoxLayout" name="horizontalLayout_Filters">
+                                    <item>
+                                        <widget class="QLabel" name="lbl_Available">
+                                            <property name="font">
+                                                <font>
+                                                    <pointsize>12</pointsize>
+                                                </font>
+                                            </property>
+                                            <property name="text">
+                                                <string>Clothes Available:</string>
+                                            </property>
+                                        </widget>
+                                    </item>
+                                    <item>
+                                        <spacer name="horizontalSpacer_Filters">
+                                            <property name="orientation">
+                                                <enum>Qt::Horizontal</enum>
+                                            </property>
+                                            <property name="sizeHint" stdset="0">
+                                                <size>
+                                                    <width>40</width>
+                                                    <height>20</height>
+                                                </size>
+                                            </property>
+                                        </spacer>
+                                    </item>
+                                    <item>
+                                        <widget class="QLabel" name="lbl_Type">
+                                            <property name="text">
+                                                <string>Type:</string>
+                                            </property>
+                                            <property name="alignment">
+                                                <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                                            </property>
+                                        </widget>
+                                    </item>
+                                    <item>
+                                        <widget class="QComboBox" name="cb_Type">
+                                            <property name="minimumSize">
+                                                <size>
+                                                    <width>150</width>
+                                                    <height>0</height>
+                                                </size>
+                                            </property>
+                                        </widget>
+                                    </item>
+                                    <item>
+                                        <widget class="QPushButton" name="btn_AddType">
+                                            <property name="text">
+                                                <string>Add Type</string>
+                                            </property>
+                                        </widget>
+                                    </item>
+                                </layout>
+                            </item>
+                            <item>
+                                <widget class="QListWidget" name="lst_Available"/>
+                            </item>
+                            <item>
+                                <layout class="QHBoxLayout" name="horizontalLayout_AvailableTools">
+                                    <item>
+                                        <spacer name="horizontalSpacer_Available">
+                                            <property name="orientation">
+                                                <enum>Qt::Horizontal</enum>
+                                            </property>
+                                            <property name="sizeHint" stdset="0">
+                                                <size>
+                                                    <width>40</width>
+                                                    <height>20</height>
+                                                </size>
+                                            </property>
+                                        </spacer>
+                                    </item>
+                                    <item>
+                                        <widget class="QPushButton" name="btn_Select">
+                                            <property name="text">
+                                                <string>Select Item &lt;&lt;</string>
+                                            </property>
+                                        </widget>
+                                    </item>
+                                </layout>
+                            </item>
+                        </layout>
+                    </item>
+                </layout>
+            </item>
+            <item>
+                <layout class="QHBoxLayout" name="horizontalLayout_Bottom">
+                    <item>
+                        <widget class="QPushButton" name="btn_Cancel">
+                            <property name="text">
+                                <string>Cancel</string>
+                            </property>
+                        </widget>
+                    </item>
+                    <item>
+                        <widget class="QPushButton" name="btn_Report">
+                            <property name="text">
+                                <string>Report</string>
+                            </property>
+                        </widget>
+                    </item>
+                    <item>
+                        <spacer name="horizontalSpacer_Bottom">
+                            <property name="orientation">
+                                <enum>Qt::Horizontal</enum>
+                            </property>
+                            <property name="sizeHint" stdset="0">
+                                <size>
+                                    <width>40</width>
+                                    <height>20</height>
+                                </size>
+                            </property>
+                        </spacer>
+                    </item>
+                    <item>
+                        <widget class="QPushButton" name="btn_Add">
+                            <property name="text">
+                                <string>Add Item</string>
+                            </property>
+                        </widget>
+                    </item>
+                    <item>
+                        <widget class="QPushButton" name="btn_Edit">
+                            <property name="text">
+                                <string>Edit Item</string>
+                            </property>
+                        </widget>
+                    </item>
+                    <item>
+                        <widget class="QPushButton" name="btn_Delete">
+                            <property name="text">
+                                <string>Delete Item</string>
+                            </property>
+                        </widget>
+                    </item>
+                </layout>
+            </item>
+        </layout>
+    </widget>
+    <resources/>
+    <connections/>
+</ui>
