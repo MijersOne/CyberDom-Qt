@@ -1,151 +1,227 @@
+#include "mainwindow.h"
 #include "cyberdom.h"
-
 #include <QApplication>
-#include <QDebug>
-#include <QTextStream>
 #include <QFile>
-#include <QDir>
+#include <QTextStream>
 #include <QDateTime>
+#include <QDir>
+#include <QDebug>
+#include <QStandardPaths>
+#include <iostream>
 #include <csignal>
-#include <unistd.h>
-#include <stdlib.h>
-#include <stdio.h>
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
-#include <QStringConverter>
-#endif
 
-#ifndef _WIN32
-#include <execinfo.h>
-#else
+// --- Platform Specific Headers ---
+#ifdef _WIN32
 #include <windows.h>
+#include <dbghelp.h>
+#else
+#include <execinfo.h>
+#include <unistd.h>
+#include <signal.h>
 #endif
 
-static QString g_logFilePath;
+// Global pointer for main app instance
+CyberDom *mainApp = nullptr;
+QString g_logFilePath;
 
+// Custom Message Handler
 void customMessageHandler(QtMsgType type, const QMessageLogContext &context, const QString &msg)
 {
     Q_UNUSED(context);
 
-    // Determine the message type tag
-    QString typeStr;
+    QString txt;
     switch (type) {
-    case QtDebugMsg:    typeStr = "[DEBUG]"; break;
-    case QtInfoMsg:     typeStr = "[INFO]"; break;
-    case QtWarningMsg:  typeStr = "[WARN]"; break;
-    case QtCriticalMsg: typeStr = "[CRIT]"; break;
-    case QtFatalMsg:    typeStr = "[FATAL]"; break;
-}
+    case QtDebugMsg:    txt = QString("Debug: %1").arg(msg); break;
+    case QtInfoMsg:     txt = QString("Info: %1").arg(msg); break;
+    case QtWarningMsg:  txt = QString("Warning: %1").arg(msg); break;
+    case QtCriticalMsg: txt = QString("Critical: %1").arg(msg); break;
+    case QtFatalMsg:    txt = QString("Fatal: %1").arg(msg); break;
+    }
 
-// Get System Time (formatted)
-QString timeStr = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
+    QString timestamp = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
+    QString formattedMessage = QString("[%1] %2").arg(timestamp, txt);
 
-// Open the file (using the global path)
-QFile logFile(g_logFilePath);
-if (logFile.open(QIODevice::WriteOnly | QIODevice::Append))
-{
-    QTextStream out(&logFile);
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
-    out.setEncoding(QStringConverter::Utf8);
-#else
-    out.setCodec("UTF-8");
-#endif
-        // Write the formatted line
-        // Format: [Date Time] [Type] Message
-        out << QString("[%1] %2 %3").arg(timeStr, typeStr, msg) << Qt::endl;
+    // 1. Print to Console (Standard Output)
+    std::cout << formattedMessage.toStdString() << std::endl;
+
+    // 2. Write to Log File
+    if (!g_logFilePath.isEmpty()) {
+        QFile outFile(g_logFilePath);
+        if (outFile.open(QIODevice::WriteOnly | QIODevice::Append)) {
+            QTextStream ts(&outFile);
+            ts << formattedMessage << Qt::endl;
+        }
+    }
+
+    if (type == QtFatalMsg) {
+        abort();
     }
 }
 
-CyberDom *mainApp = nullptr;
+// --- Crash Handler Implementation ---
 
-void crashHandler(int sig) {
-    void *array[10];
+void logCrash(const QString &stackTrace) {
+    QString report = "\n!!! CRASH DETECTED !!!\n";
+    report += "Timestamp: " + QDateTime::currentDateTime().toString(Qt::ISODate) + "\n";
+    report += "Stack Trace:\n" + stackTrace + "\n";
+    report += "--------------------------\n";
+
+    // Print to stderr
+    std::cerr << report.toStdString() << std::endl;
+
+    // Write to file
+    if (!g_logFilePath.isEmpty()) {
+        QFile outFile(g_logFilePath);
+        if (outFile.open(QIODevice::WriteOnly | QIODevice::Append)) {
+            QTextStream ts(&outFile);
+            ts << report << Qt::endl;
+        }
+    }
+}
+
+#ifdef _WIN32
+// --- WINDOWS CRASH HANDLER ---
+LONG WINAPI winCrashHandler(EXCEPTION_POINTERS *ExceptionInfo)
+{
+    QString stackTrace;
+
+    // Initialize DbgHelp symbols
+    HANDLE process = GetCurrentProcess();
+    SymInitialize(process, NULL, TRUE);
+
+    // Setup stack frame
+    STACKFRAME64 stackFrame;
+    memset(&stackFrame, 0, sizeof(stackFrame));
+
+    DWORD machineType = IMAGE_FILE_MACHINE_AMD64; // Assuming 64-bit build
+
+// Context is platform specific
+#ifdef _M_X64
+    machineType = IMAGE_FILE_MACHINE_AMD64;
+    stackFrame.AddrPC.Offset = ExceptionInfo->ContextRecord->Rip;
+    stackFrame.AddrPC.Mode = AddrModeFlat;
+    stackFrame.AddrFrame.Offset = ExceptionInfo->ContextRecord->Rbp;
+    stackFrame.AddrFrame.Mode = AddrModeFlat;
+    stackFrame.AddrStack.Offset = ExceptionInfo->ContextRecord->Rsp;
+    stackFrame.AddrStack.Mode = AddrModeFlat;
+#else
+    machineType = IMAGE_FILE_MACHINE_I386;
+    stackFrame.AddrPC.Offset = ExceptionInfo->ContextRecord->Eip;
+    stackFrame.AddrPC.Mode = AddrModeFlat;
+    stackFrame.AddrFrame.Offset = ExceptionInfo->ContextRecord->Ebp;
+    stackFrame.AddrFrame.Mode = AddrModeFlat;
+    stackFrame.AddrStack.Offset = ExceptionInfo->ContextRecord->Esp;
+    stackFrame.AddrStack.Mode = AddrModeFlat;
+#endif
+
+    // Walk the stack
+    while (StackWalk64(machineType, process, GetCurrentThread(), &stackFrame,
+                       ExceptionInfo->ContextRecord, NULL, SymFunctionTableAccess64,
+                       SymGetModuleBase64, NULL)) {
+
+        if (stackFrame.AddrPC.Offset == 0) break;
+
+        // Resolve symbol name
+        char buffer[sizeof(SYMBOL_INFO) + MAX_SYM_NAME * sizeof(TCHAR)];
+        PSYMBOL_INFO symbol = (PSYMBOL_INFO)buffer;
+        symbol->SizeOfStruct = sizeof(SYMBOL_INFO);
+        symbol->MaxNameLen = MAX_SYM_NAME;
+
+        DWORD64 displacement = 0;
+        if (SymFromAddr(process, stackFrame.AddrPC.Offset, &displacement, symbol)) {
+            stackTrace += QString("  %1 (0x%2)\n")
+            .arg(symbol->Name)
+                .arg(QString::number(stackFrame.AddrPC.Offset, 16));
+        } else {
+            stackTrace += QString("  [Unknown Function] (0x%1)\n")
+            .arg(QString::number(stackFrame.AddrPC.Offset, 16));
+        }
+    }
+
+    SymCleanup(process);
+
+    logCrash(stackTrace);
+
+    // Standard Windows crash dialog
+    return EXCEPTION_CONTINUE_SEARCH;
+}
+
+#else
+// --- LINUX / MAC CRASH HANDLER ---
+void crashHandler(int signal)
+{
+    void *array[20];
     size_t size;
 
-    // Get void*'s for all entries on the stack
-    size = backtrace(array, 10);
+    // get void*'s for all entries on the stack
+    size = backtrace(array, 20);
 
-    // Print out all the frames to stderr
-    fprintf(stderr, "Error: signal %d:\n", sig);
-    backtrace_symbols_fd(array, size, STDERR_FILENO);
+    // print out all the frames to stderr
+    char **strings = backtrace_symbols(array, size);
 
-    // Also try to write to our log file
-    QFile file(g_logFilePath);
-    if (file.open(QIODevice::WriteOnly | QIODevice::Append)) {
-        QTextStream out(&file);
-        out << "\n[CRITICAL] APP CRASHED with Signal " << sig << "\nStack Trace:\n";
-
-        char **messages = backtrace_symbols(array, size);
-        for (size_t i = 0; i < size; ++i) {
-            out << messages[i] << "\n";
+    QString stackTrace;
+    if (strings) {
+        for (size_t i = 0; i < size; i++) {
+            stackTrace += QString::fromLocal8Bit(strings[i]) + "\n";
         }
-        free(messages);
+        free(strings);
     }
 
-    exit(1);
+    logCrash(stackTrace);
+
+    // Restore default handler and re-raise to crash properly
+    std::signal(signal, SIG_DFL);
+    std::raise(signal);
 }
+#endif
 
 int main(int argc, char *argv[])
 {
-    // Instantiate QApplication
+    // 1. Instantiate QApplication FIRST
     QApplication a(argc, argv);
 
     // --- LOGGING SETUP ---
-
-    // Ensure "Logs" directory exists
     QString logDir = QCoreApplication::applicationDirPath() + "/Logs";
     QDir dir(logDir);
     if (!dir.exists()) {
         dir.mkpath(".");
     }
 
-    // Log Cleanup (Keep Only the latest 10)
-    // Filter for log files
+    // --- Log Cleanup (Keep only latest 10) ---
     dir.setNameFilters(QStringList() << "Log_*.txt");
     dir.setFilter(QDir::Files);
-
-    // Sort by Name (ISO timestamps mean alphabetical = chronological)
-    // Oldest files will be at the start of the list
-    dir.setSorting(QDir::Name);
+    dir.setSorting(QDir::Name); // Sort by Name (Oldest first)
 
     QFileInfoList logFiles = dir.entryInfoList();
 
-    // Delete oldest logs until we have 9 or fewer
-    // (So when we create a new one, we have exactly 10)
     while (logFiles.size() >= 10) {
         QString oldestLog = logFiles.first().absoluteFilePath();
         QFile::remove(oldestLog);
         qDebug() << "Deleted old log file:" << oldestLog;
-        logFiles.removeFirst(); // Remove from list to update count
+        logFiles.removeFirst();
     }
+    // ----------------------------------------------
 
-    // Generate Filename based on System Date/Time
-    // Format: Log_YYYY-MM-DD_HH-mm-ss.txt
+    // Generate Filename
     QString timeStamp = QDateTime::currentDateTime().toString("yyyy-MM-dd_HH-mm-ss");
     g_logFilePath = logDir + "/Log_" + timeStamp + ".txt";
 
-    // Install the handler
     qInstallMessageHandler(customMessageHandler);
 
-    signal(SIGSEGV, crashHandler);
-    signal(SIGABRT, crashHandler);
-
-    // --- END LOGGING SETUP ---
-
-#ifndef _WIN32
+// --- INSTALL CRASH HANDLERS ---
+#ifdef _WIN32
+    SetUnhandledExceptionFilter(winCrashHandler);
+#else
     std::signal(SIGSEGV, crashHandler);
     std::signal(SIGABRT, crashHandler);
-#else
-    SetUnhandledExceptionFilter(winCrashHandler);
+    std::signal(SIGFPE, crashHandler);
 #endif
-    qInstallMessageHandler(customMessageHandler);
 
-    // Log that the app has started
     qDebug() << "==========================================";
     qDebug() << "   CyberDom Application Started";
     qDebug() << "   Session Log:" << g_logFilePath;
     qDebug() << "==========================================";
 
-    // Create and show the main window
     CyberDom w;
     mainApp = &w;
     w.show();
