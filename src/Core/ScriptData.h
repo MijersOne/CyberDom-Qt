@@ -1226,6 +1226,8 @@ struct PopupDefinition {
     QStringList subMailLines;
 
     QList<CaseBlock> cases;
+
+    QList<ScriptAction> actions;
 };
 
 struct PopupGroupDefinition {

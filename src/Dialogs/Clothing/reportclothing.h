@@ -22,55 +22,53 @@ public:
                             bool forced = false, const QString &customTitle = "");
     ~ReportClothing();
 
-    QString getSelectedType() const; // Method to get the selected item
-    QList<ClothingItem> getWearingItems() const; // Method to get items being worn
-    bool isNaked() const; // Method to check if "I am naked" is checked
+    QString getSelectedType() const;
+    QList<ClothingItem> getWearingItems() const;
+    bool isNaked() const;
 
 private:
     Ui::ReportClothing *ui;
-    QMap<QString, QList<ClothingItem>> clothingByType; // Map of clothing items by type
-    QList<ClothingItem> wearingItems; // List of items currently being worn
-    QMap<QString, QList<ClothingAttribute>> clothTypeAttributes; // Map of cloth type names to their attributes
-    
-    void loadClothingTypes(); // Load clothing types from script data
-    void loadClothingItems(); // Load clothing items from settings
-    void saveClothingItems(); // Save clothing items to settings
-    void updateAvailableItems(); // Update the available items list based on selected type
-    void updateWearingItems(); // Update the wearing items list
-    
-    // Helper methods
+    QMap<QString, QList<ClothingItem>> clothingByType;
+    QList<ClothingItem> wearingItems;
+    QMap<QString, QList<ClothingAttribute>> clothTypeAttributes;
+
+    void loadClothingTypes();
+    void loadClothingItems();
+    void saveClothingItems();
+    void updateAvailableItems();
+    void updateWearingItems();
 
     ScriptParser* parser;
 
     void populateClothTypes();
 
-    void addClothingItemToList(const QString &itemName);
     void addClothingItemToList(const ClothingItem &item);
+
+    void resolveItemChecks(ClothingItem &item);
 
     bool isForced = false;
 
 private slots:
-    void onTypeSelected(const QString &type); // When type is selected in dropdown
-    void onAvailableItemSelected(); // When item is selected from available list
-    void onWearingItemSelected(); // When item is selected from wearing list
-    
-    void addItemToWearing(); // Add selected item to wearing list
-    void removeItemFromWearing(); // Remove selected item from wearing list
-    
-    void onNakedCheckboxToggled(bool checked); // When "I am naked" is checked
-    
-    void cancelDialog(); // Cancel button clicked
-    void submitReport(); // Report button clicked
-    
-    void openAddClothTypeDialog(); // Slot to open the AddClothType dialog
-    void addClothTypeToComboBox(const QString &clothType); // Slot to update the combo box
-    void openAddClothingDialog(); // Slot to open the AddClothing dialog
-    
-    // Dedicated slot for AddClothing dialog
+    void onTypeSelected(const QString &type);
+    void onAvailableItemSelected();
+    void onWearingItemSelected();
+
+    void addItemToWearing();
+    void removeItemFromWearing();
+
+    void onNakedCheckboxToggled(bool checked);
+
+    void cancelDialog();
+    void submitReport();
+
+    void openAddClothTypeDialog();
+    void addClothTypeToComboBox(const QString &clothType);
+    void openAddClothingDialog();
+
     void onClothingItemAddedFromDialog(const ClothingItem &item);
-    
-    void editSelectedItem(); // Edit selected item
-    void deleteSelectedItem(); // Delete selected item
+
+    void editSelectedItem();
+    void deleteSelectedItem();
 
 protected:
     void reject() override;

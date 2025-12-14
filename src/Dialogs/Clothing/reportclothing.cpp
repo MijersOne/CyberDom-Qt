@@ -322,7 +322,7 @@ void ReportClothing::openAddClothingDialog()
     QList<ClothingAttribute> attributes = clothTypeAttributes.value(selectedType.toLower());
     AddClothing addClothingDialog(this, selectedType, attributes);
 
-    // FIX: Use UniqueConnection to prevent duplicate signal processing
+    // Use UniqueConnection to prevent duplicate signal processing
     connect(&addClothingDialog, &AddClothing::clothingItemAdded,
             this, static_cast<void (ReportClothing::*)(const ClothingItem &)>(&ReportClothing::addClothingItemToList),
             Qt::UniqueConnection);
@@ -333,6 +333,41 @@ void ReportClothing::openAddClothingDialog()
 void ReportClothing::onClothingItemAddedFromDialog(const ClothingItem &item)
 {
     addClothingItemToList(item);
+}
+
+// Resolve Checks
+void ReportClothing::resolveItemChecks(ClothingItem &item)
+{
+    if (!parser) return;
+
+    QString typeName = item.getType().toLower();
+    const auto &clothingTypes = parser->getScriptData().clothingTypes;
+
+    if (clothingTypes.contains(typeName)) {
+        const ClothingTypeDefinition &def = clothingTypes.value(typeName);
+        QStringList resolvedChecks;
+
+        // Add Base Checks (e.g. "Bra")
+        resolvedChecks.append(def.checks);
+
+        // Add Attribute Checks (e.g. Value=Sports Bra -> Check=Sports Bra)
+        QMap<QString, QString> attrs = item.getAllAttributes();
+        for (auto it = attrs.constBegin(); it != attrs.constEnd(); ++it) {
+            QString attrValue = it.value();
+
+            // Look up attribute value in definitions (Case Insensitive scan needed)
+            for (auto vcIt = def.valueChecks.constBegin(); vcIt != def.valueChecks.constEnd(); ++vcIt) {
+                if (vcIt.key().compare(attrValue, Qt::CaseInsensitive) == 0) {
+                    resolvedChecks.append(vcIt.value());
+                }
+            }
+        }
+
+        resolvedChecks.removeDuplicates();
+        item.setChecks(resolvedChecks);
+
+        qDebug() << "[ReportClothing] Resolved checks for" << item.getName() << ":" << resolvedChecks;
+    }
 }
 
 void ReportClothing::addClothingItemToList(const ClothingItem &item)
@@ -348,9 +383,7 @@ void ReportClothing::addClothingItemToList(const ClothingItem &item)
     // Normalize type casing (Title Case) to ensure it matches the map keys
     if (!itemType.isEmpty()) itemType[0] = itemType[0].toUpper();
 
-    // --- FIX: DEBOUNCE / IDEMPOTENCY CHECK ---
-    // If this function is called twice rapidly with the same item (Double Signal bug),
-    // ignore the second call silently to prevent the "Duplicate Item" error from showing.
+    // --- DEBOUNCE / IDEMPOTENCY CHECK ---
     static QString lastAddedSignature = "";
     QString currentSignature = itemName + "|" + itemType;
 
@@ -377,6 +410,9 @@ void ReportClothing::addClothingItemToList(const ClothingItem &item)
     // We create a new item with the normalized type to ensure consistency
     ClothingItem normalizedItem = item;
     normalizedItem.setType(itemType); // Assuming setter exists, otherwise reuse item logic is fine if type matches
+
+    // Resolve Checks
+    resolveItemChecks(normalizedItem);
 
     items.append(normalizedItem);
 
@@ -420,6 +456,12 @@ void ReportClothing::editSelectedItem()
                         return;
                     }
                 }
+
+                // Create modifiable copy to resolve checks
+                ClothingItem updatedItem = editedItem;
+
+                // Resolve Checks for Edited Item
+                resolveItemChecks(updatedItem);
 
                 clothingByType[editedType][i] = editedItem;
                 saveClothingItems();

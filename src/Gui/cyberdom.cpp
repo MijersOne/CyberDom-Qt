@@ -105,6 +105,11 @@ CyberDom::CyberDom(QWidget *parent)
 
     ui->setupUi(this);
 
+    // Initialize Popup Timer
+    popupTimer = new QTimer(this);
+    popupTimer->setSingleShot(true); // Popups schedule themselves one by one
+    connect(popupTimer, &QTimer::timeout, this, &CyberDom::triggerPopup);
+
     // Capture the time the application started running
     sessionStartTime = QDateTime::currentDateTime();
 
@@ -344,16 +349,20 @@ CyberDom::CyberDom(QWidget *parent)
 
 void CyberDom::setupCamera()
 {
-    // Find the default camera
+    // 1. Check for available camera device FIRST
     const QCameraDevice &defaultCamera = QMediaDevices::defaultVideoInput();
     if (defaultCamera.isNull()) {
-        qDebug() << "[Camera] No camera device found on this system.";
+        qDebug() << "[Camera] No camera device found. Camera features will be disabled.";
+        // Ensure pointers are null just in case
+        if (camera) { delete camera; camera = nullptr; }
+        if (captureSession) { delete captureSession; captureSession = nullptr; }
+        if (imageCapture) { delete imageCapture; imageCapture = nullptr; }
         return;
     }
 
+    // 2. Only initialize if device exists
     qDebug() << "[Camera] Initializing camera:" << defaultCamera.description();
 
-    // Initialize Components
     camera = new QCamera(defaultCamera, this);
     captureSession = new QMediaCaptureSession(this);
     imageCapture = new QImageCapture(this);
@@ -362,30 +371,28 @@ void CyberDom::setupCamera()
     captureSession->setCamera(camera);
     captureSession->setImageCapture(imageCapture);
 
-    // Connect Signals for debugging/logic
+    // Connect Signals
     connect(camera, &QCamera::errorOccurred, this, &CyberDom::onCameraError);
     connect(imageCapture, &QImageCapture::imageSaved, this, &CyberDom::onImageSaved);
     connect(imageCapture, &QImageCapture::errorOccurred, this, &CyberDom::onImageCaptureError);
 
-    // Start the Camera
     camera->start();
 }
 
 void CyberDom::takePicture(const QString &filenamePrefix)
 {
-    if (!imageCapture || !imageCapture->isReadyForCapture()) {
-        qDebug() << "[Camera] Cannot take picture. Camera is not ready or not initialized.";
+    // SAFETY CHECK: Do not attempt if camera is missing
+    if (!camera || !imageCapture || !imageCapture->isReadyForCapture()) {
+        qDebug() << "[Camera] Cannot take picture. Camera is not initialized or not ready.";
         return;
     }
 
     // Determine the folder path
     QString folder;
     if (scriptParser) {
-        // Try to get folder from [Genera] CameraFolder=
         folder = scriptParser->getScriptData().general.cameraFolder;
     }
 
-    // Fallback if script doesn't define it
     if (folder.isEmpty()) {
         folder = QStandardPaths::writableLocation(QStandardPaths::PicturesLocation) + "/CyberDom";
     }
@@ -395,12 +402,9 @@ void CyberDom::takePicture(const QString &filenamePrefix)
         dir.mkpath(".");
     }
 
-    // Generate Filename
-    // Format: Prefix_YYYYMMDD_HHmmss.jpg
     QString timestamp = QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss");
     QString fileName = QString("%1/%2_%3.jpg").arg(folder, filenamePrefix, timestamp);
 
-    // Capture
     imageCapture->captureToFile(fileName);
     qDebug() << "[Camera] Requesting capture to:" << fileName;
 }
@@ -1932,8 +1936,16 @@ void CyberDom::openSelectPopupDialog()
 {
     if (checkInterruptableAssignments()) return;
 
-    SelectPopup selectPopupDialog(this); // Create the SelectPopup dialog, passing the parent
-    selectPopupDialog.exec(); // Show the dialog modally
+    // Pass 'scriptParser' to the constructor
+    SelectPopup selectPopupDialog(this, scriptParser);
+
+    if (selectPopupDialog.exec() == QDialog::Accepted) {
+        QString selected = selectPopupDialog.getSelectedPopup();
+        if (!selected.isEmpty()) {
+            // Manually execute the selected popup
+            executePopup(selected);
+        }
+    }
 }
 
 void CyberDom::openListFlagsDialog()
@@ -2076,6 +2088,9 @@ void CyberDom::updateStatus(const QString &newStatus) {
 
     currentStatus = newStatus;
 
+    // Schedule Popup
+    scheduleNextPopup();
+
     // Convert underscores to spaces
     QString formattedStatus = newStatus;
     formattedStatus.replace("_", " ");
@@ -2141,67 +2156,119 @@ void CyberDom::updateStatusText() {
 
     // --- Populate Middle Content ---
 
-    // Get Status Text
+    // 1. Get Status Text
     if (data.statuses.contains(currentStatus)) {
-        middleLines.append(data.statuses.value(currentStatus).statusTexts);
+        for (const QString &line : data.statuses.value(currentStatus).statusTexts) {
+            middleLines.append(replaceVariables(line));
+        }
     }
 
-    // Add Flag Text
+    // 2. Add Flag Text
     QMapIterator<QString, FlagData> flagIter(flags);
     while (flagIter.hasNext()) {
         flagIter.next();
         if (!flagIter.value().text.isEmpty()) {
-            middleLines.append(flagIter.value().text);
+            middleLines.append(replaceVariables(flagIter.value().text));
         }
     }
 
-    // Add Started Assignment Text (Jobs & Punishments)
+    // 3. Add Started Assignment Text
     QStringList assignmentTexts;
-    const auto &punishmentDefs = data.punishments;
     const auto &jobDefs = data.jobs;
     QSettings settings(settingsFile, QSettings::IniFormat);
 
     for (const QString &assignmentName : activeAssignments) {
         QString lowerName = assignmentName.toLower();
+
         const PunishmentDefinition *ptrDef = getPunishmentDefinition(assignmentName);
         bool isPun = (ptrDef != nullptr);
+
+        if (!isPun && !jobDefs.contains(lowerName)) continue;
+
         QString startFlagName = (isPun ? "punishment_" : "job_") + assignmentName + "_started";
 
         if (isFlagSet(startFlagName)) {
             QStringList rawLines;
             QString minTimeStr;
+            QString maxTimeStr;
             QString estimateStr;
+            QString title;
 
+            // Gather Data
             if (isPun) {
                 const PunishmentDefinition &punDef = *ptrDef;
                 rawLines.append(punDef.statusTexts);
-                minTimeStr = punDef.duration.minTimeStart;
+
+                // --- FIX: Calculate Duration for {!zzMinTime} ---
+                // We calculate this specific instance's duration based on the stored amount
+                QString unit = punDef.valueUnit.toLower();
+                if (unit == "day" || unit == "hour" || unit == "minute") {
+                    // Retrieve the actual calculated amount (e.g. 50 minutes)
+                    int amount = punishmentAmounts.value(assignmentName);
+
+                    qint64 totalSecs = 0;
+                    if (unit == "day") totalSecs = (qint64)amount * 86400;
+                    else if (unit == "hour") totalSecs = (qint64)amount * 3600;
+                    else if (unit == "minute") totalSecs = (qint64)amount * 60;
+
+                    if (totalSecs > 0) {
+                        // Format into a string like "00:50:00" or "1d 02:00:00"
+                        minTimeStr = ScriptUtils::formatDurationString(totalSecs);
+                    } else {
+                        minTimeStr = punDef.duration.minTimeStart; // Fallback
+                    }
+                } else {
+                    minTimeStr = punDef.duration.minTimeStart;
+                }
+                // -----------------------------------------------
+
+                maxTimeStr = punDef.duration.maxTimeStart;
                 estimateStr = punDef.estimate;
-            } else if (jobDefs.contains(lowerName)) {
+                title = punDef.title.isEmpty() ? punDef.name : punDef.title;
+            } else {
                 const JobDefinition &jobDef = jobDefs.value(lowerName);
                 if (!jobDef.text.isEmpty()) rawLines.append(jobDef.text);
                 rawLines.append(jobDef.statusTexts);
                 minTimeStr = jobDef.duration.minTimeStart;
+                maxTimeStr = jobDef.duration.maxTimeStart;
                 estimateStr = jobDef.estimate;
+                title = jobDef.title.isEmpty() ? jobDef.name : jobDef.title;
             }
 
+            // Gather Timings
             QDateTime start = settings.value("Assignments/" + assignmentName + "_start_time").toDateTime();
-            QString runTimeStr = "00:00:00";
-            if (start.isValid()) {
-                qint64 elapsedSecs = start.secsTo(internalClock);
-                if (elapsedSecs < 0) elapsedSecs = 0;
-                runTimeStr = QTime(0, 0).addSecs(elapsedSecs).toString("HH:mm:ss");
-            }
+            QDateTime creation = settings.value("Assignments/" + assignmentName + "_creation_time").toDateTime();
+            QDateTime deadline = jobDeadlines.value(assignmentName);
+            QDateTime nextRemind = jobNextReminds.value(assignmentName);
 
-            // Resolve the estimate string if it's a variable
+            // Resolve Estimate if variable
             if (estimateStr.startsWith("!") || estimateStr.startsWith("#")) {
                 estimateStr = scriptParser->getVariable(estimateStr.mid(1));
             }
 
+            // Process Lines
             for (QString line : rawLines) {
                 if (line.isEmpty()) continue;
+
+                // 1. Replace variables with context
+                // We pass 'minTimeStr' (which now holds the calculated "50:00") into replaceVariables.
+                // When replaceVariables encounters {!zzMinTime}, it will use this string.
+                line = replaceVariables(line, assignmentName, title, 0, minTimeStr, maxTimeStr, start, creation, deadline, nextRemind);
+
+                // 2. Legacy Manual Fallback
                 line.replace("{!zzMinTime}", minTimeStr);
-                line.replace("{!zzRunTime}", runTimeStr);
+
+                // 3. Handle {!zzRunTime} manually here if replaceVariables missed it
+                if (line.contains("{!zzRunTime}", Qt::CaseInsensitive)) {
+                    QString runTimeStr = "00:00:00";
+                    if (start.isValid()) {
+                        int secs = start.secsTo(internalClock);
+                        if (secs < 0) secs = 0;
+                        runTimeStr = ScriptUtils::formatDurationString(secs);
+                    }
+                    line.replace("{!zzRunTime}", runTimeStr, Qt::CaseInsensitive);
+                }
+
                 assignmentTexts.append(line);
             }
         }
@@ -2213,24 +2280,19 @@ void CyberDom::updateStatusText() {
         middleLines.append(assignmentTexts);
     }
 
-    // --- Assemble and Set Text ---
-
     QString finalTop = topLines.join("\n");
     QString finalMiddle = middleLines.join("\n");
     QString finalBottom = bottomLines.join("\n");
 
     finalMiddle.replace("%instructions", lastInstructions);
     finalMiddle.replace("%clothing", lastClothingInstructions);
-    finalMiddle = replaceVariables(finalMiddle);
 
     finalTop.replace("\n", "<br>");
     finalMiddle.replace("\n", "<br>");
     finalBottom.replace("\n", "<br>");
 
     QString finalText = "";
-    if (!finalTop.isEmpty()) {
-        finalText += finalTop;
-    }
+    if (!finalTop.isEmpty()) finalText += finalTop;
     if (!finalMiddle.isEmpty()) {
         if (!finalText.isEmpty()) finalText += "<br><br>";
         finalText += finalMiddle;
@@ -2709,54 +2771,54 @@ QString CyberDom::replaceVariables(const QString &input,
 
             // --- Time Variable Formatting Logic ---
             if (prefix == "!") {
-                // Check for format specifier (e.g. "VarName,d")
+                // Check for format specifier
                 int commaIdx = content.indexOf(',');
                 if (commaIdx != -1) {
                     varName = content.left(commaIdx).trimmed();
                     format = content.mid(commaIdx + 1).trimmed().toLower();
                 }
 
-                // Try to get the raw QVariant
                 QVariant val = getTimeVariableValue(varName, contextMinTime, contextMaxTime, contextStartTime, creationTime, deadline, nextRemind);
 
                 if (val.isValid()) {
-                    if (format == "d") { // Date (yyyy-MM-dd)
+                    if (format == "d") {
                          if (val.userType() == QMetaType::QDateTime) valueStr = val.toDateTime().toString("yyyy-MM-dd");
                          else if (val.userType() == QMetaType::QDate) valueStr = val.toDate().toString("yyyy-MM-dd");
                          else valueStr = val.toString();
                     }
-                    else if (format == "t") { // Time (HH:mm)
-                        // Note: Prompt example said (22:51), which is HH:mm.
-                        // But standard is often HH:mm:ss. Let's use HH:mm for "t".
+                    else if (format == "t") {
                          if (val.userType() == QMetaType::QDateTime) valueStr = val.toDateTime().toString("HH:mm");
                          else if (val.userType() == QMetaType::QTime) valueStr = val.toTime().toString("HH:mm");
                          else valueStr = val.toString();
                     }
-                    else if (format == "i") { // Interval (3d or hh:mm:ss)
+                    else if (format == "i") {
                         int secs = 0;
                         if (val.canConvert<int>()) secs = val.toInt();
                         else if (val.userType() == QMetaType::QTime) secs = QTime(0,0).secsTo(val.toTime());
-                        else if (val.userType() == QMetaType::QDateTime) {
-                            // If it's a date, interval might mean "time since epoch"?
-                            // Usually not used this way, treat as 0.
-                        }
                         valueStr = ScriptUtils::formatDurationString(secs);
                     }
-                    else if (format == "dt") { // Date & Time
+                    else if (format == "dt") {
                         if (val.userType() == QMetaType::QDateTime) valueStr = val.toDateTime().toString("yyyy-MM-dd HH:mm");
                          else valueStr = val.toString();
                     }
                     else {
-                        // No specific format, use default string conversion
-                        valueStr = getVariableValue(varName, contextSeverity);
+                        if (val.userType() == QMetaType::QTime) valueStr = val.toTime().toString("HH:mm:ss");
+                        else if (val.userType() == QMetaType::QDateTime) valueStr = val.toDateTime().toString("yyyy-MM-dd HH:mm:ss");
+                        else if (val.canConvert<int>()) {
+                            // It is a duration in seconds (like zzMinTime or zzRunTime)
+                            valueStr = ScriptUtils::formatDurationString(val.toInt());
+                        }
+                        else {
+                            valueStr = val.toString();
+                        }
                     }
                 } else {
-                    // Not found as a Time Variable, fallback to generic lookup
+                    // Not a time variable, fallback
                     valueStr = getVariableValue(varName, contextSeverity);
                 }
             }
             else {
-                // Handle # and $ (No formatting supported yet)
+                // Handle # and $
                 valueStr = getVariableValue(content, contextSeverity);
             }
             // --------------------------------------
@@ -5079,7 +5141,14 @@ QString CyberDom::getClothingReportPrompt() const
 
 void CyberDom::processClothingReport(const QList<ClothingItem> &wearingItems, bool isNaked)
 {
-    // --- VALIDATION LOGIC ---
+    QStringList errors;
+    bool hasFailures = false;
+
+    // Debug output to verify what the app is checking for
+    qDebug() << "\n[Clothing Check] VALIDATING OUTFIT...";
+    qDebug() << "[Clothing Check] Required Checks:" << requiredClothingChecks;
+    qDebug() << "[Clothing Check] Forbidden Checks:" << forbiddenClothingChecks;
+    qDebug() << "[Clothing Check] User Wearing:" << wearingItems.size() << "items.";
 
     // 1. Validate 'Check=' (Must wear)
     for (const QString &req : requiredClothingChecks) {
@@ -5092,11 +5161,9 @@ void CyberDom::processClothingReport(const QList<ClothingItem> &wearingItems, bo
         }
 
         if (!satisfied) {
-            // Failed a requirement
-            clothFaultsCount++;
-            QMessageBox::warning(this, "Incorrect Clothing",
-                                 QString("You are supposed to wear %1.").arg(req));
-            return; // Stop report
+            qDebug() << "[Clothing Check] FAILED: Missing requirement -" << req;
+            hasFailures = true;
+            errors.append(QString("Missing: %1").arg(req));
         }
     }
 
@@ -5104,15 +5171,37 @@ void CyberDom::processClothingReport(const QList<ClothingItem> &wearingItems, bo
     for (const QString &forbidden : forbiddenClothingChecks) {
         for (const ClothingItem &item : wearingItems) {
             if (itemMatchesCheck(item, forbidden)) {
-                // Failed a prohibition
-                QMessageBox::warning(this, "Incorrect Clothing",
-                                     QString("You are not supposed to wear %1.").arg(forbidden));
-                return; // Stop report
+                qDebug() << "[Clothing Check] FAILED: Wearing forbidden item -" << forbidden;
+                hasFailures = true;
+                errors.append(QString("Forbidden: %1").arg(forbidden));
             }
         }
     }
 
-    // --- Existing Reporting Logic ---
+    if (hasFailures) {
+        clothFaultsCount++;
+
+        QString errorMsg = "Your outfit is incorrect:\n\n";
+        for(const QString &err : errors) {
+            errorMsg += "- " + err + "\n";
+        }
+
+        QMessageBox::warning(this, "Incorrect Clothing", errorMsg);
+
+        // CLEAR CHECKS ON FAILURE
+        // The check has been performed and failed. We clear the expectations
+        // so they don't accumulate if the user moves on or retries.
+        requiredClothingChecks.clear();
+        forbiddenClothingChecks.clear();
+        qDebug() << "[Clothing Check] Requirements cleared after FAILURE.";
+        // ------------------------------------
+
+        return; // Stop report processing
+    }
+
+    // --- Success Logic ---
+    qDebug() << "[Clothing Check] SUCCESS: Outfit valid.";
+
     QString reportText = "";
 
     if (isNaked) {
@@ -5131,8 +5220,15 @@ void CyberDom::processClothingReport(const QList<ClothingItem> &wearingItems, bo
     storeClothingReport(reportText);
 
     QString time = QTime::currentTime().toString("hh:mm AP");
-    QString summary = isNaked ? QString("Naked %1)").arg(time) : QString("Dressed (%1)").arg(time);
+    QString summary = isNaked ? QString("Naked (%1)").arg(time) : QString("Dressed (%1)").arg(time);
     todayStats.outfitsWorn.append(summary);
+
+    // --- FIX: CLEAR CHECKS ON SUCCESS ---
+    // The check was passed successfully. Clear expectations for the next job.
+    requiredClothingChecks.clear();
+    forbiddenClothingChecks.clear();
+    qDebug() << "[Clothing Check] Requirements cleared after SUCCESS.";
+    // ------------------------------------
 
     QMessageBox::information(this, "Report Submitted", "Your clothing report has been submitted.");
 
@@ -6821,56 +6917,94 @@ QString CyberDom::resolveInstruction(const QString &name, QStringList *chosenIte
     visited.insert(lowerName);
 
     const auto &instructions = scriptParser->getScriptData().instructions;
-    if (!instructions.contains(lowerName)) {
-        qDebug() << "[Instructions] Warning: Instruction set not found:" << name;
+    auto it = instructions.constFind(lowerName);
+    if (it == instructions.constEnd()) {
         return name;
     }
+    const InstructionDefinition &def = *it;
 
-    const InstructionDefinition &def = instructions.value(lowerName);
-    QStringList resultLines;
+    // --- 2. CACHING LOGIC ---
+    bool useCache = (visited.size() == 1) && (def.changeMode != InstructionChangeMode::Always);
+    QSettings settings(settingsFile, QSettings::IniFormat);
 
-    // Determine if we are in a clothing context
-    // (Either passed in, or this definition itself is clothing)
-    bool currentContextIsClothing = isClothingContext || def.isClothing;
+    // FIX: Update key to "v2" to force ignore old/bad cache data
+    QString cacheKeyBase = "InstructionCache_v2/" + lowerName;
 
-    // Manage the chosenItems list
-    QStringList localChosenItems;
-    if (!chosenItems) {
-        chosenItems = &localChosenItems;
+    if (useCache) {
+        bool cacheValid = false;
+        if (def.changeMode == InstructionChangeMode::Program) {
+            if (settings.contains(cacheKeyBase + "_text")) cacheValid = true;
+        }
+        else if (def.changeMode == InstructionChangeMode::Daily) {
+            QString savedDate = settings.value(cacheKeyBase + "_date").toString();
+            if (savedDate == internalClock.date().toString(Qt::ISODate)) cacheValid = true;
+        }
+
+        if (cacheValid) {
+            QString cachedText = settings.value(cacheKeyBase + "_text").toString();
+            QStringList cachedChecks = settings.value(cacheKeyBase + "_checks").toStringList();
+            QStringList cachedForbids = settings.value(cacheKeyBase + "_forbids").toStringList();
+            QStringList cachedChosen = settings.value(cacheKeyBase + "_chosen").toStringList();
+
+            if (def.isClothing && def.clearClothingCheck) {
+                requiredClothingChecks.clear();
+                forbiddenClothingChecks.clear();
+            }
+
+            if (isClothingContext || def.isClothing) {
+                for(const QString &c : cachedChecks) {
+                    if (!requiredClothingChecks.contains(c, Qt::CaseInsensitive))
+                        requiredClothingChecks.append(c);
+                }
+                for(const QString &f : cachedForbids) {
+                    if (!forbiddenClothingChecks.contains(f, Qt::CaseInsensitive))
+                        forbiddenClothingChecks.append(f);
+                }
+            }
+
+            if (chosenItems) {
+                chosenItems->append(cachedChosen);
+            }
+
+            qDebug() << "[Instructions] Loaded cached result for" << name
+                     << "Checks:" << cachedChecks;
+            return cachedText;
+        }
     }
 
-    // Clear previous checks if this is a ROOT clothing instruction
+    QStringList resultLines;
+    bool currentContextIsClothing = isClothingContext || def.isClothing;
+
+    // --- SNAPSHOT: Record start indices ---
+    int reqCheckStartIndex = requiredClothingChecks.size();
+    int forbCheckStartIndex = forbiddenClothingChecks.size();
+
+    // Handle ClearCheck (Only at root level)
     if (def.isClothing && def.clearClothingCheck && visited.size() == 1) {
         requiredClothingChecks.clear();
         forbiddenClothingChecks.clear();
+        reqCheckStartIndex = 0;
+        forbCheckStartIndex = 0;
     }
 
+    QStringList locallyChosenItems;
+    QStringList *targetChosenItems = chosenItems ? chosenItems : &locallyChosenItems;
+
     for (const InstructionSet &set : def.sets) {
+        if (!checkRequirements(set.ifFlagGroups, set.notIfFlagGroups)) continue;
+        if (!ScriptUtils::checkHistoryConditions(set.ifChosen, set.ifNotChosen, *targetChosenItems)) continue;
+        if (set.steps.isEmpty()) continue;
 
-        // --- 1. Check Flags ---
-        if (!checkRequirements(set.ifFlagGroups, set.notIfFlagGroups)) {
-            continue;
-        }
-
-        // --- 2. Check History ---
-        if (!ScriptUtils::checkHistoryConditions(set.ifChosen, set.ifNotChosen, *chosenItems)) {
-            continue;
-        }
-
-        QList<InstructionStep> eligibleSteps = set.steps;
-        if (eligibleSteps.isEmpty()) continue;
-
-        // --- 3. Selection Logic ---
         ScriptUtils::SelectMode mode = ScriptUtils::SelectMode::All;
         if (set.selectMode == InstructionSelectMode::First) mode = ScriptUtils::SelectMode::First;
         else if (set.selectMode == InstructionSelectMode::Random) mode = ScriptUtils::SelectMode::Random;
 
         ScriptUtils::processSelector(set.steps.size(), mode, [&](int index) -> bool {
+            if (index < 0 || index >= set.steps.size()) return false;
             const InstructionStep &step = set.steps[index];
 
             if (step.type == InstructionStepType::SetReference) {
-                // RECURSIVE CALL: Pass the 'currentContextIsClothing' flag down!
-                QString refText = resolveInstruction(step.setReference, chosenItems, visited, currentContextIsClothing);
+                QString refText = resolveInstruction(step.setReference, targetChosenItems, visited, currentContextIsClothing);
                 if (!refText.isEmpty()) {
                     resultLines.append(refText);
                     return true;
@@ -6889,18 +7023,25 @@ QString CyberDom::resolveInstruction(const QString &name, QStringList *chosenIte
                     for (const InstructionOption &opt : choice.options) {
                         current += opt.weight;
                         if (roll <= current) {
-                            // Selection Success
                             if (!opt.skip && !opt.text.isEmpty()) {
                                 QString txt = replaceVariables(opt.text);
                                 resultLines.append(txt);
-                                chosenItems->append(txt);
+                                targetChosenItems->append(txt);
                             }
 
-                            // Store Checks (Using the Context Flag)
                             if (currentContextIsClothing) {
-                                requiredClothingChecks.append(opt.check);
-                                forbiddenClothingChecks.append(opt.checkOff);
+                                // Add to global lists (duplicates prevented)
+                                for(const QString &c : opt.check) {
+                                    if (!requiredClothingChecks.contains(c, Qt::CaseInsensitive))
+                                        requiredClothingChecks.append(c);
+                                }
+                                for(const QString &f : opt.checkOff) {
+                                    if (!forbiddenClothingChecks.contains(f, Qt::CaseInsensitive))
+                                        forbiddenClothingChecks.append(f);
+                                }
                             }
+
+                            for(const QString &f : opt.optionFlags) setFlag(f);
                             return true;
                         }
                     }
@@ -6911,6 +7052,30 @@ QString CyberDom::resolveInstruction(const QString &name, QStringList *chosenIte
     }
 
     QString finalResult = resultLines.join("\n");
+
+    // --- 3. CACHING LOGIC (Save) ---
+    if (useCache) {
+        // Capture everything added during this execution (including recursion)
+        QStringList checksToCache;
+        QStringList forbidsToCache;
+
+        for(int i = reqCheckStartIndex; i < requiredClothingChecks.size(); ++i) {
+            checksToCache.append(requiredClothingChecks[i]);
+        }
+        for(int i = forbCheckStartIndex; i < forbiddenClothingChecks.size(); ++i) {
+            forbidsToCache.append(forbiddenClothingChecks[i]);
+        }
+
+        settings.setValue(cacheKeyBase + "_text", finalResult);
+        settings.setValue(cacheKeyBase + "_checks", checksToCache);
+        settings.setValue(cacheKeyBase + "_forbids", forbidsToCache);
+        settings.setValue(cacheKeyBase + "_chosen", *targetChosenItems);
+        settings.setValue(cacheKeyBase + "_date", internalClock.date().toString(Qt::ISODate));
+
+        qDebug() << "[Instructions] Generated and cached result for" << name
+                 << "Captured Checks:" << checksToCache;
+    }
+
     return finalResult;
 }
 
@@ -7010,6 +7175,12 @@ void CyberDom::triggerPointCamera(const QString &text, const QString &minInterva
 {
     if (checkInterruptableAssignments()) return;
 
+    // SAFETY CHECK: Skip if no camera
+    if (!camera) {
+        qDebug() << "[Camera] PointCamera requested but no camera found. Skipping.";
+        return;
+    }
+
     QString resolvedText = replaceVariables(text);
 
     // Show the Dialog
@@ -7018,24 +7189,20 @@ void CyberDom::triggerPointCamera(const QString &text, const QString &minInterva
 
     // Start Interval Timer (if defined)
     if (!minInterval.isEmpty()) {
-        // Stop existing timer for this source if any
         if (activeCameraTimers.contains(sourceName)) {
             activeCameraTimers[sourceName]->stop();
             delete activeCameraTimers[sourceName];
             activeCameraTimers.remove(sourceName);
         }
 
-        // Store intervals for re-calculation
         cameraIntervals[sourceName] = qMakePair(minInterval, maxInterval);
 
-        // Setup new timer
         QTimer *timer = new QTimer(this);
         timer->setSingleShot(true);
         connect(timer, &QTimer::timeout, this, [this, sourceName]() {
             handleCameraTimer(sourceName);
         });
 
-        // Calculate first interval
         QString range = minInterval;
         if (!maxInterval.isEmpty()) range += "," + maxInterval;
         int secs = parseTimeRangeToSeconds(range);
@@ -7071,16 +7238,21 @@ void CyberDom::triggerPoseCamera(const QString &text)
 {
     if (checkInterruptableAssignments()) return;
 
+    // SAFETY CHECK: Skip if no camera
+    if (!camera) {
+        qDebug() << "[Camera] PoseCamera requested but no camera found. Skipping.";
+        return;
+    }
+
     QString resolvedText = replaceVariables(text);
 
-    // Get save folder from settings
     QString folder;
     if (scriptParser) {
         folder = scriptParser->getScriptData().general.cameraFolder;
     }
 
     PoseCameraDialog dlg(this, resolvedText, folder);
-    dlg.exec(); // Blocks until "Okay" is clicked
+    dlg.exec();
 }
 
 // Helper to track permissions
@@ -8169,4 +8341,251 @@ QVariant CyberDom::getTimeVariableValue(const QString &name,
     }
 
     return QVariant();
+}
+
+void CyberDom::scheduleNextPopup() {
+    if (!scriptParser) return;
+    if (!popupTimer) return;
+
+    if (popupTimer->isActive()) popupTimer->stop();
+
+    QString lowerStatus = currentStatus.toLower();
+    if (!scriptParser->getScriptData().statuses.contains(lowerStatus)) return;
+
+    const StatusDefinition &status = scriptParser->getScriptData().statuses.value(lowerStatus);
+    const ScriptData &data = scriptParser->getScriptData();
+
+    QString intervalMin;
+    QString intervalMax;
+
+    // --- LOGIC: Check for Popup Group Override ---
+    bool groupFound = false;
+    if (!status.popupGroup.isEmpty()) {
+        QString groupName = status.popupGroup.toLower();
+        if (data.popupGroups.contains(groupName)) {
+            const PopupGroupDefinition &pg = data.popupGroups.value(groupName);
+            intervalMin = pg.popupIntervalMin;
+            intervalMax = pg.popupIntervalMax;
+            groupFound = true;
+            // Note: If the group exists but has no interval set, we treat it as "no popups for this group"
+            // unless we want to fallback to status. Usually group overrides completely.
+        }
+    }
+
+    // Fallback to Status settings if no group found
+    if (!groupFound) {
+        intervalMin = status.popupIntervalMin;
+        intervalMax = status.popupIntervalMax;
+    }
+    // ---------------------------------------------
+
+    if (intervalMin.isEmpty()) {
+        qDebug() << "[Popup] No PopupInterval for status:" << currentStatus << (groupFound ? "(via Group)" : "");
+        return;
+    }
+
+    QString range = intervalMin;
+    if (!intervalMax.isEmpty()) range += "," + intervalMax;
+
+    int delaySecs = parseTimeRangeToSeconds(range);
+
+    if (delaySecs > 0) {
+        popupTimer->start(delaySecs * 1000);
+        qDebug() << "[Popup] Next popup scheduled in" << delaySecs << "seconds (" << formatDuration(delaySecs) << ")";
+    }
+}
+
+void CyberDom::triggerPopup() {
+    if (!scriptParser) return;
+
+    // Helper to convert simple QStringList to QList<QStringList> for checkRequirements.
+    auto wrap = [](const QStringList &list) -> QList<QStringList> {
+        if (list.isEmpty()) return QList<QStringList>();
+        return QList<QStringList>() << list;
+    };
+
+    QString lowerStatus = currentStatus.toLower();
+    const ScriptData &data = scriptParser->getScriptData();
+    const StatusDefinition &status = data.statuses.value(lowerStatus);
+
+    // --- 1. Resolve Active Popup Group ---
+    const PopupGroupDefinition *activeGroupDef = nullptr;
+    QString activeGroupName = "";
+
+    if (!status.popupGroup.isEmpty()) {
+        QString groupKey = status.popupGroup.toLower();
+
+        // FIX: Use find() to get a valid pointer to the map item
+        auto it = data.popupGroups.find(groupKey);
+        if (it != data.popupGroups.end()) {
+            activeGroupDef = &it.value(); // Safe: points to the persistent object in the map
+            activeGroupName = status.popupGroup;
+        }
+    }
+
+    // --- 2. Check Context Conditions (Group vs Status) ---
+    bool contextAllowed = true;
+
+    if (activeGroupDef) {
+        // If in a group, use the GROUP'S conditions
+        if (!checkRequirements(wrap(activeGroupDef->popupIfFlags), wrap(activeGroupDef->noPopupIfFlags))) {
+            contextAllowed = false;
+        }
+    } else {
+        // Fallback to STATUS conditions
+        if (!checkRequirements(wrap(status.popupIfFlags), wrap(status.noPopupIfFlags))) {
+            contextAllowed = false;
+        }
+    }
+
+    if (!contextAllowed) {
+        qDebug() << "[Popup] Skipped due to context requirements. Rescheduling.";
+        scheduleNextPopup();
+        return;
+    }
+
+    // --- 3. Gather Eligible Candidates ---
+    struct Candidate { QString name; int weight; };
+    QList<Candidate> candidates;
+    int totalWeight = 0;
+
+    const auto &popups = data.popups;
+
+    for (const PopupDefinition &def : popups) {
+        // --- A. Group Matching Logic ---
+
+        // Rule 1: If the Popup defines groups, the Current Status MUST belong to one of them.
+        if (!def.groups.isEmpty()) {
+            // If we aren't in a group, we can't match a popup that requires one.
+            if (!activeGroupDef) continue;
+
+            bool match = false;
+            for (const QString &g : def.groups) {
+                if (g.compare(activeGroupName, Qt::CaseInsensitive) == 0) {
+                    match = true;
+                    break;
+                }
+            }
+            if (!match) continue;
+        }
+
+        // Rule 2: If the Active Group has "GroupOnly=1", the Popup MUST belong to this group.
+        // (This filters out generic popups that have no group set)
+        if (activeGroupDef && activeGroupDef->groupOnly) {
+            bool hasGroup = false;
+            for (const QString &g : def.groups) {
+                if (g.compare(activeGroupName, Qt::CaseInsensitive) == 0) {
+                    hasGroup = true;
+                    break;
+                }
+            }
+            if (!hasGroup) continue;
+        }
+
+        // --- B. Standard Condition Checks ---
+
+        // PreStatus check
+        if (!def.preStatuses.isEmpty()) {
+            bool match = false;
+            for(const QString &ps : def.preStatuses) {
+                if (ps.compare(currentStatus, Qt::CaseInsensitive) == 0) { match = true; break; }
+            }
+            if (!match) continue;
+        }
+
+        // Flags
+        if (!checkRequirements(wrap(def.ifFlags), wrap(def.notIfFlags))) continue;
+
+        // Time
+        if (!isTimeAllowed(def.notBeforeTimes, def.notAfterTimes, def.notBetweenTimes)) continue;
+
+        // --- C. Weight ---
+        int w = 1;
+        if (def.weightMin != def.weightMax) {
+            w = ScriptUtils::randomInRange(def.weightMin, def.weightMax, false);
+        } else {
+            w = def.weightMin;
+        }
+        if (w <= 0) w = 1;
+
+        candidates.append({def.name, w});
+        totalWeight += w;
+    }
+
+    // 4. Selection
+    if (candidates.isEmpty()) {
+        qDebug() << "[Popup] No eligible popups found. Rescheduling.";
+        scheduleNextPopup();
+        return;
+    }
+
+    int roll = ScriptUtils::randomInRange(1, totalWeight, false);
+    int current = 0;
+    QString selectedName;
+
+    for (const auto &cand : candidates) {
+        current += cand.weight;
+        if (roll <= current) {
+            selectedName = cand.name;
+            break;
+        }
+    }
+
+    qDebug() << "[Popup] Triggered:" << selectedName;
+
+    // 5. Execute
+    executePopup(selectedName);
+
+    // 6. Reschedule
+    scheduleNextPopup();
+}
+
+void CyberDom::executePopup(const QString &popupName) {
+    if (!scriptParser) return;
+    const auto &popups = scriptParser->getScriptData().popups;
+
+    // Case-insensitive lookup
+    QString lowerName = popupName.toLower();
+    if (!popups.contains(lowerName)) {
+        qDebug() << "[Popup] Error: Definition not found for" << popupName;
+        return;
+    }
+
+    const PopupDefinition &def = popups.value(lowerName);
+    qDebug() << "[Popup] Executing:" << def.name;
+
+    bool skipNextAction = false;
+    for (const ScriptAction &action : def.actions) {
+        if (skipNextAction) {
+            skipNextAction = false;
+            if (action.type != ScriptActionType::If && action.type != ScriptActionType::NotIf) continue;
+        }
+
+        switch (action.type) {
+            case ScriptActionType::Message:
+                QMessageBox::information(this, def.title.isEmpty() ? "Popup" : def.title, replaceVariables(action.value));
+                break;
+            case ScriptActionType::ProcedureCall:
+                runProcedure(action.value);
+                break;
+            case ScriptActionType::If:
+                if (!evaluateCondition(action.value)) skipNextAction = true;
+                break;
+            case ScriptActionType::NotIf:
+                if (evaluateCondition(action.value)) skipNextAction = true;
+                break;
+            case ScriptActionType::SetFlag: setFlag(action.value); break;
+            case ScriptActionType::RemoveFlag: removeFlag(action.value); break;
+            case ScriptActionType::Punish:
+                executePunish(action.value, "", "");
+                break;
+            case ScriptActionType::Question:
+                executeQuestion(action.value.trimmed().toLower(), "Question");
+                break;
+            case ScriptActionType::Input:
+                executeQuestion(action.value.trimmed().toLower(), "Input Required");
+                break;
+            default: break;
+        }
+    }
 }

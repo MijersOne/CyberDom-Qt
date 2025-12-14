@@ -14,6 +14,9 @@
 #include <QtMath>
 #include <QRandomGenerator>
 #include <QTime>
+#include <QHBoxLayout>
+#include <QPushButton>
+#include <QHeaderView>
 
 Assignments::Assignments(QWidget *parent, CyberDom *app)
     : QMainWindow(parent)
@@ -22,11 +25,17 @@ Assignments::Assignments(QWidget *parent, CyberDom *app)
 {
     ui->setupUi(this);
 
-    connect(ui->table_Assignments, &QTableWidget::itemSelectionChanged,
-            this, &Assignments::updateStartButtonState);
-
     // Initialize settingsFile variable
     settingsFile = mainApp ? mainApp->getSettingsFilePath() : QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/settings.ini";
+
+    // --- 1. Setup the new Filter UI Programmatically ---
+    setupFilterUi();
+
+    // --- 2. Configure Table for Sorting ---
+    ui->table_Assignments->setSortingEnabled(true);
+
+    connect(ui->table_Assignments, &QTableWidget::itemSelectionChanged,
+            this, &Assignments::updateStartButtonState);
 
     populateJobList();
 
@@ -42,7 +51,148 @@ Assignments::~Assignments()
     delete ui;
 }
 
+// --- NEW: Build the Filter UI ---
+void Assignments::setupFilterUi()
+{
+    // Find the central layout (assuming Vertical Layout in main window)
+    // If your .ui structure is complex, we might need to insert this into a specific layout.
+    // For a QMainWindow, we can add a ToolBar or insert into the central widget's layout.
+
+    QWidget *central = ui->centralwidget;
+    QVBoxLayout *mainLayout = qobject_cast<QVBoxLayout*>(central->layout());
+
+    if (!mainLayout) {
+        // If layout isn't vertical, creating a wrapper might be risky without seeing .ui
+        // Attempt to insert at top
+        mainLayout = new QVBoxLayout(central);
+    }
+
+    filterContainer = new QWidget(this);
+    QHBoxLayout *filterLayout = new QHBoxLayout(filterContainer);
+    filterLayout->setContentsMargins(0, 0, 0, 10);
+
+    QLabel *lbl = new QLabel("Filter Deadlines:", this);
+    filterLayout->addWidget(lbl);
+
+    filterCombo = new QComboBox(this);
+    filterCombo->addItem("Show All");
+    filterCombo->addItem("Before Date...");
+    filterCombo->addItem("After Date...");
+    filterCombo->addItem("Between Dates...");
+    connect(filterCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, &Assignments::onFilterModeChanged);
+    filterLayout->addWidget(filterCombo);
+
+    dateEditA = new QDateEdit(QDate::currentDate(), this);
+    dateEditA->setCalendarPopup(true);
+    dateEditA->setVisible(false); // Hidden by default
+    filterLayout->addWidget(dateEditA);
+
+    labelTo = new QLabel("and", this);
+    labelTo->setVisible(false);
+    filterLayout->addWidget(labelTo);
+
+    dateEditB = new QDateEdit(QDate::currentDate().addDays(7), this);
+    dateEditB->setCalendarPopup(true);
+    dateEditB->setVisible(false);
+    filterLayout->addWidget(dateEditB);
+
+    QPushButton *btnApply = new QPushButton("Apply", this);
+    connect(btnApply, &QPushButton::clicked, this, &Assignments::applyFilter);
+    filterLayout->addWidget(btnApply);
+
+    QPushButton *btnReset = new QPushButton("Reset", this);
+    connect(btnReset, &QPushButton::clicked, this, &Assignments::resetFilter);
+    filterLayout->addWidget(btnReset);
+
+    filterLayout->addStretch(); // Push everything to the left
+
+    // Insert at index 0 (Top of window)
+    mainLayout->insertWidget(0, filterContainer);
+}
+
+void Assignments::showEvent(QShowEvent *event)
+{
+    QMainWindow::showEvent(event);
+    // Reset filters whenever the window is opened/shown
+    resetFilter();
+}
+
+void Assignments::onFilterModeChanged(int index)
+{
+    // index 0: All (Hide dates)
+    // index 1: Before (Show A)
+    // index 2: After (Show A)
+    // index 3: Between (Show A, Label, B)
+
+    dateEditA->setVisible(index > 0);
+    dateEditB->setVisible(index == 3);
+    labelTo->setVisible(index == 3);
+}
+
+void Assignments::resetFilter()
+{
+    filterCombo->setCurrentIndex(0); // "Show All"
+    dateEditA->setDate(QDate::currentDate());
+    dateEditB->setDate(QDate::currentDate().addDays(7));
+    applyFilter(); // Re-show all rows
+}
+
+void Assignments::applyFilter()
+{
+    int mode = filterCombo->currentIndex();
+    QDate dateA = dateEditA->date();
+    QDate dateB = dateEditB->date();
+
+    // Iterate all rows
+    for(int i = 0; i < ui->table_Assignments->rowCount(); ++i) {
+        bool showRow = true;
+
+        if (mode > 0) {
+            // Get the custom Item from column 0
+            DateTableWidgetItem *item = dynamic_cast<DateTableWidgetItem*>(ui->table_Assignments->item(i, 0));
+
+            // If item is null or deadline is invalid (No Deadline)
+            // Strategy: "No Deadline" items usually remain visible unless strict filtering is desired.
+            // Let's hide them if filtering by specific dates to be strict.
+            if (!item || item->text() == "No Deadline") {
+                showRow = false;
+            } else {
+                // We can't access private 'dt', but we can check the text or rely on the fact
+                // that we *know* it's a DateTableWidgetItem.
+                // Wait, DateTableWidgetItem members are private.
+                // FIX: Let's parse the text since it's formatted standardly, OR make 'dt' public/accessible.
+                // Parsing text "MM-dd-yyyy..." is safe here.
+
+                // Actually, simplest is to just parse the text in the cell
+                QString dateStr = item->text();
+                // Format used in populate: "MM-dd-yyyy h:mm AP"
+                QDateTime rowDt = QDateTime::fromString(dateStr, "MM-dd-yyyy h:mm AP");
+
+                if (rowDt.isValid()) {
+                    QDate rowDate = rowDt.date();
+
+                    if (mode == 1) { // Before Date A
+                        if (rowDate >= dateA) showRow = false;
+                    }
+                    else if (mode == 2) { // After Date A
+                        if (rowDate <= dateA) showRow = false;
+                    }
+                    else if (mode == 3) { // Between A and B
+                        if (rowDate < dateA || rowDate > dateB) showRow = false;
+                    }
+                }
+            }
+        }
+
+        ui->table_Assignments->setRowHidden(i, !showRow);
+    }
+}
+
 void Assignments::populateJobList() {
+    // Disable sorting while inserting to prevent jumping
+    ui->table_Assignments->setSortingEnabled(false);
+
     ui->table_Assignments->clearContents();
     ui->table_Assignments->setRowCount(0);
 
@@ -63,6 +213,7 @@ void Assignments::populateJobList() {
 
     if (!mainApp || !mainApp->getScriptParser()) {
         qDebug() << "[ERROR] Main app or script parser is null!";
+        ui->table_Assignments->setSortingEnabled(true);
         return;
     }
 
@@ -90,8 +241,11 @@ void Assignments::populateJobList() {
             const PunishmentDefinition &punDef = data.punishments.value(baseName);
 
             QString deadlineStr = "No Deadline";
+            QDateTime deadlineDt;
+
             if (deadlines.contains(assignmentName)) {
-                deadlineStr = deadlines.value(assignmentName).toString("MM-dd-yyyy h:mm AP");
+                deadlineDt = deadlines.value(assignmentName);
+                deadlineStr = deadlineDt.toString("MM-dd-yyyy h:mm AP");
             }
 
             // Build display name
@@ -107,29 +261,36 @@ void Assignments::populateJobList() {
                 QSettings settings(mainApp->getSettingsFilePath(), QSettings::IniFormat);
                 QString line = settings.value("Assignments/" + assignmentName + "_selected_line").toString();
                 if (!line.isEmpty()) {
-                    // Format: "Write 5 times: I must obey"
                     displayText = QString("Write %1 times: %2").arg(amt).arg(line);
                 }
             }
 
+            // --- Visual Indicator ---
+            QString startFlag = "punishment_" + assignmentName + "_started";
+            if (mainApp->isFlagSet(startFlag)) {
+                displayText = QStringLiteral("💠 ") + displayText;
+            }
+
             ui->table_Assignments->insertRow(row);
-            ui->table_Assignments->setItem(row, 0, new QTableWidgetItem(deadlineStr));
+
+            // --- FIX: Use Custom Date Item for Sorting ---
+            ui->table_Assignments->setItem(row, 0, new DateTableWidgetItem(deadlineStr, deadlineDt));
+            // ---------------------------------------------
 
             QTableWidgetItem *punItem = new QTableWidgetItem(displayText);
-            punItem->setData(Qt::UserRole, assignmentName); // Store the FULL instance name
+            punItem->setData(Qt::UserRole, assignmentName);
             ui->table_Assignments->setItem(row, 1, punItem);
 
             QString estimateStr = mainApp->getAssignmentEstimate(assignmentName, true);
             ui->table_Assignments->setItem(row, 2, new QTableWidgetItem(estimateStr));
 
-            // Type is in column 3
             QTableWidgetItem *typeItem = new QTableWidgetItem("Punishment");
             typeItem->setBackground(QColor(255, 230, 230));
             typeItem->setForeground(QColor(180, 0, 0));
             ui->table_Assignments->setItem(row, 3, typeItem);
 
             row++;
-            continue; // Done with this assignment
+            continue;
         }
 
         // --- 2. Check for Job ---
@@ -137,8 +298,11 @@ void Assignments::populateJobList() {
             const JobDefinition &jobDef = data.jobs.value(lowerName);
 
             QString deadlineStr = "No Deadline";
+            QDateTime deadlineDt;
+
             if (deadlines.contains(assignmentName)) {
-                deadlineStr = deadlines.value(assignmentName).toString("MM-dd-yyyy h:mm AP");
+                deadlineDt = deadlines.value(assignmentName);
+                deadlineStr = deadlineDt.toString("MM-dd-yyyy h:mm AP");
             }
 
             QString displayText = jobDef.title.isEmpty() ? jobDef.name : jobDef.title;
@@ -153,17 +317,25 @@ void Assignments::populateJobList() {
                 }
             }
 
-            ui->table_Assignments->insertRow(row);
-            ui->table_Assignments->setItem(row, 0, new QTableWidgetItem(deadlineStr));
+            // --- Visual Indicator ---
+            QString startFlag = "job_" + assignmentName + "_started";
+            if (mainApp->isFlagSet(startFlag)) {
+                displayText = QStringLiteral("💠 ") + displayText;
+            }
 
-            QTableWidgetItem *jobItem = new QTableWidgetItem(jobDef.title.isEmpty() ? jobDef.name : jobDef.title);
-            jobItem->setData(Qt::UserRole, assignmentName); // Store the FULL instance name
+            ui->table_Assignments->insertRow(row);
+
+            // --- FIX: Use Custom Date Item for Sorting ---
+            ui->table_Assignments->setItem(row, 0, new DateTableWidgetItem(deadlineStr, deadlineDt));
+            // ---------------------------------------------
+
+            QTableWidgetItem *jobItem = new QTableWidgetItem(displayText);
+            jobItem->setData(Qt::UserRole, assignmentName);
             ui->table_Assignments->setItem(row, 1, jobItem);
 
             QString estimateStr = mainApp->getAssignmentEstimate(assignmentName, false);
             ui->table_Assignments->setItem(row, 2, new QTableWidgetItem(estimateStr));
 
-            // Type is in column 3
             QTableWidgetItem *typeItem = new QTableWidgetItem("Job");
             typeItem->setBackground(QColor(230, 255, 230));
             typeItem->setForeground(QColor(0, 100, 0));
@@ -173,13 +345,11 @@ void Assignments::populateJobList() {
         }
     }
 
+    // Re-enable sorting and ensure the current filter is applied to the new data
+    ui->table_Assignments->setSortingEnabled(true);
+    applyFilter();
     updateStartButtonState();
 }
-
-// In assignments.cpp (Add this include at the top)
-#include <QTime>
-
-// ...
 
 void Assignments::on_btn_Start_clicked()
 {
@@ -201,7 +371,6 @@ void Assignments::on_btn_Start_clicked()
     QString lowerName = assignmentName.toLower();
     QString baseName = lowerName;
 
-    // Resolve base name (handle suffixes)
     if (isPunishment) {
         int lastUnderscore = baseName.lastIndexOf('_');
         if (lastUnderscore != -1) {
@@ -247,12 +416,10 @@ void Assignments::on_btn_Start_clicked()
 
     ui->text_AssignmentNotes->setText(instructions);
 
-    // --- START ASSIGNMENT ---
     if (!mainApp->startAssignment(assignmentName, isPunishment, newStatus)) {
         return;
     }
 
-    // --- LAUNCH LINE WRITER ---
     if (isLineWriting) {
         if (lines.isEmpty()) {
             QMessageBox::warning(this, "Error", "This assignment is Type=Lines but has no 'Line=' entries.");
@@ -279,7 +446,6 @@ void Assignments::on_btn_Start_clicked()
 
             for (QString &s : fullExpectedList) s = mainApp->replaceVariables(s);
 
-            // Get Settings
             int maxBreakSecs = 0;
             QString alarmSound;
             const GeneralSettings &gen = mainApp->getScriptParser()->getScriptData().general;
@@ -303,16 +469,12 @@ void Assignments::on_btn_Start_clicked()
             }
         }
     }
-    // --- LAUNCH DETENTION ---
     else if (isPunishment && data.punishments.contains(baseName) &&
              data.punishments.value(baseName).isDetention) {
 
         const PunishmentDefinition &def = data.punishments.value(baseName);
         int amount = mainApp->getPunishmentAmount(assignmentName);
-
-        // --- FIX: Always calculate as minutes for Detention ---
         int totalSeconds = amount * 60;
-        // ----------------------------------------------------
 
         QString text = def.detentionText.join("\n");
         if (text.isEmpty()) text = "You are in detention.";
@@ -340,7 +502,6 @@ void Assignments::on_btn_Done_clicked()
     QTableWidgetItem *doneItem = ui->table_Assignments->item(selectedRow, 1);
     QString assignmentName = doneItem->data(Qt::UserRole).toString();
 
-    // FIX: Use Column 3 for Type
     QString assignmentType = ui->table_Assignments->item(selectedRow, 3)->text();
     bool isPunishment = (assignmentType.toLower() == "punishment");
 
@@ -401,7 +562,6 @@ void Assignments::on_btn_Abort_clicked()
     QTableWidgetItem *abortItem = ui->table_Assignments->item(selectedRow, 1);
     QString assignmentName = abortItem->data(Qt::UserRole).toString();
 
-    // FIX: Use Column 3 for Type
     QString assignmentType = ui->table_Assignments->item(selectedRow, 3)->text();
     bool isPunishment = (assignmentType.toLower() == "punishment");
 
@@ -430,7 +590,6 @@ void Assignments::on_btn_Delete_clicked()
     QTableWidgetItem *delItem = ui->table_Assignments->item(selectedRow, 1);
     QString assignmentName = delItem->data(Qt::UserRole).toString();
 
-    // FIX: Use Column 3 for Type
     QString assignmentType = ui->table_Assignments->item(selectedRow, 3)->text();
     bool isPunishment = (assignmentType.toLower() == "punishment");
 
@@ -502,7 +661,6 @@ void Assignments::updateStartButtonState()
     QTableWidgetItem *item = ui->table_Assignments->item(row, 1);
     QString assignmentName = item->data(Qt::UserRole).toString();
 
-    // FIX: Use Column 3 for Type
     QString type = ui->table_Assignments->item(row, 3)->text();
     bool isPunishment = (type.toLower() == "punishment");
 

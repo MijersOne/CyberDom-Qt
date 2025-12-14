@@ -10,26 +10,33 @@ class ClothingItem
 public:
     ClothingItem();
     ClothingItem(const QString &itemName, const QString &clothingType);
-    
+
     // Getters and setters
     QString getName() const { return name; }
     QString getType() const { return type; }
     void setName(const QString &itemName) { name = itemName; }
     void setType(const QString &clothingType) { type = clothingType; }
-    
+
     // Attribute handling
     void addAttribute(const QString &attributeName, const QString &attributeValue);
     QString getAttribute(const QString &attributeName) const;
     QMap<QString, QString> getAllAttributes() const { return attributes; }
-    
+
+    // --- Checks Handling (New) ---
+    void addCheck(const QString &check);
+    void setChecks(const QStringList &checkList);
+    QStringList getChecks() const { return checks; }
+    // -----------------------------
+
     // For serialization/deserialization
     QString toString() const;
     static ClothingItem fromString(const QString &str);
-    
+
 private:
     QString name;
     QString type;
     QMap<QString, QString> attributes;
+    QStringList checks; // Stores resolved checks (e.g. "Bra", "Sports Bra")
 };
 
 #endif // CLOTHINGITEM_H

@@ -519,31 +519,43 @@ int parseDurationString(const QString &str)
     QString val = str.trimmed();
     if (val.isEmpty()) return 0;
 
-    // Check "nd" (Days) format (e.g., "3d", "14d")
+    // --- FIX: Check composite format "Xd HH:mm:ss" or "Xd HH:mm" ---
+    // Matches: "8d 00:00:00" or "1d 12:30"
+    QRegularExpression compositeRx("^(\\d+)d\\s+(\\d+):(\\d+)(?::(\\d+))?$", QRegularExpression::CaseInsensitiveOption);
+    auto compMatch = compositeRx.match(val);
+    if (compMatch.hasMatch()) {
+        int days = compMatch.captured(1).toInt();
+        int hours = compMatch.captured(2).toInt();
+        int mins = compMatch.captured(3).toInt();
+        int secs = compMatch.captured(4).toInt(); // 0 if empty
+
+        return (days * 86400) + (hours * 3600) + (mins * 60) + secs;
+    }
+    // -------------------------------------------------------------
+
+    // 2. Check "nd" (Days) format (e.g., "3d", "14d")
     QRegularExpression dayRx("^(\\d+)d$", QRegularExpression::CaseInsensitiveOption);
     auto match = dayRx.match(val);
     if (match.hasMatch()) {
         int days = match.captured(1).toInt();
-        return days * 86400; // 24 * 3600
+        return days * 86400;
     }
 
-    // Check "hh:mm:ss" or "hh:mm"
+    // 3. Check "hh:mm:ss" or "hh:mm"
     QStringList parts = val.split(':');
     if (parts.size() == 3) {
-        // hh:mm:ss
         int h = parts[0].toInt();
         int m = parts[1].toInt();
         int s = parts[2].toInt();
         return (h * 3600) + (m * 60) + s;
     }
     else if (parts.size() == 2) {
-        // hh:mm
         int h = parts[0].toInt();
         int m = parts[1].toInt();
         return (h * 3600) + (m * 60);
     }
 
-    // Fallback: Try treating as raw seconds integer
+    // 4. Fallback: Try treating as raw seconds integer
     bool ok;
     int s = val.toInt(&ok);
     if (ok) return s;
@@ -551,22 +563,34 @@ int parseDurationString(const QString &str)
     return 0;
 }
 
-QString formatDurationString(int seconds)
+QString formatDurationString(int totalSeconds)
 {
-    if (seconds <= 0) return "00:00:00";
+    if (totalSeconds <= 0) return "00:00:00";
 
-    if (seconds % 86400 == 0) {
-        return QString("%1d").arg(seconds / 86400);
+    // 1. Calculate Days
+    int days = totalSeconds / 86400; // 86400 seconds in a day
+    int remainingSeconds = totalSeconds % 86400;
+
+    // 2. Calculate Hours, Minutes, Seconds from the remainder
+    int hours = remainingSeconds / 3600;
+    int minutes = (remainingSeconds % 3600) / 60;
+    int seconds = remainingSeconds % 60;
+
+    // 3. Format the output
+    if (days > 0) {
+        // Format: "16d 18:24:45"
+        return QString("%1d %2:%3:%4")
+            .arg(days)
+            .arg(hours, 2, 10, QChar('0'))
+            .arg(minutes, 2, 10, QChar('0'))
+            .arg(seconds, 2, 10, QChar('0'));
+    } else {
+        // Format: "18:24:45"
+        return QString("%1:%2:%3")
+            .arg(hours, 2, 10, QChar('0'))
+            .arg(minutes, 2, 10, QChar('0'))
+            .arg(seconds, 2, 10, QChar('0'));
     }
-
-    int h = seconds / 3600;
-    int m = (seconds % 3600) / 60;
-    int s = seconds % 60;
-
-    return QString("%1:%2:%3")
-        .arg(h, 2, 10, QChar('0'))
-        .arg(m, 2, 10, QChar('0'))
-        .arg(s, 2, 10, QChar('0'));
 }
 
 QVariant resolvePredefinedTime(const QString &varName,

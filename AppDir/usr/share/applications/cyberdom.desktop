@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=CyberDom
+Comment=Script-driven protocol enforcement
+Exec=CyberDom
+Icon=cyberdom
+Categories=Utility;Qt;
+Terminal=false

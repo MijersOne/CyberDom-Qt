@@ -419,6 +419,9 @@ private:
     int lastFlagDuration = 0;
     QDateTime lastFlagExpiryTime;
 
+    // Popups
+    QTimer *popupTimer;
+
 private slots:
     void applyTimeToClock(int days, int hours, int minutes, int seconds);
     void openAboutDialog();
@@ -448,6 +451,11 @@ private slots:
     void onImageSaved(int id, const QString &fileName);
     void onCameraError(QCamera::Error value, const QString &description);
     void onImageCaptureError(int id, QImageCapture::Error error, const QString &errorString);
+
+    // Popups
+    void scheduleNextPopup();
+    void triggerPopup();
+    void executePopup(const QString &popupName);
 };
 
 #endif // CYBERDOM_H
