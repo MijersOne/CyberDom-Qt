@@ -25,13 +25,10 @@ Assignments::Assignments(QWidget *parent, CyberDom *app)
 {
     ui->setupUi(this);
 
-    // Initialize settingsFile variable
     settingsFile = mainApp ? mainApp->getSettingsFilePath() : QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/settings.ini";
 
-    // --- 1. Setup the new Filter UI Programmatically ---
     setupFilterUi();
 
-    // --- 2. Configure Table for Sorting ---
     ui->table_Assignments->setSortingEnabled(true);
 
     connect(ui->table_Assignments, &QTableWidget::itemSelectionChanged,
@@ -41,8 +38,6 @@ Assignments::Assignments(QWidget *parent, CyberDom *app)
 
     if (!mainApp) {
         qDebug() << "[ERROR] mainApp is NULL in Assignments!";
-    } else {
-        qDebug() << "[DEBUG] Assignments constructed";
     }
 }
 
@@ -51,19 +46,12 @@ Assignments::~Assignments()
     delete ui;
 }
 
-// --- NEW: Build the Filter UI ---
 void Assignments::setupFilterUi()
 {
-    // Find the central layout (assuming Vertical Layout in main window)
-    // If your .ui structure is complex, we might need to insert this into a specific layout.
-    // For a QMainWindow, we can add a ToolBar or insert into the central widget's layout.
-
     QWidget *central = ui->centralwidget;
     QVBoxLayout *mainLayout = qobject_cast<QVBoxLayout*>(central->layout());
 
     if (!mainLayout) {
-        // If layout isn't vertical, creating a wrapper might be risky without seeing .ui
-        // Attempt to insert at top
         mainLayout = new QVBoxLayout(central);
     }
 
@@ -85,7 +73,7 @@ void Assignments::setupFilterUi()
 
     dateEditA = new QDateEdit(QDate::currentDate(), this);
     dateEditA->setCalendarPopup(true);
-    dateEditA->setVisible(false); // Hidden by default
+    dateEditA->setVisible(false);
     filterLayout->addWidget(dateEditA);
 
     labelTo = new QLabel("and", this);
@@ -105,26 +93,19 @@ void Assignments::setupFilterUi()
     connect(btnReset, &QPushButton::clicked, this, &Assignments::resetFilter);
     filterLayout->addWidget(btnReset);
 
-    filterLayout->addStretch(); // Push everything to the left
+    filterLayout->addStretch();
 
-    // Insert at index 0 (Top of window)
     mainLayout->insertWidget(0, filterContainer);
 }
 
 void Assignments::showEvent(QShowEvent *event)
 {
     QMainWindow::showEvent(event);
-    // Reset filters whenever the window is opened/shown
     resetFilter();
 }
 
 void Assignments::onFilterModeChanged(int index)
 {
-    // index 0: All (Hide dates)
-    // index 1: Before (Show A)
-    // index 2: After (Show A)
-    // index 3: Between (Show A, Label, B)
-
     dateEditA->setVisible(index > 0);
     dateEditB->setVisible(index == 3);
     labelTo->setVisible(index == 3);
@@ -132,10 +113,10 @@ void Assignments::onFilterModeChanged(int index)
 
 void Assignments::resetFilter()
 {
-    filterCombo->setCurrentIndex(0); // "Show All"
+    filterCombo->setCurrentIndex(0);
     dateEditA->setDate(QDate::currentDate());
     dateEditB->setDate(QDate::currentDate().addDays(7));
-    applyFilter(); // Re-show all rows
+    applyFilter();
 }
 
 void Assignments::applyFilter()
@@ -144,41 +125,28 @@ void Assignments::applyFilter()
     QDate dateA = dateEditA->date();
     QDate dateB = dateEditB->date();
 
-    // Iterate all rows
     for(int i = 0; i < ui->table_Assignments->rowCount(); ++i) {
         bool showRow = true;
 
         if (mode > 0) {
-            // Get the custom Item from column 0
             DateTableWidgetItem *item = dynamic_cast<DateTableWidgetItem*>(ui->table_Assignments->item(i, 0));
 
-            // If item is null or deadline is invalid (No Deadline)
-            // Strategy: "No Deadline" items usually remain visible unless strict filtering is desired.
-            // Let's hide them if filtering by specific dates to be strict.
             if (!item || item->text() == "No Deadline") {
                 showRow = false;
             } else {
-                // We can't access private 'dt', but we can check the text or rely on the fact
-                // that we *know* it's a DateTableWidgetItem.
-                // Wait, DateTableWidgetItem members are private.
-                // FIX: Let's parse the text since it's formatted standardly, OR make 'dt' public/accessible.
-                // Parsing text "MM-dd-yyyy..." is safe here.
-
-                // Actually, simplest is to just parse the text in the cell
                 QString dateStr = item->text();
-                // Format used in populate: "MM-dd-yyyy h:mm AP"
                 QDateTime rowDt = QDateTime::fromString(dateStr, "MM-dd-yyyy h:mm AP");
 
                 if (rowDt.isValid()) {
                     QDate rowDate = rowDt.date();
 
-                    if (mode == 1) { // Before Date A
+                    if (mode == 1) {
                         if (rowDate >= dateA) showRow = false;
                     }
-                    else if (mode == 2) { // After Date A
+                    else if (mode == 2) {
                         if (rowDate <= dateA) showRow = false;
                     }
-                    else if (mode == 3) { // Between A and B
+                    else if (mode == 3) {
                         if (rowDate < dateA || rowDate > dateB) showRow = false;
                     }
                 }
@@ -190,13 +158,11 @@ void Assignments::applyFilter()
 }
 
 void Assignments::populateJobList() {
-    // Disable sorting while inserting to prevent jumping
     ui->table_Assignments->setSortingEnabled(false);
 
     ui->table_Assignments->clearContents();
     ui->table_Assignments->setRowCount(0);
 
-    // Configure Columns
     if (ui->table_Assignments->columnCount() == 0) {
         ui->table_Assignments->setColumnCount(4);
         ui->table_Assignments->setHorizontalHeaderLabels({"Deadline", "Assignment", "Estimate", "Type"});
@@ -212,12 +178,10 @@ void Assignments::populateJobList() {
     }
 
     if (!mainApp || !mainApp->getScriptParser()) {
-        qDebug() << "[ERROR] Main app or script parser is null!";
         ui->table_Assignments->setSortingEnabled(true);
         return;
     }
 
-    // Get the new structured data
     const ScriptData &data = mainApp->getScriptParser()->getScriptData();
     const QSet<QString> &activeJobs = mainApp->getActiveJobs();
     const QMap<QString, QDateTime> &deadlines = mainApp->getJobDeadlines();
@@ -227,7 +191,6 @@ void Assignments::populateJobList() {
     for (const QString &assignmentName : activeJobs) {
         QString lowerName = assignmentName.toLower();
 
-        // --- 1. Check for Punishment (Handle suffixes like _2) ---
         QString baseName = lowerName;
         int lastUnderscore = baseName.lastIndexOf('_');
         if (lastUnderscore != -1) {
@@ -237,7 +200,6 @@ void Assignments::populateJobList() {
         }
 
         if (data.punishments.contains(baseName)) {
-            // It is a punishment
             const PunishmentDefinition &punDef = data.punishments.value(baseName);
 
             QString deadlineStr = "No Deadline";
@@ -248,7 +210,6 @@ void Assignments::populateJobList() {
                 deadlineStr = deadlineDt.toString("MM-dd-yyyy h:mm AP");
             }
 
-            // Build display name
             QString displayText = punDef.title.isEmpty() ? punDef.name : punDef.title;
             int amt = mainApp->getPunishmentAmount(assignmentName);
             if (displayText.contains('#')) {
@@ -256,7 +217,6 @@ void Assignments::populateJobList() {
             }
             if (!displayText.isEmpty()) displayText[0] = displayText[0].toUpper();
 
-            // Handle Line Writing Select=Random Display
             if (punDef.isLineWriting && punDef.lineSelectMode.compare("Random", Qt::CaseInsensitive) == 0) {
                 QSettings settings(mainApp->getSettingsFilePath(), QSettings::IniFormat);
                 QString line = settings.value("Assignments/" + assignmentName + "_selected_line").toString();
@@ -265,17 +225,13 @@ void Assignments::populateJobList() {
                 }
             }
 
-            // --- Visual Indicator ---
             QString startFlag = "punishment_" + assignmentName + "_started";
             if (mainApp->isFlagSet(startFlag)) {
                 displayText = QStringLiteral("💠 ") + displayText;
             }
 
             ui->table_Assignments->insertRow(row);
-
-            // --- FIX: Use Custom Date Item for Sorting ---
             ui->table_Assignments->setItem(row, 0, new DateTableWidgetItem(deadlineStr, deadlineDt));
-            // ---------------------------------------------
 
             QTableWidgetItem *punItem = new QTableWidgetItem(displayText);
             punItem->setData(Qt::UserRole, assignmentName);
@@ -293,7 +249,6 @@ void Assignments::populateJobList() {
             continue;
         }
 
-        // --- 2. Check for Job ---
         if (data.jobs.contains(lowerName)) {
             const JobDefinition &jobDef = data.jobs.value(lowerName);
 
@@ -307,7 +262,6 @@ void Assignments::populateJobList() {
 
             QString displayText = jobDef.title.isEmpty() ? jobDef.name : jobDef.title;
 
-            // Handle Line Writing Select=Random Display
             if (jobDef.isLineWriting && jobDef.lineSelectMode.compare("Random", Qt::CaseInsensitive) == 0) {
                 QSettings settings(mainApp->getSettingsFilePath(), QSettings::IniFormat);
                 QString line = settings.value("Assignments/" + assignmentName + "_selected_line").toString();
@@ -317,17 +271,13 @@ void Assignments::populateJobList() {
                 }
             }
 
-            // --- Visual Indicator ---
             QString startFlag = "job_" + assignmentName + "_started";
             if (mainApp->isFlagSet(startFlag)) {
                 displayText = QStringLiteral("💠 ") + displayText;
             }
 
             ui->table_Assignments->insertRow(row);
-
-            // --- FIX: Use Custom Date Item for Sorting ---
             ui->table_Assignments->setItem(row, 0, new DateTableWidgetItem(deadlineStr, deadlineDt));
-            // ---------------------------------------------
 
             QTableWidgetItem *jobItem = new QTableWidgetItem(displayText);
             jobItem->setData(Qt::UserRole, assignmentName);
@@ -345,7 +295,6 @@ void Assignments::populateJobList() {
         }
     }
 
-    // Re-enable sorting and ensure the current filter is applied to the new data
     ui->table_Assignments->setSortingEnabled(true);
     applyFilter();
     updateStartButtonState();
@@ -380,7 +329,7 @@ void Assignments::on_btn_Start_clicked()
         }
     }
 
-    QString instructions = "No specific instructions available.";
+    // Logic variables for startAssignment execution
     QString newStatus;
     bool isLineWriting = false;
     QStringList lines;
@@ -393,7 +342,6 @@ void Assignments::on_btn_Start_clicked()
             return;
         }
         const PunishmentDefinition &def = data.punishments.value(baseName);
-        if (!def.statusTexts.isEmpty()) instructions = def.statusTexts.join("\n");
         newStatus = def.newStatus;
         isLineWriting = def.isLineWriting;
         lines = def.lines;
@@ -405,8 +353,6 @@ void Assignments::on_btn_Start_clicked()
             return;
         }
         const JobDefinition &def = data.jobs.value(lowerName);
-        if (!def.statusTexts.isEmpty()) instructions = def.statusTexts.join("\n");
-        if (!def.text.isEmpty()) instructions = def.text + "\n" + instructions;
         newStatus = def.newStatus;
         isLineWriting = def.isLineWriting;
         lines = def.lines;
@@ -414,12 +360,12 @@ void Assignments::on_btn_Start_clicked()
         lineCount = def.lineCount > 0 ? def.lineCount : 1;
     }
 
-    ui->text_AssignmentNotes->setText(instructions);
-
+    // Start Assignment (Logic, Flags, Timers, Camera)
     if (!mainApp->startAssignment(assignmentName, isPunishment, newStatus)) {
         return;
     }
 
+    // Handle Special Types (LineWriter / Detention)
     if (isLineWriting) {
         if (lines.isEmpty()) {
             QMessageBox::warning(this, "Error", "This assignment is Type=Lines but has no 'Line=' entries.");
@@ -655,6 +601,7 @@ void Assignments::updateStartButtonState()
     if (row < 0) {
         ui->btn_Start->setEnabled(false);
         ui->btn_Done->setEnabled(false);
+        ui->text_AssignmentNotes->clear();
         return;
     }
 
@@ -664,6 +611,88 @@ void Assignments::updateStartButtonState()
     QString type = ui->table_Assignments->item(row, 3)->text();
     bool isPunishment = (type.toLower() == "punishment");
 
+    // --- 1. Populate text_AssignmentNotes with calculated variables ---
+    if (mainApp->getScriptParser()) {
+        const ScriptData &data = mainApp->getScriptParser()->getScriptData();
+        QSettings settings(mainApp->getSettingsFilePath(), QSettings::IniFormat);
+
+        QString rawText;
+        QString minTimeStr = "00:00:00";
+        QString maxTimeStr;
+        QString title;
+        QString baseName = assignmentName.toLower();
+
+        if (isPunishment) {
+            int lastUnderscore = baseName.lastIndexOf('_');
+            if (lastUnderscore != -1) {
+                bool isNumber;
+                baseName.mid(lastUnderscore + 1).toInt(&isNumber);
+                if (isNumber) baseName = baseName.left(lastUnderscore);
+            }
+
+            if (data.punishments.contains(baseName)) {
+                const PunishmentDefinition &def = data.punishments.value(baseName);
+                if (!def.statusTexts.isEmpty()) rawText = def.statusTexts.join("\n");
+                title = def.title.isEmpty() ? def.name : def.title;
+                maxTimeStr = def.duration.maxTimeStart;
+
+                QString unit = def.valueUnit.toLower();
+                if (unit == "day" || unit == "hour" || unit == "minute") {
+                    // FIX: Retrieve specific instance amount
+                    int amount = mainApp->getPunishmentAmount(assignmentName);
+
+                    // Note: REMOVED 'val' multiplier here.
+                    // 'amount' is already the correct units (e.g. 8 days).
+
+                    qint64 totalSecs = 0;
+                    if (unit == "day") totalSecs = (qint64)amount * 86400;
+                    else if (unit == "hour") totalSecs = (qint64)amount * 3600;
+                    else if (unit == "minute") totalSecs = (qint64)amount * 60;
+
+                    if (totalSecs > 0) minTimeStr = ScriptUtils::formatDurationString((int)totalSecs);
+                    else minTimeStr = def.duration.minTimeStart;
+                } else {
+                    minTimeStr = def.duration.minTimeStart;
+                }
+            }
+        } else {
+            // Job logic unchanged
+            if (data.jobs.contains(baseName)) {
+                const JobDefinition &def = data.jobs.value(baseName);
+                if (!def.statusTexts.isEmpty()) rawText = def.statusTexts.join("\n");
+                if (!def.text.isEmpty()) rawText = def.text + "\n" + rawText;
+                title = def.title.isEmpty() ? def.name : def.title;
+                minTimeStr = def.duration.minTimeStart;
+                maxTimeStr = def.duration.maxTimeStart;
+            }
+        }
+
+        // Get timings
+        QDateTime start = settings.value("Assignments/" + assignmentName + "_start_time").toDateTime();
+        QDateTime creation = settings.value("Assignments/" + assignmentName + "_creation_time").toDateTime();
+        QDateTime deadline = mainApp->getJobDeadlines().value(assignmentName);
+
+        // Perform Replacement
+        QString resolvedNotes = mainApp->replaceVariables(rawText, assignmentName, title, 0, minTimeStr, maxTimeStr, start, creation, deadline);
+
+        // Manual Fixes
+        resolvedNotes.replace("{!zzMinTime}", minTimeStr, Qt::CaseInsensitive);
+
+        // Runtime Logic
+        QString runTimeStr = "00:00:00";
+        if (start.isValid()) {
+            // Calculate runtime based on CURRENT system time for UI responsiveness
+            qint64 elapsed = start.secsTo(QDateTime::currentDateTime());
+            if (elapsed < 0) elapsed = 0;
+            runTimeStr = ScriptUtils::formatDurationString((int)elapsed);
+        }
+        resolvedNotes.replace("{!zzRunTime}", runTimeStr, Qt::CaseInsensitive);
+
+        ui->text_AssignmentNotes->setText(resolvedNotes);
+    }
+
+    // --- 2. Button State Logic ---
+    // (Rest of function remains unchanged)
     QString flag = (isPunishment ? "punishment_" : "job_") + assignmentName + "_started";
     bool isStarted = mainApp->isFlagSet(flag);
 

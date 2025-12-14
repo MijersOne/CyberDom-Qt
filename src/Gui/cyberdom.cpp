@@ -2199,28 +2199,24 @@ void CyberDom::updateStatusText() {
                 const PunishmentDefinition &punDef = *ptrDef;
                 rawLines.append(punDef.statusTexts);
 
-                // --- FIX: Calculate Duration for {!zzMinTime} ---
-                // We calculate this specific instance's duration based on the stored amount
+                // --- FIX: Correct Duration Calculation (Remove 'val' multiplier) ---
                 QString unit = punDef.valueUnit.toLower();
                 if (unit == "day" || unit == "hour" || unit == "minute") {
-                    // Retrieve the actual calculated amount (e.g. 50 minutes)
                     int amount = punishmentAmounts.value(assignmentName);
+                    // NOTE: 'amount' is already the correct number of days/hours/minutes.
+                    // We do NOT multiply by punDef.value again.
 
                     qint64 totalSecs = 0;
                     if (unit == "day") totalSecs = (qint64)amount * 86400;
                     else if (unit == "hour") totalSecs = (qint64)amount * 3600;
                     else if (unit == "minute") totalSecs = (qint64)amount * 60;
 
-                    if (totalSecs > 0) {
-                        // Format into a string like "00:50:00" or "1d 02:00:00"
-                        minTimeStr = ScriptUtils::formatDurationString(totalSecs);
-                    } else {
-                        minTimeStr = punDef.duration.minTimeStart; // Fallback
-                    }
+                    if (totalSecs > 0) minTimeStr = ScriptUtils::formatDurationString((int)totalSecs);
+                    else minTimeStr = punDef.duration.minTimeStart;
                 } else {
                     minTimeStr = punDef.duration.minTimeStart;
                 }
-                // -----------------------------------------------
+                // ------------------------------------------------------------------
 
                 maxTimeStr = punDef.duration.maxTimeStart;
                 estimateStr = punDef.estimate;
@@ -2241,9 +2237,17 @@ void CyberDom::updateStatusText() {
             QDateTime deadline = jobDeadlines.value(assignmentName);
             QDateTime nextRemind = jobNextReminds.value(assignmentName);
 
-            // Resolve Estimate if variable
+            // Resolve Estimate
             if (estimateStr.startsWith("!") || estimateStr.startsWith("#")) {
                 estimateStr = scriptParser->getVariable(estimateStr.mid(1));
+            }
+
+            // Fix Runtime Calculation
+            QString runTimeStr = "00:00:00";
+            if (start.isValid()) {
+                qint64 elapsed = start.secsTo(internalClock);
+                if (elapsed < 0) elapsed = 0;
+                runTimeStr = ScriptUtils::formatDurationString((int)elapsed);
             }
 
             // Process Lines
@@ -2251,22 +2255,17 @@ void CyberDom::updateStatusText() {
                 if (line.isEmpty()) continue;
 
                 // 1. Replace variables with context
-                // We pass 'minTimeStr' (which now holds the calculated "50:00") into replaceVariables.
-                // When replaceVariables encounters {!zzMinTime}, it will use this string.
                 line = replaceVariables(line, assignmentName, title, 0, minTimeStr, maxTimeStr, start, creation, deadline, nextRemind);
 
-                // 2. Legacy Manual Fallback
-                line.replace("{!zzMinTime}", minTimeStr);
+                // 2. Manual Fallback
+                line.replace("{!zzMinTime}", minTimeStr, Qt::CaseInsensitive);
 
-                // 3. Handle {!zzRunTime} manually here if replaceVariables missed it
+                // 3. Force correct Runtime
+                // Note: replaceVariables might have already replaced !zzRunTime with a raw value or 0.
+                // We re-replace to be safe, but ideally replaceVariables handles it if passed correctly.
+                // If the tag is gone, this does nothing.
                 if (line.contains("{!zzRunTime}", Qt::CaseInsensitive)) {
-                    QString runTimeStr = "00:00:00";
-                    if (start.isValid()) {
-                        int secs = start.secsTo(internalClock);
-                        if (secs < 0) secs = 0;
-                        runTimeStr = ScriptUtils::formatDurationString(secs);
-                    }
-                    line.replace("{!zzRunTime}", runTimeStr, Qt::CaseInsensitive);
+                     line.replace("{!zzRunTime}", runTimeStr, Qt::CaseInsensitive);
                 }
 
                 assignmentTexts.append(line);

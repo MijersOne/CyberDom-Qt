@@ -81,3 +81,13 @@ CMakeLists.txt.user*
 tests/
 build/
 builds/
+
+AppDir/
+
+build_appimage/
+
+*.bak
+
+*.png
+
+*.bat
