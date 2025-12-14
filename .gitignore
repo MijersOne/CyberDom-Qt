@@ -32,6 +32,7 @@ qrc_*.cpp
 Thumbs.db
 *.res
 *.rc
+*.sh
 /.qmake.cache
 /.qmake.stash
 
@@ -71,9 +72,12 @@ CMakeLists.txt.user*
 # --------
 *.dll
 *.exe
+*.AppImage
+*.appimage
 
 #Folders
 .github/
+.qtcreator/
 tests/
 build/
 builds/
