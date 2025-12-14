@@ -33,6 +33,7 @@ Thumbs.db
 *.res
 *.rc
 *.sh
+*.png
 /.qmake.cache
 /.qmake.stash
 
@@ -74,6 +75,7 @@ CMakeLists.txt.user*
 *.exe
 *.AppImage
 *.appimage
+*.desktop
 
 #Folders
 .github/
@@ -81,3 +83,9 @@ CMakeLists.txt.user*
 tests/
 build/
 builds/
+AppDir/
+build_appimage/
+
+CyberDom-x86_64.AppImage.bak
+
+*.bat
