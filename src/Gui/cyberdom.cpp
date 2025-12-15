@@ -57,6 +57,8 @@
 #include <QDateEdit>
 #include <QDialogButtonBox>
 #include <QTimeEdit>
+#include <QProcess>
+#include <QProcessEnvironment>
 #endif
 
 static QDate nthWeekdayOfMonth(int year, int month, Qt::DayOfWeek weekday, int n)
@@ -1153,6 +1155,8 @@ void CyberDom::openPermission(const QString &name)
         updateMerits(currentMerits);
 
         // Execute Actions
+        qDebug() << "[Permission] Grant executing" << perm.actions.size() << "actions for" << name;
+
         bool skipNextAction = false;
         for (const ScriptAction &action : perm.actions) {
             if (skipNextAction) {
@@ -1226,8 +1230,20 @@ void CyberDom::openPermission(const QString &name)
             case ScriptActionType::Message:
                 QMessageBox::information(this, tr("Permission"), replaceVariables(action.value));
                 break;
-            case ScriptActionType::NewStatus: changeStatus(action.value, false); break;
-            case ScriptActionType::NewSubStatus: changeStatus(action.value, true); break;
+            case ScriptActionType::NewStatus:
+                qDebug() << "[Permission] Grant executing NewStatus:" << action.value;
+                changeStatus(action.value, false);
+                break;
+            case ScriptActionType::NewSubStatus:
+                qDebug() << "[Permission] Grant executing NewSubStatus:" << action.value;
+                changeStatus(action.value, true);
+                break;
+            case ScriptActionType::Question:
+                executeQuestion(action.value.trimmed().toLower(), "Questions");
+                break;
+            case ScriptActionType::Input:
+                executeQuestion(action.value.trimmed().toLower(), "Input Required");
+                break;
             case ScriptActionType::MarkDone: {
                 QString name = action.value;
                 bool isPun = name.startsWith("punishment-", Qt::CaseInsensitive);
@@ -1303,11 +1319,9 @@ void CyberDom::openPermission(const QString &name)
 
             permissionNextAvailable[name] = newUnlock;
 
-            // --- NEW: Handle Notify Logic ---
             if (perm.notify > 0) {
                 permissionNotificationsPending.insert(name);
             }
-            // --- END NEW ---
         }
 
         // Build Message
@@ -1315,7 +1329,6 @@ void CyberDom::openPermission(const QString &name)
         if (msg.isEmpty()) msg = tr("No %1, you may not %2.").arg(subName, perm.title.isEmpty() ? name : perm.title);
         msg = replaceVariables(msg, name);
 
-        // --- NEW: Append Notify Info ---
         if (delaySecs > 0) {
             if (perm.notify == 1) {
                 // Notify=1: Tell them how long
@@ -1329,9 +1342,14 @@ void CyberDom::openPermission(const QString &name)
                 msg += "\n\n" + tr("You must wait %1.").arg(formatDuration(delaySecs));
             }
         }
-        // --- END NEW ---
 
         QMessageBox::information(this, tr("Permission Denied"), msg);
+
+        // Handle DenyStatus
+        if (!perm.denyStatus.isEmpty()) {
+            qDebug() << "[Permission] Denied executing DenyStatus:" << perm.denyStatus;
+            changeStatus(perm.denyStatus, false);
+        }
 
         if (!perm.denyProcedure.isEmpty())
             runProcedure(perm.denyProcedure);
@@ -1555,6 +1573,12 @@ void CyberDom::openConfession(const QString &name)
             break;
         case ScriptActionType::NewSubStatus:
             changeStatus(action.value, true);
+            break;
+        case ScriptActionType::Question:
+            executeQuestion(action.value.trimmed().toLower(), "Question");
+            break;
+        case ScriptActionType::Input:
+            executeQuestion(action.value.trimmed().toLower(), "Input Required");
             break;
         case ScriptActionType::MarkDone: {
             QString name = action.value;
@@ -2157,8 +2181,9 @@ void CyberDom::updateStatusText() {
     // --- Populate Middle Content ---
 
     // 1. Get Status Text
-    if (data.statuses.contains(currentStatus)) {
-        for (const QString &line : data.statuses.value(currentStatus).statusTexts) {
+    // FIX: Look up using lowercase key to ensure match with parser storage
+    if (data.statuses.contains(currentStatus.toLower())) {
+        for (const QString &line : data.statuses.value(currentStatus.toLower()).statusTexts) {
             middleLines.append(replaceVariables(line));
         }
     }
@@ -2173,6 +2198,7 @@ void CyberDom::updateStatusText() {
     }
 
     // 3. Add Started Assignment Text
+    // ... [Rest of function remains unchanged] ...
     QStringList assignmentTexts;
     const auto &jobDefs = data.jobs;
     QSettings settings(settingsFile, QSettings::IniFormat);
@@ -2194,29 +2220,25 @@ void CyberDom::updateStatusText() {
             QString estimateStr;
             QString title;
 
-            // Gather Data
             if (isPun) {
                 const PunishmentDefinition &punDef = *ptrDef;
                 rawLines.append(punDef.statusTexts);
 
-                // --- FIX: Correct Duration Calculation (Remove 'val' multiplier) ---
+                // Duration Calculation
                 QString unit = punDef.valueUnit.toLower();
                 if (unit == "day" || unit == "hour" || unit == "minute") {
                     int amount = punishmentAmounts.value(assignmentName);
-                    // NOTE: 'amount' is already the correct number of days/hours/minutes.
-                    // We do NOT multiply by punDef.value again.
-
+                    double val = punDef.value > 0 ? punDef.value : 1.0;
                     qint64 totalSecs = 0;
-                    if (unit == "day") totalSecs = (qint64)amount * 86400;
-                    else if (unit == "hour") totalSecs = (qint64)amount * 3600;
-                    else if (unit == "minute") totalSecs = (qint64)amount * 60;
+                    if (unit == "day") totalSecs = (qint64)(amount * val * 86400);
+                    else if (unit == "hour") totalSecs = (qint64)(amount * val * 3600);
+                    else if (unit == "minute") totalSecs = (qint64)(amount * val * 60);
 
                     if (totalSecs > 0) minTimeStr = ScriptUtils::formatDurationString((int)totalSecs);
                     else minTimeStr = punDef.duration.minTimeStart;
                 } else {
                     minTimeStr = punDef.duration.minTimeStart;
                 }
-                // ------------------------------------------------------------------
 
                 maxTimeStr = punDef.duration.maxTimeStart;
                 estimateStr = punDef.estimate;
@@ -2242,7 +2264,7 @@ void CyberDom::updateStatusText() {
                 estimateStr = scriptParser->getVariable(estimateStr.mid(1));
             }
 
-            // Fix Runtime Calculation
+            // Runtime Calculation
             QString runTimeStr = "00:00:00";
             if (start.isValid()) {
                 qint64 elapsed = start.secsTo(internalClock);
@@ -2254,19 +2276,9 @@ void CyberDom::updateStatusText() {
             for (QString line : rawLines) {
                 if (line.isEmpty()) continue;
 
-                // 1. Replace variables with context
                 line = replaceVariables(line, assignmentName, title, 0, minTimeStr, maxTimeStr, start, creation, deadline, nextRemind);
-
-                // 2. Manual Fallback
                 line.replace("{!zzMinTime}", minTimeStr, Qt::CaseInsensitive);
-
-                // 3. Force correct Runtime
-                // Note: replaceVariables might have already replaced !zzRunTime with a raw value or 0.
-                // We re-replace to be safe, but ideally replaceVariables handles it if passed correctly.
-                // If the tag is gone, this does nothing.
-                if (line.contains("{!zzRunTime}", Qt::CaseInsensitive)) {
-                     line.replace("{!zzRunTime}", runTimeStr, Qt::CaseInsensitive);
-                }
+                line.replace("{!zzRunTime}", runTimeStr, Qt::CaseInsensitive); // Force correct runtime
 
                 assignmentTexts.append(line);
             }
@@ -7341,7 +7353,7 @@ QString CyberDom::generateReportHtml(bool isEndOfDay)
 void CyberDom::generateDailyReportFile(bool isEndOfDay)
 {
     QString html = generateReportHtml(isEndOfDay);
-    QString reportDir = QCoreApplication::applicationDirPath() + "/Reports";
+    QString reportDir = getReportsDirectory();
     QDir().mkpath(reportDir);
 
     QString filename = QString("Report_%1.html").arg(internalClock.toString("yyyy-MM-dd"));
@@ -7357,17 +7369,45 @@ void CyberDom::generateDailyReportFile(bool isEndOfDay)
 
 void CyberDom::onMakeReportFile() {
     generateDailyReportFile(false);
-    QString path = QCoreApplication::applicationDirPath() + "/Reports/Report_" + internalClock.toString("yyyy-MM-dd") + ".html";
+    QString path = getReportsDirectory() + "/Report_" + internalClock.toString("yyyy-MM-dd") + ".html";
     QMessageBox::information(this, "Report Generated", "Report saved to:\n" + path);
 }
 
 void CyberDom::onViewReportFile() {
-    QString path = QCoreApplication::applicationDirPath() + "/Reports/Report_" + internalClock.toString("yyyy-MM-dd") + ".html";
-    if (QFile::exists(path)) {
-        QDesktopServices::openUrl(QUrl::fromLocalFile(path));
-    } else {
-        QMessageBox::warning(this, "No Report", "No report has been generated for today yet.");
+    // Standardized Documents location
+    QString path = getReportsDirectory() + "/Report_" + internalClock.toString("yyyy-MM-dd") + ".html";
+
+    if (!QFile::exists(path)) {
+        // Fallback: Try generating it if it doesn't exist yet
+        generateDailyReportFile(false);
+        if (!QFile::exists(path)) {
+            QMessageBox::warning(this, "No Report", "Could not find or generate a report for today.");
+            return;
+        }
     }
+
+#if defined(Q_OS_LINUX)
+    // --- LINUX APPIMAGE FIX ---
+    // QDesktopServices::openUrl inherits the AppImage's LD_LIBRARY_PATH,
+    // which causes most browsers to crash or fail to read files due to library conflicts.
+    // We explicitly run 'xdg-open' with the LD_LIBRARY_PATH removed to fix this.
+
+    QProcess process;
+    process.setProgram("xdg-open");
+    process.setArguments({path});
+
+    QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+    env.remove("LD_LIBRARY_PATH"); // Key Fix: Strip AppImage libraries
+    process.setProcessEnvironment(env);
+
+    if (!process.startDetached()) {
+        qWarning() << "[Report] Failed to launch xdg-open. Falling back to QDesktopServices.";
+        QDesktopServices::openUrl(QUrl::fromLocalFile(path));
+    }
+#else
+    // Windows / macOS work fine with standard Qt calls
+    QDesktopServices::openUrl(QUrl::fromLocalFile(path));
+#endif
 }
 
 QString CyberDom::getAssignmentDisplayName(const QString &assignmentName, bool isPunishment) const
@@ -8587,4 +8627,21 @@ void CyberDom::executePopup(const QString &popupName) {
             default: break;
         }
     }
+}
+
+QString CyberDom::getReportsDirectory() const
+{
+    // Use the standard "Documents" location for all OS
+    QString docsLocation = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation);
+
+    // Create a specific subdirectory for the app
+    QString reportPath = docsLocation + "/CyberDom/Reports";
+
+    // Ensure the directory exists
+    QDir dir(reportPath);
+    if (!dir.exists()) {
+        dir.mkpath(".");
+    }
+
+    return reportPath;
 }

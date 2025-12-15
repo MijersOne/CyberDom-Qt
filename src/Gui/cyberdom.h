@@ -422,6 +422,9 @@ private:
     // Popups
     QTimer *popupTimer;
 
+    // Reports
+    QString getReportsDirectory() const;
+
 private slots:
     void applyTimeToClock(int days, int hours, int minutes, int seconds);
     void openAboutDialog();
