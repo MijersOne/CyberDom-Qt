@@ -508,7 +508,8 @@ void ScriptParser::parseStatusSections(const QMap<QString, QMap<QString, QString
             const QStringList& values = keyIt.value();
 
             for (const QString& val : values) {
-                if (key == "Select") {
+                // Use case-insensitive comparison
+                if (key.compare("Select", Qt::CaseInsensitive) == 0) {
                     if (val.compare("Random", Qt::CaseInsensitive) == 0)
                         currentGroup.mode = MessageSelectMode::Random;
                     else
@@ -520,11 +521,11 @@ void ScriptParser::parseStatusSections(const QMap<QString, QMap<QString, QString
                         currentGroup = MessageGroup();
                     }
                 }
-                else if (key == "Message") {
+                else if (key.compare("Message", Qt::CaseInsensitive) == 0) {
                     inMessageBlock = true;
                     currentGroup.messages.append(val.trimmed());
                 }
-                else if (key == "Text") {
+                else if (key.compare("Text", Qt::CaseInsensitive) == 0) {
                     status.statusTexts.append(val.trimmed());
                 }
             }
@@ -1282,10 +1283,10 @@ void ScriptParser::parsePermissionSections(const QStringList& lines) {
             continue;
         }
 
-        if (!inSection) continue; // Skip lines not in a permission section
+        if (!inSection) continue;
 
         int equalsIndex = line.indexOf('=');
-        if (equalsIndex == -1) continue; // Not a key-value pair
+        if (equalsIndex == -1) continue;
 
         QString key = line.left(equalsIndex).trimmed();
         QString value = line.mid(equalsIndex + 1).trimmed();
@@ -1300,7 +1301,7 @@ void ScriptParser::parsePermissionSections(const QStringList& lines) {
                 currentPermission.pctIsVariable = true;
             } else {
                 parseRange(value, currentPermission.pctMin, currentPermission.pctMax);
-                if (currentPermission.pctMin = currentPermission.pctMax) {
+                if (currentPermission.pctMin == currentPermission.pctMax) {
                     currentPermission.pct = currentPermission.pctMin;
                 }
             }
@@ -1368,139 +1369,191 @@ void ScriptParser::parsePermissionSections(const QStringList& lines) {
             currentPermission.pointCameraText = value;
         }
 
-        // --- Handle ACTIONS
+        // --- Handle ACTIONS ---
         else if (key.compare("Procedure", Qt::CaseInsensitive) == 0) {
             currentPermission.actions.append({ScriptActionType::ProcedureCall, value});
-        } else if (key.compare("If", Qt::CaseInsensitive) == 0) {
+        }
+        else if (key.compare("If", Qt::CaseInsensitive) == 0) {
             currentPermission.actions.append({ScriptActionType::If, value});
-        } else if (key.compare("NotIf", Qt::CaseInsensitive) == 0) {
+        }
+        else if (key.compare("NotIf", Qt::CaseInsensitive) == 0) {
             currentPermission.actions.append({ScriptActionType::NotIf, value});
-        } else if (key.compare("SetFlag", Qt::CaseInsensitive) == 0) {
+        }
+        else if (key.compare("SetFlag", Qt::CaseInsensitive) == 0) {
             currentPermission.actions.append({ScriptActionType::SetFlag, value});
-        } else if (key.compare("RemoveFlag", Qt::CaseInsensitive) == 0) {
+        }
+        else if (key.compare("RemoveFlag", Qt::CaseInsensitive) == 0) {
             currentPermission.actions.append({ScriptActionType::RemoveFlag, value});
-        } else if (key.compare("ClearFlag", Qt::CaseInsensitive) == 0) {
+        }
+        else if (key.compare("ClearFlag", Qt::CaseInsensitive) == 0) {
             currentPermission.actions.append({ScriptActionType::ClearFlag, value});
-        } else if (key.compare("Set#", Qt::CaseInsensitive) == 0) {
-            currentPermission.actions.append({ScriptActionType::SetCounterVar, value});
-        } else if (key.compare("Input#", Qt::CaseInsensitive) == 0) {
-            currentPermission.actions.append({ScriptActionType::InputCounter, value});
-        } else if (key.compare("Change#", Qt::CaseInsensitive) == 0) {
-            currentPermission.actions.append({ScriptActionType::ChangeCounter, value});
-        } else if (key.compare("InputNeg#", Qt::CaseInsensitive) == 0) {
-            currentPermission.actions.append({ScriptActionType::InputNegCounter, value});
-        } else if (key.compare("Random#", Qt::CaseInsensitive) == 0) {
-            currentPermission.actions.append({ScriptActionType::RandomCounter, value});
-        } else if (key.compare("Drop#", Qt::CaseInsensitive) == 0) {
-            currentPermission.actions.append({ScriptActionType::DropCounter, value});
-        } else if (key.compare("Set$", Qt::CaseInsensitive) == 0) {
-            currentPermission.actions.append({ScriptActionType::SetString, value});
-        } else if (key.compare("Input$", Qt::CaseInsensitive) == 0) {
-            currentPermission.actions.append({ScriptActionType::InputString, value});
-        } else if (key.compare("Change$", Qt::CaseInsensitive) == 0) {
-            currentPermission.actions.append({ScriptActionType::ChangeString, value});
-        } else if (key.compare("InputLong$", Qt::CaseInsensitive) == 0) {
-            currentPermission.actions.append({ScriptActionType::InputLongString, value});
-        } else if (key.compare("ChangeLong$", Qt::CaseInsensitive) == 0) {
-            currentPermission.actions.append({ScriptActionType::ChangeLongString, value});
-        } else if (key.compare("Drop$", Qt::CaseInsensitive) == 0) {
-            currentPermission.actions.append({ScriptActionType::DropString, value});
-        } else if (key.compare("Set!", Qt::CaseInsensitive) == 0) {
-            currentPermission.actions.append({ScriptActionType::SetTimeVar, value});
-        } else if (key.compare("Input!", Qt::CaseInsensitive) == 0) {
-            currentPermission.actions.append({ScriptActionType::InputDate, value});
-        } else if (key.compare("InputDateDef!", Qt::CaseInsensitive) == 0) {
-            currentPermission.actions.append({ScriptActionType::InputDateDef, value});
-        } else if (key.compare("ChangeDate!", Qt::CaseInsensitive) == 0) {
-            currentPermission.actions.append({ScriptActionType::ChangeDate, value});
-        } else if (key.compare("InputTime!", Qt::CaseInsensitive) == 0) {
-            currentPermission.actions.append({ScriptActionType::InputTime, value});
-        } else if (key.compare("InputTimeDef!", Qt::CaseInsensitive) == 0) {
-            currentPermission.actions.append({ScriptActionType::InputTimeDef, value});
-        } else if (key.compare("ChangeTime!", Qt::CaseInsensitive) == 0) {
-            currentPermission.actions.append({ScriptActionType::ChangeTime, value});
-        } else if (key.compare("InputInterval!", Qt::CaseInsensitive) == 0) {
-            currentPermission.actions.append({ScriptActionType::InputInterval, value});
-        } else if (key.compare("ChangeInterval!", Qt::CaseInsensitive) == 0) {
-            currentPermission.actions.append({ScriptActionType::ChangeInterval, value});
-        } else if (key.compare("AddDays!", Qt::CaseInsensitive) == 0) {
-            currentPermission.actions.append({ScriptActionType::AddDaysTime, value});
-        } else if (key.compare("SubtractDays!", Qt::CaseInsensitive) == 0) {
-            currentPermission.actions.append({ScriptActionType::SubtractDaysTime, value});
-        } else if (key.compare("Days!", Qt::CaseInsensitive) == 0) {
-            currentPermission.actions.append({ScriptActionType::ConvertDays, value});
-        } else if (key.compare("Hours!", Qt::CaseInsensitive) == 0) {
-            currentPermission.actions.append({ScriptActionType::ConvertHours, value});
-        } else if (key.compare("Minutes!", Qt::CaseInsensitive) == 0) {
-            currentPermission.actions.append({ScriptActionType::ConvertMinutes, value});
-        } else if (key.compare("Seconds!", Qt::CaseInsensitive) == 0) {
-            currentPermission.actions.append({ScriptActionType::ConvertSeconds, value});
-        } else if (key.compare("Round!", Qt::CaseInsensitive) == 0) {
-            currentPermission.actions.append({ScriptActionType::RoundTime, value});
-        } else if (key.compare("Random!", Qt::CaseInsensitive) == 0) {
-            currentPermission.actions.append({ScriptActionType::RandomTime, value});
-        } else if (key.compare("Drop!", Qt::CaseInsensitive) == 0) {
-            currentPermission.actions.append({ScriptActionType::DropTime, value});
-        } else if (key.compare("Add#", Qt::CaseInsensitive) == 0) {
-            currentPermission.actions.append({ScriptActionType::AddCounter, value});
-        } else if (key.compare("Subtract#", Qt::CaseInsensitive) == 0) {
-            currentPermission.actions.append({ScriptActionType::SubtractCounter, value});
-        } else if (key.compare("Multiply#", Qt::CaseInsensitive) == 0) {
-            currentPermission.actions.append({ScriptActionType::MultiplyCounter, value});
-        } else if (key.compare("Divide#", Qt::CaseInsensitive) == 0) {
-            currentPermission.actions.append({ScriptActionType::DivideCounter, value});
-        } else if (key.compare("Days#", Qt::CaseInsensitive) == 0) {
-            currentPermission.actions.append({ScriptActionType::ExtractDays, value});
-        } else if (key.compare("Hours#", Qt::CaseInsensitive) == 0) {
-            currentPermission.actions.append({ScriptActionType::ExtractHours, value});
-        } else if (key.contains("Minutes#", Qt::CaseInsensitive) == 0) {
-            currentPermission.actions.append({ScriptActionType::ExtractMinutes, value});
-        } else if (key.compare("Seconds#", Qt::CaseInsensitive) == 0) {
-            currentPermission.actions.append({ScriptActionType::ExtractSeconds, value});
-        } else if (key.compare("Message", Qt::CaseInsensitive) == 0) {
-            currentPermission.actions.append({ScriptActionType::Message, value});
-        } else if (key.compare("Question", Qt::CaseInsensitive) == 0) {
+        }
+        else if (key.compare("NewStatus", Qt::CaseInsensitive) == 0) {
+            qDebug() << "[Parser] Found NewStatus action for permission:" << currentPermission.name << "Value:" << value;
+            currentPermission.actions.append({ScriptActionType::NewStatus, value});
+        }
+        else if (key.compare("NewSubStatus", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::NewSubStatus, value});
+        }
+        else if (key.compare("Question", Qt::CaseInsensitive) == 0) {
             currentPermission.actions.append({ScriptActionType::Question, value});
-        } else if (key.compare("Input", Qt::CaseInsensitive) == 0) {
+        }
+        else if (key.compare("Input", Qt::CaseInsensitive) == 0) {
             currentPermission.actions.append({ScriptActionType::Input, value});
-        } else if (key.compare("Clothing", Qt::CaseInsensitive) == 0) {
+        }
+        else if (key.compare("Set#", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::SetCounterVar, value});
+        }
+        else if (key.compare("Input#", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::InputCounter, value});
+        }
+        else if (key.compare("Change#", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::ChangeCounter, value});
+        }
+        else if (key.compare("InputNeg#", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::InputNegCounter, value});
+        }
+        else if (key.compare("Random#", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::RandomCounter, value});
+        }
+        else if (key.compare("Drop#", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::DropCounter, value});
+        }
+        else if (key.compare("Set$", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::SetString, value});
+        }
+        else if (key.compare("Input$", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::InputString, value});
+        }
+        else if (key.compare("Change$", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::ChangeString, value});
+        }
+        else if (key.compare("InputLong$", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::InputLongString, value});
+        }
+        else if (key.compare("ChangeLong$", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::ChangeLongString, value});
+        }
+        else if (key.compare("Drop$", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::DropString, value});
+        }
+        else if (key.compare("Set!", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::SetTimeVar, value});
+        }
+        else if (key.compare("Input!", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::InputDate, value});
+        }
+        else if (key.compare("InputDateDef!", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::InputDateDef, value});
+        }
+        else if (key.compare("ChangeDate!", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::ChangeDate, value});
+        }
+        else if (key.compare("InputTime!", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::InputTime, value});
+        }
+        else if (key.compare("InputTimeDef!", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::InputTimeDef, value});
+        }
+        else if (key.compare("ChangeTime!", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::ChangeTime, value});
+        }
+        else if (key.compare("InputInterval!", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::InputInterval, value});
+        }
+        else if (key.compare("ChangeInterval!", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::ChangeInterval, value});
+        }
+        else if (key.compare("AddDays!", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::AddDaysTime, value});
+        }
+        else if (key.compare("SubtractDays!", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::SubtractDaysTime, value});
+        }
+        else if (key.compare("Days!", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::ConvertDays, value});
+        }
+        else if (key.compare("Hours!", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::ConvertHours, value});
+        }
+        else if (key.compare("Minutes!", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::ConvertMinutes, value});
+        }
+        else if (key.compare("Seconds!", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::ConvertSeconds, value});
+        }
+        else if (key.compare("Round!", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::RoundTime, value});
+        }
+        else if (key.compare("Random!", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::RandomTime, value});
+        }
+        else if (key.compare("Drop!", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::DropTime, value});
+        }
+        else if (key.compare("Add#", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::AddCounter, value});
+        }
+        else if (key.compare("Subtract#", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::SubtractCounter, value});
+        }
+        else if (key.compare("Multiply#", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::MultiplyCounter, value});
+        }
+        else if (key.compare("Divide#", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::DivideCounter, value});
+        }
+        else if (key.compare("Days#", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::ExtractDays, value});
+        }
+        else if (key.compare("Hours#", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::ExtractHours, value});
+        }
+        else if (key.compare("Minutes#", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::ExtractMinutes, value});
+        }
+        else if (key.compare("Seconds#", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::ExtractSeconds, value});
+        }
+        else if (key.compare("Message", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::Message, value});
+        }
+        else if (key.compare("Job", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::AnnounceJob, value});
+        }
+        else if (key.compare("MarkDone", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::MarkDone, value});
+        }
+        else if (key.compare("Abort", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::Abort, value});
+        }
+        else if (key.compare("Delete", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::Delete, value});
+        }
+        else if (key.compare("PunishMessage", Qt::CaseInsensitive) == 0) {
+            if (currentPunishMessage.isEmpty()) {
+                currentPunishMessage = value;
+            }
+        }
+        else if (key.compare("PunishmentGroup", Qt::CaseInsensitive) == 0) {
+            if (currentPermission.punishGroup.isEmpty()) {
+                currentPermission.punishGroup = value;
+            }
+        }
+        else if (key.compare("Punish", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::Punish, value});
+        }
+        else if (key.compare("Clothing", Qt::CaseInsensitive) == 0) {
             if (currentPermission.clothingInstruction.isEmpty()) {
                 currentPermission.actions.append({ScriptActionType::Clothing, value});
             } else {
                 currentPermission.actions.append({ScriptActionType::Clothing, value});
             }
-        } else if (key.compare("Instructions", Qt::CaseInsensitive) == 0) {
+        }
+        else if (key.compare("Instructions", Qt::CaseInsensitive) == 0) {
             currentPermission.actions.append({ScriptActionType::Instructions, value});
-        } else if (key.compare("NewStatus", Qt::CaseInsensitive) == 0) {
-            currentPermission.actions.append({ScriptActionType::NewStatus, value});
-        } else if (key.compare("NewSubStatus", Qt::CaseInsensitive) == 0) {
-            currentPermission.actions.append({ScriptActionType::NewSubStatus, value});
-        } else if (key.compare("Job", Qt::CaseInsensitive) == 0) {
-            currentPermission.actions.append({ScriptActionType::AnnounceJob, value});
-        } else if (key.compare("MarkDone", Qt::CaseInsensitive) == 0) {
-            currentPermission.actions.append({ScriptActionType::MarkDone, value});
-        } else if (key.compare("Abort", Qt::CaseInsensitive) == 0) {
-            currentPermission.actions.append({ScriptActionType::Abort, value});
-        } else if (key.compare("Delete", Qt::CaseInsensitive) == 0) {
-            currentPermission.actions.append({ScriptActionType::Delete, value});
-        } else if (key.compare("AddMerit", Qt::CaseInsensitive) == 0 || key.compare("AddMerits", Qt::CaseInsensitive) == 0) {
-            currentPermission.actions.append({ScriptActionType::AddMerit, value});
-        } else if (key.compare("SubtractMerit", Qt::CaseInsensitive) == 0 || key.compare("SubtractMerits", Qt::CaseInsensitive) == 0) {
-            currentPermission.actions.append({ScriptActionType::SubtractMerit, value});
-        } else if (key.compare("SetMerit", Qt::CaseInsensitive) == 0 || key.compare("SetMerits", Qt::CaseInsensitive) == 0) {
-            currentPermission.actions.append({ScriptActionType::SetMerit, value});
-        } else if (key.compare("PunishMessage", Qt::CaseInsensitive) == 0) {
-            if (currentPunishMessage.isEmpty()) {
-                currentPunishMessage = value;
-            }
-        } else if (key.compare("PunishmentGroup", Qt::CaseInsensitive) == 0) {
-            if (currentPermission.punishGroup.isEmpty()) {
-                currentPermission.punishGroup = value;
-            }
-        } else if (key.compare("Punish", Qt::CaseInsensitive) == 0) {
-            currentPermission.actions.append({ScriptActionType::Punish, value});
-        } else if (key.compare("ClothReport", Qt::CaseInsensitive) == 0) {
-            // Add as an action (value is "1" or "Title Text")
+        }
+        else if (key.compare("ClothReport", Qt::CaseInsensitive) == 0) {
             if (value != "0") {
                 currentPermission.actions.append({ScriptActionType::ClothReport, value});
             }
@@ -1530,7 +1583,6 @@ void ScriptParser::parsePermissionSections(const QStringList& lines) {
         }
     }
 
-    // Save the very last permission in the file
     if (inSection) {
         scriptData.permissions.insert(currentPermission.name, currentPermission);
     }

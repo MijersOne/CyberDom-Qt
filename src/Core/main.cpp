@@ -181,7 +181,8 @@ int main(int argc, char *argv[])
     QApplication a(argc, argv);
 
     // --- LOGGING SETUP ---
-    QString logDir = QCoreApplication::applicationDirPath() + "/Logs";
+    QString docsLocation = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation);
+    QString logDir = docsLocation + "/CyberDom/Logs";
     QDir dir(logDir);
     if (!dir.exists()) {
         dir.mkpath(".");
