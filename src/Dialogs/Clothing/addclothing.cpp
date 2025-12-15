@@ -13,8 +13,13 @@ AddClothing::AddClothing(QWidget *parent, const QString &clothingType)
 {
     ui->setupUi(this);
     isEditMode = false;
-    connect(ui->buttonBox, &QDialogButtonBox::accepted, this, &AddClothing::on_buttonBox_accepted);
+
+    // REMOVED: connect(ui->buttonBox, &QDialogButtonBox::accepted, ...)
+    // This is handled automatically by ui->setupUi because the slot is named "on_buttonBox_accepted"
+
+    // Ensure reject is connected (Standard UI files usually handle this, but keeping it is safe)
     connect(ui->buttonBox, &QDialogButtonBox::rejected, this, &QDialog::reject);
+
     QList<ClothingAttribute> defaultAttrs;
     defaultAttrs.append(ClothingAttribute{QStringLiteral("Colour"), {}});
     defaultAttrs.append(ClothingAttribute{QStringLiteral("Style"), {}});
@@ -29,8 +34,10 @@ AddClothing::AddClothing(QWidget *parent, const QString &clothingType,
 {
     ui->setupUi(this);
     isEditMode = false;
-    connect(ui->buttonBox, &QDialogButtonBox::accepted, this, &AddClothing::on_buttonBox_accepted);
+
+    // REMOVED: Manual connection for accepted to prevent double-fire
     connect(ui->buttonBox, &QDialogButtonBox::rejected, this, &QDialog::reject);
+
     setupTable(clothingType, attributes);
 }
 
@@ -41,8 +48,10 @@ AddClothing::AddClothing(QWidget *parent, const QString &clothingType,
 {
     ui->setupUi(this);
     isEditMode = true;
-    connect(ui->buttonBox, &QDialogButtonBox::accepted, this, &AddClothing::on_buttonBox_accepted);
+
+    // REMOVED: Manual connection for accepted to prevent double-fire
     connect(ui->buttonBox, &QDialogButtonBox::rejected, this, &QDialog::reject);
+
     setupTable(clothingType, attributes, &item);
 }
 
