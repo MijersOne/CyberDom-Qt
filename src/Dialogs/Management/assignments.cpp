@@ -210,7 +210,7 @@ void Assignments::populateJobList() {
                 deadlineStr = deadlineDt.toString("MM-dd-yyyy h:mm AP");
             }
 
-            QString displayText = punDef.title.isEmpty() ? punDef.name : punDef.title;
+            QString displayText = mainApp->getAssignmentDisplayName(assignmentName, true);
             int amt = mainApp->getPunishmentAmount(assignmentName);
             if (displayText.contains('#')) {
                 displayText.replace('#', QString::number(amt));
@@ -260,7 +260,7 @@ void Assignments::populateJobList() {
                 deadlineStr = deadlineDt.toString("MM-dd-yyyy h:mm AP");
             }
 
-            QString displayText = jobDef.title.isEmpty() ? jobDef.name : jobDef.title;
+            QString displayText = mainApp->getAssignmentDisplayName(assignmentName, false);
 
             if (jobDef.isLineWriting && jobDef.lineSelectMode.compare("Random", Qt::CaseInsensitive) == 0) {
                 QSettings settings(mainApp->getSettingsFilePath(), QSettings::IniFormat);
@@ -660,7 +660,6 @@ void Assignments::updateStartButtonState()
             if (data.jobs.contains(baseName)) {
                 const JobDefinition &def = data.jobs.value(baseName);
                 if (!def.statusTexts.isEmpty()) rawText = def.statusTexts.join("\n");
-                if (!def.text.isEmpty()) rawText = def.text + "\n" + rawText;
                 title = def.title.isEmpty() ? def.name : def.title;
                 minTimeStr = def.duration.minTimeStart;
                 maxTimeStr = def.duration.maxTimeStart;

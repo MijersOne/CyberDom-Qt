@@ -1697,6 +1697,13 @@ void CyberDom::populateReportMenu()
         }
 
         QString label = rep.title.isEmpty() ? rep.name : rep.title;
+
+        // Capitalize Label
+        label = label.trimmed();
+        if (!label.isEmpty()) {
+            label[0] = label[0].toUpper();
+        }
+
         qDebug() << "[ReportMenu] Adding" << rep.name;
         QAction *act = new QAction(label, reportMenu);
         reportMenu->addAction(act);
@@ -1739,6 +1746,13 @@ void CyberDom::populateConfessMenu()
         }
 
         QString label = conf.title.isEmpty() ? conf.name : conf.title;
+
+        // Capitalize Label
+        label = label.trimmed();
+        if (!label.isEmpty()) {
+            label[0] = label[0].toUpper();
+        }
+
         QAction *act = new QAction(label, confessMenu);
         confessMenu->addAction(act);
         connect(act, &QAction::triggered, this, [this, name = conf.name]() {
@@ -2245,7 +2259,6 @@ void CyberDom::updateStatusText() {
                 title = punDef.title.isEmpty() ? punDef.name : punDef.title;
             } else {
                 const JobDefinition &jobDef = jobDefs.value(lowerName);
-                if (!jobDef.text.isEmpty()) rawLines.append(jobDef.text);
                 rawLines.append(jobDef.statusTexts);
                 minTimeStr = jobDef.duration.minTimeStart;
                 maxTimeStr = jobDef.duration.maxTimeStart;
@@ -2275,6 +2288,16 @@ void CyberDom::updateStatusText() {
             // Process Lines
             for (QString line : rawLines) {
                 if (line.isEmpty()) continue;
+
+                // Prepend Job Name to Text
+                if (!isPun) {
+                    QString displayTitle = title;
+                    // Ensure the title is capatilized (e.g. "cleaning" -> "Cleaning")
+                    if (!displayTitle.isEmpty() && displayTitle[0].isLower()) {
+                        displayTitle[0] = displayTitle[0].toUpper();
+                    }
+                    line = displayTitle + ": " + line;
+                }
 
                 line = replaceVariables(line, assignmentName, title, 0, minTimeStr, maxTimeStr, start, creation, deadline, nextRemind);
                 line.replace("{!zzMinTime}", minTimeStr, Qt::CaseInsensitive);
@@ -2886,12 +2909,9 @@ void CyberDom::loadAndParseScript(const QString &filePath) {
         return;
     }
 
-    qDebug() << "\n[DEBUG] Starting loadAndParseScript with file: " << filePath;
-
     // Create new script parser if needed
     if (!scriptParser) {
         scriptParser = new ScriptParser();
-        qDebug() << "[DEBUG] Created new ScriptParser instance";
     }
 
     // Parse the script file
@@ -2901,12 +2921,17 @@ void CyberDom::loadAndParseScript(const QString &filePath) {
         return;
     }
 
+    // --- ENHANCED LOGGING ---
+    qDebug() << "==========================================";
+    qDebug() << "   SCRIPT LOADED";
+    qDebug() << "   File:    " << filePath;
+    qDebug() << "   Version: " << scriptParser->getScriptData().general.version;
+    qDebug() << "   Title:   " << QString("%1's Virtual Master").arg(scriptParser->getScriptData().general.masterName);
+    qDebug() << "==========================================";
+
     // Debug information about parsed status sections
     QList<StatusSection> statuses = scriptParser->getStatusSections();
-    qDebug() << "[DEBUG] Parsed " << statuses.size() << " status sections:";
-    for (const StatusSection &status : statuses) {
-        qDebug() << "[DEBUG] Status: " << status.name << " (Group: " << status.group << ")";
-    }
+    qDebug() << "[DEBUG] Parsed " << statuses.size() << " status sections.";
 
     // Store the path to the current ini file
     this->currentIniFile = filePath;
@@ -2923,8 +2948,6 @@ void CyberDom::loadAndParseScript(const QString &filePath) {
 
     // Update the status display
     setupInitialStatus();
-
-    qDebug() << "Script successfully loaded and parsed from: " << filePath;
 }
 
 void CyberDom::applyScriptSettings() {
