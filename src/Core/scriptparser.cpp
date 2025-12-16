@@ -1894,9 +1894,9 @@ void ScriptParser::parseJobSections(const QMap<QString, QMap<QString, QStringLis
         JobDefinition job;
         job.name = jobName;
 
-        // Update ALL lookups to use lowercase keys
-        if (entries.contains("text"))
-            job.text = entries["text"].value(0).trimmed().toLower();
+        // // Update ALL lookups to use lowercase keys
+        // if (entries.contains("text"))
+        //     job.text = entries["text"].value(0).trimmed().toLower();
 
         auto parseIntRange = [](const QString& s, int& min, int& max) {
             QStringList parts = s.split(',', Qt::SkipEmptyParts);

@@ -9,6 +9,9 @@
 #include <QStandardPaths>
 #include <iostream>
 #include <csignal>
+#include <QSysInfo>
+#include <QDirIterator>
+#include <QImageReader>
 
 // --- Platform Specific Headers ---
 #ifdef _WIN32
@@ -18,6 +21,18 @@
 #include <execinfo.h>
 #include <unistd.h>
 #include <signal.h>
+#endif
+
+// --- VERSION HELPER ---
+// We use the BUILD_VER passed from the .pro file (e.g. 0.0.2)
+// and turn it into a string ("0.0.2") right here.
+#define STRINGIFY(x) #x
+#define TOSTRING(x) STRINGIFY(x)
+
+#ifdef BUILD_VER
+#define APP_VERSION_STR TOSTRING(BUILD_VER)
+#else
+#define APP_VERSION_STR "Unknown"
 #endif
 
 // Global pointer for main app instance
@@ -180,6 +195,39 @@ int main(int argc, char *argv[])
     // 1. Instantiate QApplication FIRST
     QApplication a(argc, argv);
 
+    // --- DESKTOP INTEGRATION ---
+    // Set Organization and App Name (Used for WM_CLASS on Linux)
+    a.setOrganizationName("Desire_Games");
+    a.setApplicationName("CyberDom");
+
+    // Set the Desktop File Name
+    a.setDesktopFileName("cyberdom.desktop");
+
+    // Icon Loader
+    QString iconPath = ":/images/images/cyberdom_256x256.png";
+
+    QIcon icon(iconPath);
+
+    if (icon.isNull()) {
+        qDebug() << "ERROR: Failed to load icon from" << iconPath;
+
+        // Debugging: Try to see why
+        QImageReader reader(iconPath);
+        if (!reader.canRead()) {
+            qDebug() << "Image Reader Error:" << reader.errorString();
+        }
+
+        // Fallback: Try the alias as a last resort
+        QIcon fallback(":/images/cyberdom.png");
+        if (!fallback.isNull()) {
+            qDebug() << "Fallback to alias worked.";
+            a.setWindowIcon(fallback);
+        }
+    } else {
+        qDebug() << "SUCCESS: Loaded window icon from" << iconPath;
+        a.setWindowIcon(icon);
+    }
+
     // --- LOGGING SETUP ---
     QString docsLocation = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation);
     QString logDir = docsLocation + "/CyberDom/Logs";
@@ -198,7 +246,7 @@ int main(int argc, char *argv[])
     while (logFiles.size() >= 10) {
         QString oldestLog = logFiles.first().absoluteFilePath();
         QFile::remove(oldestLog);
-        qDebug() << "Deleted old log file:" << oldestLog;
+        std::cout << "Deleted old log file: " << oldestLog.toStdString() << std::endl;
         logFiles.removeFirst();
     }
     // ----------------------------------------------
@@ -218,10 +266,35 @@ int main(int argc, char *argv[])
     std::signal(SIGFPE, crashHandler);
 #endif
 
-    qDebug() << "==========================================";
+    // --- DETECT DESKTOP ENVIRONMENT ---
+    QString desktopEnv;
+#ifdef Q_OS_LINUX
+    // Try XDG_CURRENT_DESKTOP first (Standard)
+    desktopEnv = qgetenv("XDG_CURRENT_DESKTOP");
+    if (desktopEnv.isEmpty()) {
+        // Fallback to DESKTOP_SESSION
+        desktopEnv = qgetenv("DESKTOP_SESSION");
+    }
+    if (desktopEnv.isEmpty()) {
+        // Fallback to GDMSESSION
+        desktopEnv = qgetenv("GDMSESSION");
+    }
+    if (desktopEnv.isEmpty()) desktopEnv = "Unknown Linux DE";
+#else
+    desktopEnv = "N/A"; // Not relevant on Windows/MacOS
+#endif
+
+    qDebug() << "===================================================================================";
     qDebug() << "   CyberDom Application Started";
-    qDebug() << "   Session Log:" << g_logFilePath;
-    qDebug() << "==========================================";
+    // FIX: Use APP_VERSION_STR instead of APP_VERSION
+    qDebug() << "   Version:        " << APP_VERSION_STR;
+    qDebug() << "   Build Time:     " << __DATE__ << __TIME__;
+    qDebug() << "   Session Log:    " << g_logFilePath;
+    qDebug() << "   OS:             " << QSysInfo::prettyProductName();
+    qDebug() << "   Kernel:         " << QSysInfo::kernelType() << QSysInfo::kernelVersion();
+    qDebug() << "   Architecture:   " << QSysInfo::currentCpuArchitecture();
+    qDebug() << "   Desktop Env:    " << desktopEnv;
+    qDebug() << "===================================================================================";
 
     CyberDom w;
     mainApp = &w;

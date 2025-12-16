@@ -1,0 +1,15 @@
+<RCC>
+    <qresource prefix="/images">
+        <file alias="cyberdom.png">cyberdom.png</file>
+        <file>images/cyberdom_16x16.png</file>
+        <file>images/cyberdom_16x16@2x.png</file>
+        <file>images/cyberdom_32x32.png</file>
+        <file>images/cyberdom_64x64.png</file>
+        <file>images/cyberdom_128x128.png</file>
+        <file>images/cyberdom_128x128@2x.png</file>
+        <file>images/cyberdom_256x256.png</file>
+        <file>images/cyberdom_256x256@2x.png</file>
+        <file>images/cyberdom_512x512.png</file>
+        <file>images/cyberdom_512x512@2x.png</file>
+    </qresource>
+</RCC>

@@ -48,7 +48,7 @@
       </font>
      </property>
      <property name="text">
-      <string>Version 0.0.2 Alpha</string>
+      <string>Version</string>
      </property>
      <property name="alignment">
       <set>Qt::AlignmentFlag::AlignCenter</set>

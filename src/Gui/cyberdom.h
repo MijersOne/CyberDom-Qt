@@ -79,7 +79,14 @@ public:
     ~CyberDom();
 
     // App Version
-    static constexpr const char* APP_VERSION = "0.0.1";
+#define STRINGIFY(x) #x
+#define TOSTRING(x) STRINGIFY(x)
+    // IF BUILD_VER is passed from .pro, use it. Otherwise default to "Unknown".
+#ifdef BUILD_VER
+    static constexpr const char* APP_VERSION = TOSTRING(BUILD_VER);
+#else
+    static constexpr const char* APP_VERSION = "Unknown";
+#endif
 
     QString replaceVariables(const QString &input,
                              const QString &contextName = "",

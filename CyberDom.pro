@@ -5,13 +5,27 @@ greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 CONFIG += c++17
 CONFIG += console
 
-# You can make your code fail to compile if it uses deprecated APIs.
-# In order to do so, uncomment the following line.
-#DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
+# --- 1. SET THE VERSION HERE ---
+# This sets the binary file version (Windows Properties, etc.)
+VERSION = 0.0.2
+
+# --- 2. PASS VERSION TO C++ ---
+# We define a macro 'APP_VERSION' that holds the string "0.0.2"
+# The escaping below is necessary to handle different shell requirements.
 
 win32 {
     LIBS += -ldbghelp
+    CONFIG -= console
+    # Windows escaping: \"0.0.2\"
+    DEFINES += BUILD_VER=$$VERSION
 }
+
+unix {
+    # Linux/macOS escaping: '"0.0.2"' (protected by single quotes)
+    DEFINES += BUILD_VER=$$VERSION
+}
+
+# --- 3. PROJECT SETTINGS ---
 
 INCLUDEPATH += $$PWD/src/Core \
                $$PWD/src/Gui \
@@ -132,3 +146,9 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 unit_test.target = runtests
 unit_test.commands = cd tests && qmake6 tests.pro && $(MAKE)
 QMAKE_EXTRA_TARGETS += unit_test
+
+RESOURCES += \
+    resources.qrc
+
+DISTFILES += \
+    cyberdom.png
