@@ -7,7 +7,7 @@ CONFIG += console
 
 # --- 1. SET THE VERSION HERE ---
 # This sets the binary file version (Windows Properties, etc.)
-VERSION = 0.0.2
+VERSION = 0.0.3
 
 # --- 2. PASS VERSION TO C++ ---
 # We define a macro 'APP_VERSION' that holds the string "0.0.2"

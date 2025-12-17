@@ -2654,6 +2654,22 @@ void ScriptParser::parseInstructionSets(const QStringList& lines) {
     }
 }
 
+// InstructionDefinition parseSingleInstruction(const QString &name, const QMap<QString, QStringList> &sectionData) {
+//     InstructionDefinition def;
+//     def.name = name;
+//     def.title = name; // Default
+
+//     // Basic Properties
+//     if (sectionData.contains("change"))
+//         def.changeFrequency = sectionData["change"].first();
+
+//     if (sectionData.contains("none"))
+//         def.noneText = sectionData["none"].first();
+
+//     if (sectionData.contains("title"))
+//         def.title = sectionData["title"].first();
+// }
+
 void ScriptParser::parseClothingTypes(const QStringList &lines) {
     QString currentSection;
     ClothingTypeDefinition type;
