@@ -19,6 +19,11 @@ public:
 
     QString getSelectedInstruction() const;
 
+    void setInstructionText(const QString &text);
+
+public slots:
+    void onInstructionSelected(int index);
+
 private:
     void populateCombo();
 

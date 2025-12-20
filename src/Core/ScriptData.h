@@ -398,6 +398,8 @@ struct GeneralSettings {
     QString masterName;
     QStringList subNames;
     QString minVersion;
+    QString title;
+    QString domType;
     QString version;
     int reportTimeFormat = 24;
     bool forgetConfessionEnabled = true;

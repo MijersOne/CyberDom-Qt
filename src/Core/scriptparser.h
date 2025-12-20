@@ -25,6 +25,7 @@ public:
 
     QString getMaster() const;
     QString getSubName() const;
+    QString getDomType() const;
     int getMinMerits() const;
     int getMaxMerits() const;
     bool isTestMenuEnabled() const;

@@ -61,6 +61,7 @@ CMakeLists.txt.user*
 *.opensdf
 *.vcxproj
 *vcxproj.*
+*.code-workspace
 
 # MinGW generated files
 *.Debug
@@ -80,6 +81,7 @@ CMakeLists.txt.user*
 #Folders
 .github/
 .qtcreator/
+.cache/
 tests/
 build/
 builds/

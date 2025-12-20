@@ -32,11 +32,13 @@ public:
     QString toString() const;
     static ClothingItem fromString(const QString &str);
 
-private:
     QString name;
     QString type;
     QMap<QString, QString> attributes;
     QStringList checks; // Stores resolved checks (e.g. "Bra", "Sports Bra")
+
+private:
+
 };
 
 #endif // CLOTHINGITEM_H
