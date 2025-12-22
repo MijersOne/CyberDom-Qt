@@ -35,6 +35,24 @@ static void addChildList(QTreeWidgetItem* parent, const QString &name, const QSt
     }
 }
 
+QString getChangeModeString(InstructionChangeMode mode) {
+    switch (mode) {
+    case InstructionChangeMode::Daily: return "Daily";
+    case InstructionChangeMode::Program: return "Program";
+    case InstructionChangeMode::Always: return "Always";
+    default: return "Unknown";
+    }
+}
+
+QString getSelectModeString(InstructionSelectMode mode) {
+    switch (mode) {
+    case InstructionSelectMode::All: return "All";
+    case InstructionSelectMode::First: return "First";
+    case InstructionSelectMode::Random: return "Random";
+    default: return "Unknown";
+    }
+}
+
 static QString actionTypeToString(ScriptActionType type)
 {
     switch (type) {
@@ -110,6 +128,8 @@ void DataInspectorDialog::populateTree()
     addChildItem(generalRoot, "Sub Names", data.general.subNames.join(", "));
     addChildItem(generalRoot, "Min Merits", QString::number(data.general.minMerits));
     addChildItem(generalRoot, "Max Merits", QString::number(data.general.maxMerits));
+    addChildItem(generalRoot, "Title", data.general.title);
+    addChildItem(generalRoot, "Dom Type", data.general.domType);
 
     // --- 2. Event Handlers ---
     QTreeWidgetItem* eventsRoot = new QTreeWidgetItem(ui->treeWidget);
@@ -261,6 +281,9 @@ void DataInspectorDialog::populateTree()
         QTreeWidgetItem* item = new QTreeWidgetItem(confRoot);
         item->setText(0, conf.name);
         addChildItem(item, "Title", conf.title);
+        addChildList(item, "Not If", conf.notIfConditions);
+        addChildList(item, "If", conf.ifConditions);
+        addChildList(item, "Deny If", conf.denyIfConditions);
     }
 
     // --- 11. Permissions ---
@@ -285,6 +308,56 @@ void DataInspectorDialog::populateTree()
         item->setText(0, flag.name);
         addChildItem(item, "Group", flag.group);
         addChildItem(item, "Expire Procedure", flag.expireProcedure);
+    }
+
+    // --- 13. Cloth Definitions ---
+    QTreeWidgetItem* clothRoot = new QTreeWidgetItem(ui->treeWidget);
+    clothRoot->setText(0, "Cloth Definitions");
+    clothRoot->setText(1, QString("(%1)").arg(data.clothingTypes.size()));
+    rootItems.append(clothRoot);
+    for (const ClothingTypeDefinition &cloth : data.clothingTypes.values()) {
+        QTreeWidgetItem* item = new QTreeWidgetItem(clothRoot);
+        item->setText(0, cloth.name);
+        addChildItem(item, "Name", cloth.name);
+        addChildItem(item, "Title", cloth.title);
+        QTreeWidgetItem* attrsRoot = new QTreeWidgetItem(item);
+        attrsRoot->setText(0, "Attributes");
+        attrsRoot->setText(1, QString("(%1)").arg(cloth.attributes.size()));
+        for (const ClothingAttribute &attr : cloth.attributes) {
+            QTreeWidgetItem* attrItem = new QTreeWidgetItem(attrsRoot);
+            attrItem->setText(0, attr.name);
+            for (const QString &valString : attr.values) {
+                QTreeWidgetItem* valItem = new QTreeWidgetItem(attrItem);
+                valItem->setText(0, valString);
+                if (cloth.valueChecks.contains(valString)) {
+                    QStringList checks = cloth.valueChecks.value(valString);
+                    for (const QString &checkStr : checks) {
+                        QTreeWidgetItem* checkItem = new QTreeWidgetItem(valItem);
+                        checkItem->setText(0, QString("Check: %1").arg(checkStr));
+                    }
+                }
+            }
+        }
+        if (!cloth.checks.isEmpty()) {
+            addChildList(item, "Global Checks", cloth.checks);
+        }
+    }
+
+    // --- 14. Instruction Definitions ---
+    QTreeWidgetItem* instrRoot = new QTreeWidgetItem(ui->treeWidget);
+    instrRoot->setText(0, "Instruction Definitions");
+    instrRoot->setText(1, QString("(%1)").arg(data.instructions.size()));
+    rootItems.append(instrRoot);
+    for (const InstructionDefinition &instr : data.instructions.values()) {
+        QTreeWidgetItem* item = new QTreeWidgetItem(instrRoot);
+        item->setText(0, instr.name);
+        addChildItem(item, "Name", instr.name);
+        addChildItem(item, "Title", instr.title);
+        addChildItem(item, "Is Askable", instr.askable ? "True" : "False");
+        addChildItem(item, "Is Clothing", instr.isClothing ? "True" : "False");
+        addChildItem(item, "Change Mode", getChangeModeString(instr.changeMode));
+        addChildItem(item, "Select Mode", getSelectModeString(instr.selectMode));
+        addChildItem(item, "None Text", instr.noneText);
     }
 
     // Expand all top-level items for easier viewing

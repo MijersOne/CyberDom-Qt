@@ -202,6 +202,10 @@ void ScriptParser::parseGeneralSection(const QString &sectionName, const QMap<QS
         if (val == "12") g.reportTimeFormat = 12;
         else g.reportTimeFormat = 24;
     }
+    if (section.contains("Title"))
+        g.title = section["Title"].value(0);
+    if (section.contains("DomType"))
+        g.domType = section["DomType"].value(0);
     if (section.contains("ForgetConfession"))
         g.forgetConfessionEnabled = section["ForgetConfession"].value(0).trimmed() != "0";
     if (section.contains("IgnoreConfession"))
@@ -2373,6 +2377,13 @@ void ScriptParser::parseInstructionSections(const QStringList& lines) {
             else
                 currentInstr.selectMode = InstructionSelectMode::All;
             currentSet.selectMode = currentInstr.selectMode;
+        } else if (key.compare("Change", Qt::CaseInsensitive) == 0) {
+            if (value.compare("Daily", Qt::CaseInsensitive) == 0)
+                currentInstr.changeMode = InstructionChangeMode::Daily;
+            else if (value.compare("Program", Qt::CaseInsensitive) == 0)
+                currentInstr.changeMode = InstructionChangeMode::Program;
+            else if (value.compare("Always", Qt::CaseInsensitive) == 0)
+                currentInstr.changeMode = InstructionChangeMode::Always;
         } else if (key.compare("Clothing", Qt::CaseInsensitive) == 0) {
             currentInstr.clothingInstruction = value;
         } else if (key.compare("ClearCheck", Qt::CaseInsensitive) == 0) {
@@ -3933,6 +3944,10 @@ QString ScriptParser::getSubName() const {
         return names.first();
     int index = QRandomGenerator::global()->bounded(names.size());
     return names.at(index);
+}
+
+QString ScriptParser::getDomType() const {
+    return scriptData.general.domType;
 }
 
 int ScriptParser::getMinMerits() const { return scriptData.general.minMerits; }
