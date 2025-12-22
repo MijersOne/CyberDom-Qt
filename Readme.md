@@ -2,6 +2,8 @@
 
 **CyberDom** is a robust, script-driven protocol enforcement and task management application built using C++ and the Qt Framework. It allows users to load custom `.ini` scripts that define dynamic rules, statuses, assignments, and behavior logic, creating a fully interactive and automated experience.
 
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/D1D11DFKBC) 
+
 ## Overview
 
 CyberDom functions as an automated controller that parses logic files to manage a user's daily routine, tasks, and compliance. It features a comprehensive event system that tracks merits, clothing requirements, and time-based events.
@@ -81,6 +83,8 @@ You can build the application using either CMake or qmake.
     * **Windows (MinGW):** `mingw32-make`
     * **Windows (MSVC):** `nmake`
 
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/D1D11DFKBC)
+
 ## Usage
 
 1.  Launch the `CyberDom` executable.
@@ -106,3 +110,5 @@ This software is provided "as is", without warranty of any kind. Use at your own
 This application uses the **Qt Toolkit** (http://www.qt.io), licensed under the **LGPLv3**.
 * The source code for Qt can be obtained from [http://download.qt.io](http://download.qt.io).
 * The Qt libraries used are dynamically linked. Users may substitute them with their own compatible versions of the Qt libraries.
+
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/D1D11DFKBC)
