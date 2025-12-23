@@ -31,4 +31,4 @@ If applicable, add screenshots to help explain your problem.
 Add any other context about the problem here.
 
 **Note**
-Please attach any logs, or scripts that you can to better help us test the issue.
+Please attach any logs, or scripts that you can to better help us test the issue. (Be aware that logs attached here will be visible to everyone).
