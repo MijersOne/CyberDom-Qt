@@ -102,7 +102,7 @@ void JobLaunch::launchSelectedJob()
     QMessageBox::information(this, "Job Details", jobInfo);
 
     // --- Launch Logic ---
-    mainApp->addJobToAssignments(selectedJob);
+    mainApp->addJobToAssignments(selectedJob, "Script Action: LaunchJob");
 
     emit mainApp->jobListUpdated();
 

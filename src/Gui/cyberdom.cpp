@@ -59,6 +59,7 @@
 #include <qlogging.h>
 #include <qmessagebox.h>
 #include <qnamespace.h>
+#include <qrandom.h>
 #include <qsettings.h>
 #include <qstandardpaths.h>
 
@@ -3707,8 +3708,8 @@ void CyberDom::assignScheduledJobs() {
   QSettings settings(settingsFile, QSettings::IniFormat);
 
   const auto &jobs = scriptParser->getScriptData().jobs;
+  
   for (const JobDefinition &job : jobs) {
-
     // Don't assign a job that's already active
     if (activeAssignments.contains(job.name)) {
       continue;
@@ -3782,8 +3783,31 @@ void CyberDom::assignScheduledJobs() {
           }
 
         } else if (job.intervalMin > 0) {
-          // No FirstInterval, but has a regular Interval. Assign it now.
-          shouldRunToday = true;
+          // No FirstInterval, but has a regular Interval. Schedule First Run randomly based on Interval.
+          QString firstDueKey = QString("JobCompletion/%1_firstDue").arg(job.name);
+          QDate firstDueDate = QDate::fromString(settings.value(firstDueKey).toString(), Qt::ISODate);
+
+          if (!firstDueDate.isValid()) {
+            // Calculate random interval from the standard interval range
+            int intervalDays;
+            if (job.intervalMax > job.intervalMin) {
+              intervalDays = QRandomGenerator::global()->bounded(job.intervalMin, job.intervalMax + 1);
+            } else {
+              intervalDays = job.intervalMin;
+            }
+
+            // Set the due date relative to TODAY (e.g., 60 days from now)
+            firstDueDate = today.addDays(intervalDays);
+            settings.setValue(firstDueKey, firstDueDate.toString(Qt::ISODate));
+
+            qDebug() << "[Scheduler] Initial Setup for:" << job.name
+                     << "| Due Date set to:" << firstDueDate.toString(Qt::ISODate);
+          }
+
+          // Only run if we have actually reached that calculated date
+          if (today >= firstDueDate) {
+            shouldRunToday = true;
+          }
         }
 
       } else {
@@ -3810,7 +3834,7 @@ void CyberDom::assignScheduledJobs() {
 
     // --- 3. Assign the job if needed ---
     if (shouldRunToday) {
-      addJobToAssignments(job.name, true);
+      addJobToAssignments(job.name, "Scheduler: " + currentDayName, true);
       qDebug() << "[Scheduler] Job Auto-Assigned (" << currentDayName
                << "): " << job.name;
     }
@@ -3844,14 +3868,21 @@ void CyberDom::assignJobFromTrigger(QString section) {
       QString jobName = jobs.first().trimmed();
 
       if (!jobName.isEmpty() && !activeAssignments.contains(jobName)) {
-        addJobToAssignments(jobName);
+        addJobToAssignments(jobName, "Trigger: " + section, false);
         qDebug() << "[DEBUG] Assigned Job:" << jobName;
       }
     }
   }
 }
 
-void CyberDom::addJobToAssignments(QString jobName, bool isAutoAssign) {
+void CyberDom::addJobToAssignments(QString jobName, const QString &source, bool isAutoAssign) {
+  // --- Debug Logging ---
+  qDebug() << "[JobAssignment] Request to assign:" << jobName
+           << "| Source:" << source
+           << "| IsPunishment:" << isPunishment;
+
+  if (jobName.isEmpty()) return;
+  
   if (activeAssignments.contains(jobName)) {
     qDebug() << "[DEBUG] Job already exists in active assignments: " << jobName;
     return;
@@ -3863,6 +3894,9 @@ void CyberDom::addJobToAssignments(QString jobName, bool isAutoAssign) {
   // Save Creation Time
   QSettings settings(settingsFile, QSettings::IniFormat);
   settings.setValue("Assignments/" + jobName + "_creation_time", internalClock);
+
+  // Save the Source
+  settings.setValue("Assignments/" + jobName + "_source", source);
 
   if (scriptParser &&
       scriptParser->getScriptData().jobs.contains(jobName.toLower())) {
@@ -6279,7 +6313,7 @@ bool CyberDom::runProcedure(const QString &procedureName) {
       changeStatus(action.value, true);
       break;
     case ScriptActionType::AnnounceJob:
-      addJobToAssignments(action.value, false);
+      addJobToAssignments(action.value, "Script Action: AnnounceJob", false);
       break;
     case ScriptActionType::MarkDone: {
       QString name = action.value;
