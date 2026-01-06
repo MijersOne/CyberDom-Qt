@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 # --- 1. SET THE VERSION HERE ---
-project(CyberDom VERSION 0.0.4 LANGUAGES CXX)
+project(CyberDom VERSION 0.0.5 LANGUAGES CXX)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -148,7 +148,7 @@ target_include_directories(CyberDom PRIVATE
 # --- 6. DEFINE VERSION MACRO ---
 # Passes version as a string literal (e.g. "0.0.3") to match QMake behavior
 target_compile_definitions(CyberDom PRIVATE
-    BUILD_VER="${PROJECT_VERSION}"
+    BUILD_VER=${PROJECT_VERSION}
 )
 
 # --- 7. LIBRARIES ---
