@@ -465,6 +465,9 @@ private:
   void parseAndMergeTxt(const QString &filePath);
   void saveClothingInventory();
 
+  // Assignments
+  QTimer *schedulerTimer;
+
 private slots:
   void applyTimeToClock(int days, int hours, int minutes, int seconds);
   void openAboutDialog();

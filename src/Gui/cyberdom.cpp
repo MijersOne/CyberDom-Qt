@@ -348,6 +348,11 @@ CyberDom::CyberDom(QWidget *parent)
   connect(flagTimer, &QTimer::timeout, this, &CyberDom::checkFlagExpiry);
   flagTimer->start(30000); // Check every 30 seconds
 
+  // Scheduler Timer
+  schedulerTimer = new QTimer(this);
+  connect(schedulerTimer, &QTimer::timeout, this, &CyberDom::assignScheduledJobs);
+  schedulerTimer->start(60000);
+
   // Debugging values to confirm override
   qDebug() << "CyberDom initialized with Min Merits:" << minMerits
            << "Max Merits:" << maxMerits;
@@ -3715,6 +3720,16 @@ void CyberDom::assignScheduledJobs() {
       continue;
     }
 
+    // Safety: If the job was already done TODAY, skip it.
+    // This prevents the 1-minute timer from re-assigning a Daily Job
+    // immediately after it is finished.
+    QString lastDoneKey = QString("JobCompletion/%1_lastDone").arg(job.name);
+    QDate lastDoneDate = QDate::fromString(settings.value(lastDoneKey).toString(), Qt::ISODate);
+
+    if (lastDoneDate.isValid() && lastDoneDate == today) {
+      continue;
+    }
+
     if (job.oneTime) {
       QString oneTimeKey =
           QString("JobCompletion/%1_oneTimeDone").arg(job.name);
@@ -3789,12 +3804,16 @@ void CyberDom::assignScheduledJobs() {
 
             firstDueDate = today.addDays(intervalDays);
             settings.setValue(firstDueKey, firstDueDate.toString(Qt::ISODate));
+            
             qDebug() << "[Scheduler] FirstInterval set for" << job.name
                      << ". Due on:" << firstDueDate.toString(Qt::ISODate);
           }
 
+          // Apply Respite Logic
+          QDate assignDate = QDateTime(firstDueDate, QTime(0,0)).addSecs(-respiteSeconds).date();
+
           // Now check if we are on or after that due date
-          if (today >= firstDueDate) {
+          if (today >= assignDate) {
             shouldRunToday = true;
           }
 
@@ -3820,8 +3839,11 @@ void CyberDom::assignScheduledJobs() {
                      << "| Due Date set to:" << firstDueDate.toString(Qt::ISODate);
           }
 
+          // Apply Respite Logic
+          QDate assignDate = QDateTime(firstDueDate, QTime(0,0)).addSecs(-respiteSeconds).date();
+
           // Only run if we have actually reached that calculated date
-          if (today >= firstDueDate) {
+          if (today >= assignDate) {
             shouldRunToday = true;
           }
         }
@@ -3841,7 +3863,10 @@ void CyberDom::assignScheduledJobs() {
 
           QDate dueDate = lastDoneDate.addDays(intervalDays);
 
-          if (today >= dueDate) {
+          // Apply Respite to Recurring Jobs
+          QDate assignDate = QDateTime(dueDate, QTime(0,0)).addSecs(-respiteSeconds).date();
+
+          if (today >= assignDate) {
             shouldRunToday = true;
           }
         }
