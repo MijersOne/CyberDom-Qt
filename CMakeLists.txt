@@ -127,12 +127,21 @@ set(PROJECT_RESOURCES
 
 # --- 4. EXECUTABLE ---
 # WIN32 handles the "CONFIG -= console" for Windows (hides terminal)
-qt_add_executable(CyberDom WIN32
+qt_add_executable(CyberDom WIN32 MACOSX_BUNDLE
     ${PROJECT_SOURCES}
     ${PROJECT_HEADERS}
     ${PROJECT_UIS}
     ${PROJECT_RESOURCES}
 )
+
+if(APPLE)
+    set_target_properties(CyberDom PROPERTIES
+        MACOSX_BUNDLE_BUNDLE_NAME "CyberDom"
+        MACOSX_BUNDLE_GUI_IDENTIFIER "com.desire_games.cyberdom"
+        MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION}
+        MACOSX_BUNDLE_SHORT_VERSION_STRING ${PROJECT_VERSION}
+    )
+endif()
 
 # --- 5. INCLUDES ---
 target_include_directories(CyberDom PRIVATE
