@@ -59,6 +59,7 @@
 #include <qlogging.h>
 #include <qmessagebox.h>
 #include <qnamespace.h>
+#include <qrandom.h>
 #include <qsettings.h>
 #include <qstandardpaths.h>
 
@@ -346,6 +347,11 @@ CyberDom::CyberDom(QWidget *parent)
   flagTimer = new QTimer(this);
   connect(flagTimer, &QTimer::timeout, this, &CyberDom::checkFlagExpiry);
   flagTimer->start(30000); // Check every 30 seconds
+
+  // Scheduler Timer
+  schedulerTimer = new QTimer(this);
+  connect(schedulerTimer, &QTimer::timeout, this, &CyberDom::assignScheduledJobs);
+  schedulerTimer->start(60000);
 
   // Debugging values to confirm override
   qDebug() << "CyberDom initialized with Min Merits:" << minMerits
@@ -3707,10 +3713,20 @@ void CyberDom::assignScheduledJobs() {
   QSettings settings(settingsFile, QSettings::IniFormat);
 
   const auto &jobs = scriptParser->getScriptData().jobs;
+  
   for (const JobDefinition &job : jobs) {
-
     // Don't assign a job that's already active
     if (activeAssignments.contains(job.name)) {
+      continue;
+    }
+
+    // Safety: If the job was already done TODAY, skip it.
+    // This prevents the 1-minute timer from re-assigning a Daily Job
+    // immediately after it is finished.
+    QString lastDoneKey = QString("JobCompletion/%1_lastDone").arg(job.name);
+    QDate lastDoneDate = QDate::fromString(settings.value(lastDoneKey).toString(), Qt::ISODate);
+
+    if (lastDoneDate.isValid() && lastDoneDate == today) {
       continue;
     }
 
@@ -3743,6 +3759,22 @@ void CyberDom::assignScheduledJobs() {
     // We only do this if the Run= logic didn't already trigger it
     if (!shouldRunToday && (job.intervalMin > 0 || job.firstIntervalMin > 0)) {
 
+      // --- Calculate Respite (Default 48 hours) ---
+      int respiteSeconds = 48 * 3600;
+      if (!job.respite.isEmpty()) {
+        QString r = job.respite;
+        if (r.startsWith("!") || r.startsWith("#")) r = scriptParser->getVariable(r.mid(1));
+
+        int parsed = 0;
+        if (r.contains(":")) {
+          QStringList p = r.split(":");
+          if (p.size() >= 2) parsed = p[0].toInt() * 3600 + p[1].toInt() * 60;
+        } else {
+          parsed = parseTimeToSeconds(r);
+        }
+        if (parsed > 0) respiteSeconds = parsed;
+      }
+
       QString lastDoneKey = QString("JobCompletion/%1_lastDone").arg(job.name);
       QDate lastDoneDate = QDate::fromString(
           settings.value(lastDoneKey).toString(), Qt::ISODate);
@@ -3772,18 +3804,48 @@ void CyberDom::assignScheduledJobs() {
 
             firstDueDate = today.addDays(intervalDays);
             settings.setValue(firstDueKey, firstDueDate.toString(Qt::ISODate));
+            
             qDebug() << "[Scheduler] FirstInterval set for" << job.name
                      << ". Due on:" << firstDueDate.toString(Qt::ISODate);
           }
 
+          // Apply Respite Logic
+          QDate assignDate = QDateTime(firstDueDate, QTime(0,0)).addSecs(-respiteSeconds).date();
+
           // Now check if we are on or after that due date
-          if (today >= firstDueDate) {
+          if (today >= assignDate) {
             shouldRunToday = true;
           }
 
         } else if (job.intervalMin > 0) {
-          // No FirstInterval, but has a regular Interval. Assign it now.
-          shouldRunToday = true;
+          // No FirstInterval, but has a regular Interval. Schedule First Run randomly based on Interval.
+          QString firstDueKey = QString("JobCompletion/%1_firstDue").arg(job.name);
+          QDate firstDueDate = QDate::fromString(settings.value(firstDueKey).toString(), Qt::ISODate);
+
+          if (!firstDueDate.isValid()) {
+            // Calculate random interval from the standard interval range
+            int intervalDays;
+            if (job.intervalMax > job.intervalMin) {
+              intervalDays = QRandomGenerator::global()->bounded(job.intervalMin, job.intervalMax + 1);
+            } else {
+              intervalDays = job.intervalMin;
+            }
+
+            // Set the due date relative to TODAY (e.g., 60 days from now)
+            firstDueDate = today.addDays(intervalDays);
+            settings.setValue(firstDueKey, firstDueDate.toString(Qt::ISODate));
+
+            qDebug() << "[Scheduler] Initial Setup for:" << job.name
+                     << "| Due Date set to:" << firstDueDate.toString(Qt::ISODate);
+          }
+
+          // Apply Respite Logic
+          QDate assignDate = QDateTime(firstDueDate, QTime(0,0)).addSecs(-respiteSeconds).date();
+
+          // Only run if we have actually reached that calculated date
+          if (today >= assignDate) {
+            shouldRunToday = true;
+          }
         }
 
       } else {
@@ -3801,7 +3863,10 @@ void CyberDom::assignScheduledJobs() {
 
           QDate dueDate = lastDoneDate.addDays(intervalDays);
 
-          if (today >= dueDate) {
+          // Apply Respite to Recurring Jobs
+          QDate assignDate = QDateTime(dueDate, QTime(0,0)).addSecs(-respiteSeconds).date();
+
+          if (today >= assignDate) {
             shouldRunToday = true;
           }
         }
@@ -3810,7 +3875,7 @@ void CyberDom::assignScheduledJobs() {
 
     // --- 3. Assign the job if needed ---
     if (shouldRunToday) {
-      addJobToAssignments(job.name, true);
+      addJobToAssignments(job.name, "Scheduler: " + currentDayName, true);
       qDebug() << "[Scheduler] Job Auto-Assigned (" << currentDayName
                << "): " << job.name;
     }
@@ -3844,14 +3909,21 @@ void CyberDom::assignJobFromTrigger(QString section) {
       QString jobName = jobs.first().trimmed();
 
       if (!jobName.isEmpty() && !activeAssignments.contains(jobName)) {
-        addJobToAssignments(jobName);
+        addJobToAssignments(jobName, "Trigger: " + section, false);
         qDebug() << "[DEBUG] Assigned Job:" << jobName;
       }
     }
   }
 }
 
-void CyberDom::addJobToAssignments(QString jobName, bool isAutoAssign) {
+void CyberDom::addJobToAssignments(QString jobName, const QString &source, bool isAutoAssign) {
+  // --- Debug Logging ---
+  qDebug() << "[JobAssignment] Request to assign:" << jobName
+           << "| Source:" << source
+           << "| IsPunishment:" << isPunishment;
+
+  if (jobName.isEmpty()) return;
+  
   if (activeAssignments.contains(jobName)) {
     qDebug() << "[DEBUG] Job already exists in active assignments: " << jobName;
     return;
@@ -3863,6 +3935,9 @@ void CyberDom::addJobToAssignments(QString jobName, bool isAutoAssign) {
   // Save Creation Time
   QSettings settings(settingsFile, QSettings::IniFormat);
   settings.setValue("Assignments/" + jobName + "_creation_time", internalClock);
+
+  // Save the Source
+  settings.setValue("Assignments/" + jobName + "_source", source);
 
   if (scriptParser &&
       scriptParser->getScriptData().jobs.contains(jobName.toLower())) {
@@ -3906,14 +3981,22 @@ void CyberDom::addJobToAssignments(QString jobName, bool isAutoAssign) {
         respiteStr = scriptParser->getVariable(respiteStr.mid(1));
       }
 
-      // Now, parse the hh:mm string
-      QStringList respiteParts = respiteStr.split(":");
-      if (respiteParts.size() >= 2) {
-        int hours = respiteParts[0].toInt();
-        int minutes = respiteParts[1].toInt();
-        deadline = internalClock.addSecs(hours * 3600 + minutes * 60);
+      int respiteSecs = 0;
+      // Handle "HH:MM" format
+      if (respiteStr.contains(":")) {
+        QStringList parts = respiteStr.split(":");
+        if (parts.size() >= 2) {
+          respiteSecs = parts[0].toInt() * 3600 + parts[1].toInt() * 60;
+        }
+      } else {
+        // Handle "1d", "48h" format using helper
+        respiteSecs = parseTimeToSeconds(respiteStr);
+      }
+
+      if (respiteSecs > 0) {
+        deadline = internalClock.addSecs(respiteSecs);
         deadlineSet = true;
-        qDebug() << "[DEBUG] Job deadline set from Respite: "
+        qDebug() << "[DEBUG] Job deadline set from Respite (" << respiteStr << "): "
                  << deadline.toString("MM-dd-yyyy hh:mm AP");
       }
     }
@@ -6279,7 +6362,7 @@ bool CyberDom::runProcedure(const QString &procedureName) {
       changeStatus(action.value, true);
       break;
     case ScriptActionType::AnnounceJob:
-      addJobToAssignments(action.value, false);
+      addJobToAssignments(action.value, "Script Action: AnnounceJob", false);
       break;
     case ScriptActionType::MarkDone: {
       QString name = action.value;

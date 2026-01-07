@@ -125,7 +125,7 @@ public:
 
   void assignJobFromTrigger(QString section);
   void assignScheduledJobs();
-  void addJobToAssignments(QString assignmentName, bool isAutoAssign = false);
+  void addJobToAssignments(QString assignmentName, const QString &source, bool isAutoAssign = false);
   void addPunishmentToAssignments(const QString &punishmentName,
                                   int amount = 1);
   void applyPunishment(int severity, const QString &group = QString(),
@@ -464,6 +464,9 @@ private:
   void parseAndMergeJson(const QString &filePath);
   void parseAndMergeTxt(const QString &filePath);
   void saveClothingInventory();
+
+  // Assignments
+  QTimer *schedulerTimer;
 
 private slots:
   void applyTimeToClock(int days, int hours, int minutes, int seconds);
