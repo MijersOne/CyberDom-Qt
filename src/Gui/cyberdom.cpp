@@ -3744,6 +3744,22 @@ void CyberDom::assignScheduledJobs() {
     // We only do this if the Run= logic didn't already trigger it
     if (!shouldRunToday && (job.intervalMin > 0 || job.firstIntervalMin > 0)) {
 
+      // --- Calculate Respite (Default 48 hours) ---
+      int respiteSeconds = 48 * 3600;
+      if (!job.respite.isEmpty()) {
+        QString r = job.respite;
+        if (r.startsWith("!") || r.startsWith("#")) r = scriptParser->getVariable(r.mid(1));
+
+        int parsed = 0;
+        if (r.contains(":")) {
+          QStringList p = r.split(":");
+          if (p.size() >= 2) parsed = p[0].toInt() * 3600 + p[1].toInt() * 60;
+        } else {
+          parsed = parseTimeToSeconds(r);
+        }
+        if (parsed > 0) respiteSeconds = parsed;
+      }
+
       QString lastDoneKey = QString("JobCompletion/%1_lastDone").arg(job.name);
       QDate lastDoneDate = QDate::fromString(
           settings.value(lastDoneKey).toString(), Qt::ISODate);
@@ -3940,14 +3956,22 @@ void CyberDom::addJobToAssignments(QString jobName, const QString &source, bool 
         respiteStr = scriptParser->getVariable(respiteStr.mid(1));
       }
 
-      // Now, parse the hh:mm string
-      QStringList respiteParts = respiteStr.split(":");
-      if (respiteParts.size() >= 2) {
-        int hours = respiteParts[0].toInt();
-        int minutes = respiteParts[1].toInt();
-        deadline = internalClock.addSecs(hours * 3600 + minutes * 60);
+      int respiteSecs = 0;
+      // Handle "HH:MM" format
+      if (respiteStr.contains(":")) {
+        QStringList parts = respiteStr.split(":");
+        if (parts.size() >= 2) {
+          respiteSecs = parts[0].toInt() * 3600 + parts[1].toInt() * 60;
+        }
+      } else {
+        // Handle "1d", "48h" format using helper
+        respiteSecs = parseTimeToSeconds(respiteStr);
+      }
+
+      if (respiteSecs > 0) {
+        deadline = internalClock.addSecs(respiteSecs);
         deadlineSet = true;
-        qDebug() << "[DEBUG] Job deadline set from Respite: "
+        qDebug() << "[DEBUG] Job deadline set from Respite (" << respiteStr << "): "
                  << deadline.toString("MM-dd-yyyy hh:mm AP");
       }
     }
