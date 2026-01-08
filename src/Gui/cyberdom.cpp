@@ -56,6 +56,7 @@
 #include <qjsondocument.h>
 #include <qjsonobject.h>
 #include <qjsonvalue.h>
+#include <qlineedit.h>
 #include <qlogging.h>
 #include <qmessagebox.h>
 #include <qnamespace.h>
@@ -5975,6 +5976,8 @@ void CyberDom::executeQuestion(const QString &questionKey,
     questionAnswers[questionKey] = selectedAnswer;
     saveQuestionAnswers();
 
+    QString displayAnswer = selectedAnswer;
+
     bool matchFound = false;
 
     for (const auto &answerBlock : questionData.answers) {
@@ -5993,6 +5996,12 @@ void CyberDom::executeQuestion(const QString &questionKey,
 
       if (textMatch || procMatch || varMatch) {
         matchFound = true;
+
+        // Capture the Display Text
+        displayAnswer = answerBlock.answerText;
+        if (displayAnswer.startsWith("?")) {
+            displayAnswer = displayAnswer.mid(1);
+        }
 
         QString procedureName = answerBlock.procedureName;
 
@@ -6036,7 +6045,16 @@ void CyberDom::executeQuestion(const QString &questionKey,
         qDebug() << "[Question] No input selected. Running NoInputProcedure:"
                  << questionData.noInputProcedure;
         runProcedure(questionData.noInputProcedure);
+        displayAnswer = "(No Answer)";
       }
+    }
+
+    // Log question and response
+    if (currentActiveReportLog) {
+      ReportInteraction interaction;
+      interaction.prompt = questionData.text;
+      interaction.answer = displayAnswer;
+      currentActiveReportLog->interactions.append(interaction);
     }
   }
 }
@@ -6587,6 +6605,13 @@ void CyberDom::executeReport(const QString &name) {
 
   todayStats.reportsMade.append(name);
 
+  // ---Start Logging Context ---
+  ReportLogEntry newLog;
+  newLog.reportName = name;
+  newLog.timestamp = internalClock;
+
+  currentActiveReportLog = &newLog;
+
   // --- NEW: Handle StopAutoAssign ---
   if (rep.stopAutoAssign) {
     // Logic to stop auto-assign (if you have a flag or setting for this)
@@ -6676,14 +6701,12 @@ void CyberDom::executeReport(const QString &name) {
                                replaceVariables(action.value));
       break;
 
-    // --- ADDED MISSING CASES ---
     case ScriptActionType::Question:
       executeQuestion(action.value.trimmed().toLower(), "Question");
       break;
     case ScriptActionType::Input:
-      executeQuestion(action.value.trimmed().toLower(), "Input Required");
+      handleReportInput(action.value);
       break;
-      // ---------------------------
 
     case ScriptActionType::NewStatus:
       changeStatus(action.value, false);
@@ -6773,6 +6796,9 @@ void CyberDom::executeReport(const QString &name) {
       break;
     }
   }
+
+  todayStats.reportHistory.append(newLog);
+  currentActiveReportLog = nullptr;
 }
 
 bool CyberDom::loadSessionData(const QString &path) {
@@ -7988,93 +8014,158 @@ void CyberDom::trackPermissionEvent(const QString &name,
 
 // Generate the HTML content
 QString CyberDom::generateReportHtml(bool isEndOfDay) {
-  QString title =
-      isEndOfDay ? "Daily Activity Report" : "Activity Report (Interim)";
+  QString title = isEndOfDay ? "Daily Activity Report" : "Activity Report";
   QString dateStr = internalClock.date().toString("dddd, MMMM d, yyyy");
 
-  QString html = R"(
+  // --- HTML HEADER & CSS ---
+  QString html = R"HTML(
+    <!DOCTYPE html>
     <html>
     <head>
+        <meta charset="UTF-8">
         <style>
-            body { font-family: sans-serif; color: #333; background-color: #f4f4f4; padding: 20px; }
-            .container { max-width: 800px; margin: auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-            h1 { color: #2c3e50; border-bottom: 2px solid #eee; padding-bottom: 10px; }
-            h2 { color: #e67e22; margin-top: 25px; font-size: 1.2em; }
-            ul { list-style-type: none; padding: 0; }
-            li { background: #f9f9f9; margin: 5px 0; padding: 8px; border-left: 4px solid #3498db; }
-            .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
-            .stat-box { background: #ecf0f1; padding: 15px; text-align: center; border-radius: 5px; }
-            .stat-num { font-size: 24px; font-weight: bold; color: #2980b9; }
-            .stat-label { color: #7f8c8d; font-size: 0.9em; }
+            :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --card: #ffffff; }
+            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg); color: #333; margin: 0; padding: 0; }
+            
+            /* Navbar */
+            .navbar { background-color: var(--primary); padding: 15px 30px; display: flex; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+            .navbar h1 { color: white; margin: 0; font-size: 1.5em; flex-grow: 1; }
+            .nav-tabs { display: flex; gap: 10px; }
+            .tab-btn { background: rgba(255,255,255,0.1); color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; transition: 0.3s; font-weight: 600; }
+            .tab-btn:hover { background: rgba(255,255,255,0.3); }
+            .tab-btn.active { background: var(--accent); }
+
+            /* Content Area */
+            .container { max-width: 900px; margin: 30px auto; padding: 0 20px; }
+            .tab-content { display: none; animation: fadeIn 0.3s; }
+            .tab-content.active { display: block; }
+
+            /* Dashboard Cards */
+            .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }
+            .card { background: var(--card); padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); text-align: center; }
+            .stat-num { font-size: 2.5em; font-weight: bold; color: var(--accent); margin-bottom: 5px; }
+            .stat-label { color: #7f8c8d; text-transform: uppercase; font-size: 0.85em; letter-spacing: 1px; }
+
+            /* Lists */
+            .list-section h2 { border-bottom: 2px solid #eee; padding-bottom: 10px; color: var(--primary); margin-top: 40px; }
+            ul.styled-list { list-style: none; padding: 0; }
+            ul.styled-list li { background: white; border-bottom: 1px solid #eee; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; }
+            ul.styled-list li:first-child { border-top-left-radius: 8px; border-top-right-radius: 8px; }
+            ul.styled-list li:last-child { border-bottom: none; border-bottom-left-radius: 8px; border-bottom-right-radius: 8px; }
+
+            /* Detailed Reports Section */
+            .report-entry { background: white; border-radius: 8px; padding: 25px; margin-bottom: 25px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); border-left: 5px solid var(--accent); }
+            .report-header { display: flex; justify-content: space-between; border-bottom: 1px solid #eee; padding-bottom: 15px; margin-bottom: 15px; }
+            .report-title { font-size: 1.2em; font-weight: bold; color: var(--primary); }
+            .report-time { color: #95a5a6; font-size: 0.9em; }
+            
+            .qa-pair { margin-bottom: 15px; }
+            .qa-question { font-weight: 600; color: #555; margin-bottom: 4px; display: block; }
+            .qa-answer { background: #f8f9fa; padding: 8px 12px; border-radius: 4px; color: #2c3e50; display: inline-block; min-width: 50%; border-left: 3px solid #bdc3c7; }
+
+            @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         </style>
+
+        <script>
+            function openTab(tabName) {
+                var i;
+                var x = document.getElementsByClassName("tab-content");
+                var tabs = document.getElementsByClassName("tab-btn");
+                for (i = 0; i < x.length; i++) { x[i].className = "tab-content"; }
+                for (i = 0; i < tabs.length; i++) { tabs[i].className = tabs[i].className.replace(" active", ""); }
+                document.getElementById(tabName).className += " active";
+                event.currentTarget.className += " active";
+            }
+        </script>
     </head>
     <body>
-    <div class="container">
-    )";
+    )HTML";
 
-  html += QString("<h1>%1</h1>").arg(title);
-  html += QString("<p><strong>Date:</strong> %1</p>").arg(dateStr);
-  html += QString("<p><strong>Status:</strong> %1</p>").arg(currentStatus);
+  // --- NAVBAR ---
+  html += QString(R"HTML(
+    <div class="navbar">
+        <h1>%1</h1>
+        <div class="nav-tabs">
+            <button class="tab-btn active" onclick="openTab('dashboard')">Dashboard</button>
+            <button class="tab-btn" onclick="openTab('reports')">Reports (%2)</button>
+        </div>
+    </div>
+    )HTML").arg(title).arg(todayStats.reportHistory.size());
 
-  // Stats Grid
+  html += "<div class='container'>";
+
+  // --- TAB 1: DASHBOARD ---
+  html += "<div id='dashboard' class='tab-content active'>";
+  
+  // 1. Stats Grid
   html += "<div class='stats-grid'>";
-  html += QString("<div class='stat-box'><div class='stat-num'>+%1</div><div "
-                  "class='stat-label'>Merits Gained</div></div>")
-              .arg(todayStats.meritsGained);
-  html += QString("<div class='stat-box'><div class='stat-num' "
-                  "style='color:#c0392b'>-%1</div><div "
-                  "class='stat-label'>Merits Lost</div></div>")
-              .arg(todayStats.meritsLost);
-  html += QString("<div class='stat-box'><div class='stat-num'>%1</div><div "
-                  "class='stat-label'>Jobs Done</div></div>")
-              .arg(todayStats.jobsCompleted.size());
-  html += QString("<div class='stat-box'><div class='stat-num'>%1</div><div "
-                  "class='stat-label'>Punishments</div></div>")
-              .arg(todayStats.punishmentsCompleted.size());
+  html += QString("<div class='card'><div class='stat-num'>+%1</div><div class='stat-label'>Merits Gained</div></div>").arg(todayStats.meritsGained);
+  html += QString("<div class='card'><div class='stat-num' style='color:#e74c3c'>-%1</div><div class='stat-label'>Merits Lost</div></div>").arg(todayStats.meritsLost);
+  html += QString("<div class='card'><div class='stat-num'>%1</div><div class='stat-label'>Jobs Done</div></div>").arg(todayStats.jobsCompleted.size());
+  html += QString("<div class='card'><div class='stat-num'>%1</div><div class='stat-label'>Punishments</div></div>").arg(todayStats.punishmentsCompleted.size());
   html += "</div>";
 
-  // Helper to add sections
-  auto addSection = [&](const QString &header, const QStringList &items) {
-    if (items.isEmpty())
-      return;
-    html += QString("<h2>%1</h2><ul>").arg(header);
-    for (const QString &item : items)
-      html += QString("<li>%1</li>").arg(item);
-    html += "</ul>";
+  // 2. Simple Lists (Helper function for cleaner code)
+  auto addSimpleList = [&](const QString &title, const QStringList &items) {
+      if(items.isEmpty()) return;
+      html += QString("<div class='list-section'><h2>%1</h2><ul class='styled-list'>").arg(title);
+      for(const QString &item : items) html += QString("<li>%1</li>").arg(item);
+      html += "</ul></div>";
   };
 
-  addSection("Jobs Completed", todayStats.jobsCompleted);
-  addSection("Punishments Completed", todayStats.punishmentsCompleted);
-  addSection("Outfits Worn", todayStats.outfitsWorn);
-  addSection("Permissions", todayStats.permissionsAsked);
-  addSection("Reports Submitted", todayStats.reportsMade);
-  addSection("Confessions", todayStats.confessionsMade);
-
-  // Currently Active
-  html += "<h2>Current Status</h2><ul>";
+  addSimpleList("Jobs Completed", todayStats.jobsCompleted);
+  addSimpleList("Punishments Completed", todayStats.punishmentsCompleted);
+  addSimpleList("Permissions Requested", todayStats.permissionsAsked);
+  addSimpleList("Confessions", todayStats.confessionsMade);
+  
+  // 3. Current Active Status
+  html += "<div class='list-section'><h2>Active Now</h2><ul class='styled-list'>";
   if (activeAssignments.isEmpty()) {
-    html += "<li>No active assignments.</li>";
+      html += "<li>No active assignments</li>";
   } else {
-    for (const QString &name : activeAssignments) {
-      QString deadline = jobDeadlines.value(name).toString("MM-dd hh:mm AP");
-
-      bool isPun = false;
-      if (getPunishmentDefinition(name))
-        isPun = true;
-
-      // Use helper to get nice name
-      QString displayName = getAssignmentDisplayName(name, isPun);
-
-      QString startFlag = (isPun ? "punishment_" : "job_") + name + "_started";
-      bool isStarted = isFlagSet(startFlag);
-
-      QString statusStr =
-          isStarted ? "<strong>(Started)</strong>" : "(Not Started)";
-      html += QString("<li>%1 %2 - Due: %3</li>")
-                  .arg(displayName, statusStr, deadline);
-    }
+      for (const QString &name : activeAssignments) {
+           QString deadline = jobDeadlines.value(name).toString("MM-dd hh:mm AP");
+           bool isPun = getPunishmentDefinition(name) != nullptr;
+           html += QString("<li><span>%1</span> <span style='font-size:0.9em; color:#888'>Due: %2</span></li>")
+                   .arg(getAssignmentDisplayName(name, isPun), deadline);
+      }
   }
-  html += "</ul></div></body></html>";
+  html += "</ul></div>";
+  html += "</div>"; // End Dashboard Tab
+
+  // --- TAB 2: DETAILED REPORTS ---
+  html += "<div id='reports' class='tab-content'>";
+  
+  if (todayStats.reportHistory.isEmpty()) {
+      html += "<div style='text-align:center; padding:50px; color:#aaa;'>No reports were run today.</div>";
+  } else {
+      // Iterate through the history
+      for (const ReportLogEntry &log : todayStats.reportHistory) {
+          html += "<div class='report-entry'>";
+          
+          // Header: Name and Time
+          html += "<div class='report-header'>";
+          html += QString("<span class='report-title'>%1</span>").arg(log.reportName);
+          html += QString("<span class='report-time'>%1</span>").arg(log.timestamp.toString("hh:mm AP"));
+          html += "</div>";
+
+          // Interactions
+          if (log.interactions.isEmpty()) {
+              html += "<p style='color:#ccc; font-style:italic;'>No inputs recorded.</p>";
+          } else {
+              for (const ReportInteraction &qa : log.interactions) {
+                  html += "<div class='qa-pair'>";
+                  html += QString("<span class='qa-question'>%1</span>").arg(qa.prompt);
+                  html += QString("<span class='qa-answer'>%1</span>").arg(qa.answer);
+                  html += "</div>";
+              }
+          }
+          html += "</div>"; // End report-entry
+      }
+  }
+  html += "</div>"; // End Reports Tab
+
+  html += "</div></body></html>";
   return html;
 }
 
@@ -8311,6 +8402,16 @@ void CyberDom::executeCounterAction(ScriptActionType type,
   if (varName.startsWith("#"))
     varName = varName.mid(1); // Strip #
 
+  // Helper lambda to log the interaction to the HTML Report context
+  auto logInteraction = [&](const QString &q, int a) {
+    if (currentActiveReportLog) {
+      ReportInteraction interaction;
+      interaction.prompt = q;
+      interaction.answer = QString::number(a);
+      currentActiveReportLog->interactions.append(interaction);
+    }
+  };
+
   // Handle Input#
   if (type == ScriptActionType::InputCounter) {
     bool ok;
@@ -8324,6 +8425,9 @@ void CyberDom::executeCounterAction(ScriptActionType type,
     if (ok) {
       scriptParser->setVariable(varName, QString::number(val));
       qDebug() << "[Input#] Set" << varName << "to" << val;
+
+      // --- Log to HTML Report ---
+      logInteraction(varName, val);
     }
     return;
   }
@@ -8344,6 +8448,9 @@ void CyberDom::executeCounterAction(ScriptActionType type,
     if (ok) {
       scriptParser->setVariable(varName, QString::number(val));
       qDebug() << "[Change#] Set" << varName << "to" << val;
+
+      // --- Log to HTML Report ---
+      logInteraction(varName, val);
     }
     return;
   }
@@ -8361,6 +8468,9 @@ void CyberDom::executeCounterAction(ScriptActionType type,
     if (ok) {
       scriptParser->setVariable(varName, QString::number(val));
       qDebug() << "[InputNeg#] Set" << varName << "to" << val;
+
+      // --- Log to HTML Report ---
+      logInteraction(varName, val);
     }
     return;
   }
@@ -9767,4 +9877,22 @@ void CyberDom::saveClothingInventory() {
   settings.sync();
 
   qDebug() << "Saved merged inventory to disk.";
+}
+
+void CyberDom::handleReportInput(const QString &prompt) {
+  bool ok;
+  // Show a simple dialog asking for text
+  QString text = QInputDialog::getText(this, tr("Report Input"),
+                                       prompt, QLineEdit::Normal,
+                                       "", &ok);
+
+  QString answer = (ok && !text.isEmpty()) ? text : "(No Answer)";
+
+  // If we are inside a running report, log it there
+  if (currentActiveReportLog) {
+    ReportInteraction interaction;
+    interaction.prompt = prompt;
+    interaction.answer = answer;
+    currentActiveReportLog->interactions.append(interaction);
+  }
 }

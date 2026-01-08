@@ -42,6 +42,17 @@ struct CalendarEvent {
   QString type;
 };
 
+struct ReportInteraction {
+  QString prompt;
+  QString answer;
+};
+
+struct ReportLogEntry {
+  QString reportName;
+  QDateTime timestamp;
+  QList<ReportInteraction> interactions;
+};
+
 struct DailyStats {
   QStringList jobsCompleted;
   QStringList punishmentsCompleted;
@@ -51,6 +62,8 @@ struct DailyStats {
   QStringList permissionsAsked;
   QStringList reportsMade;
   QStringList confessionsMade;
+  QList<QPair<QString, QString>> adhocInputs;
+  QList<ReportLogEntry> reportHistory;
 
   void reset() {
     jobsCompleted.clear();
@@ -61,6 +74,7 @@ struct DailyStats {
     permissionsAsked.clear();
     reportsMade.clear();
     confessionsMade.clear();
+    adhocInputs.clear();
   }
 };
 
@@ -458,6 +472,8 @@ private:
 
   // Reports
   QString getReportsDirectory() const;
+  void handleReportInput(const QString &prompt);
+  ReportLogEntry *currentActiveReportLog = nullptr;
 
   // Clothing
   void loadClothingInventory();
