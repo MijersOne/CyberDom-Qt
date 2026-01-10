@@ -484,6 +484,9 @@ private:
   // Assignments
   QTimer *schedulerTimer;
 
+  // Safety Risks
+  bool performSafetyChecks();
+
 private slots:
   void applyTimeToClock(int days, int hours, int minutes, int seconds);
   void openAboutDialog();
@@ -503,7 +506,7 @@ private slots:
   void openAskPermissionDialog();
   void openPermission(const QString &name);
   void openConfession(const QString &name);
-  void resetApplication();
+  void resetApplication(bool force = false);
   void updateMerits(int newMerits);
   void checkPunishments();
   void checkFlagExpiry();

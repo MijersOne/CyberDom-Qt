@@ -9,6 +9,15 @@
 #include <QSet>
 #include <QVariant>
 
+// Safety Check Risks
+enum class SafetyRisk {
+    Webcam,
+    // FileSystem,
+    // ExternalProcess,
+    // Email,
+    // FTP
+};
+
 enum class ScriptActionType {
     ProcedureCall,
     If,
@@ -1292,6 +1301,7 @@ struct ScriptData {
     QStringList permitIfConditions;
     QStack<ListLoopContext> activeLoops;
     QMap<QString, QStringList> lists;
+    QSet<SafetyRisk> detectedRisks;
 };
 
 #endif // SCRIPTDATA_H

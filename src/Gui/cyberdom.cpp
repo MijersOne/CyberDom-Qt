@@ -1,4 +1,5 @@
 #include "cyberdom.h"
+#include "ScriptData.h"
 #include "askpunishment.h" // Include the header for the AskPunishments UI
 #include "changemerits.h"  // Include the header for the ChangeMerits UI
 #include "changestatus.h"  // Include the header for the ChangeStatus UI
@@ -49,6 +50,7 @@
 #include <cstdlib>
 #include <ctime>
 #include <qcontainerfwd.h>
+#include <qcoreapplication.h>
 #include <qdebug.h>
 #include <qfiledevice.h>
 #include <qimage.h>
@@ -58,6 +60,7 @@
 #include <qjsonvalue.h>
 #include <qlineedit.h>
 #include <qlogging.h>
+#include <qmainwindow.h>
 #include <qmessagebox.h>
 #include <qnamespace.h>
 #include <qrandom.h>
@@ -2650,105 +2653,107 @@ void CyberDom::removeFlag(const QString &flagName) {
   }
 }
 
-void CyberDom::resetApplication() {
-  // Confirm reset with the user
-  int response = QMessageBox::warning(
-      this, "Reset Application",
-      "Are you sure you want to reset the application? This will delete all "
-      "saved settings and restart the application.",
-      QMessageBox::Yes | QMessageBox::No);
+void CyberDom::resetApplication(bool force) {
+  // Only ask for confirmation if NOT forced
+  if (!force) {
+      int response = QMessageBox::warning(
+          this, "Reset Application",
+          "Are you sure you want to reset the application? This will delete all "
+          "saved settings and restart the application.",
+          QMessageBox::Yes | QMessageBox::No);
 
-  if (response == QMessageBox::Yes) {
-    // Clear organization/application settings
-    QSettings appSettings("Desire_Games", "CyberDom");
-    appSettings.clear();
-    appSettings.sync();
-
-    // Check if user settings file exists and delete it
-    if (!settingsFile.isEmpty()) {
-      QFile settingsFileObj(settingsFile);
-      if (settingsFileObj.exists()) {
-        if (!settingsFileObj.remove()) {
-          QMessageBox::warning(
-              this, "Reset Warning",
-              "Could not delete the settings file: " + settingsFile +
-                  "\nThe application will restart, but settings may persist.");
-        } else {
-          qDebug() << "[INFO] Successfully deleted settings file: "
-                   << settingsFile;
-        }
+      if (response != QMessageBox::Yes) {
+          return; // User cancelled
       }
-    } else {
-      qDebug() << "[WARNING] Settings file path is empty";
-    }
+  }
+  
+  // Hide the window immediately so it doesn't "ghost" while restarting
+  this->hide();
 
-    // Also try to find and delete any user_settings.ini in the script directory
-    if (!currentIniFile.isEmpty()) {
-      QFileInfo iniFileInfo(currentIniFile);
-      QString userSettingsPath =
-          iniFileInfo.absolutePath() + "/user_settings.ini";
+  // Clear organization/application settings
+  QSettings appSettings("Desire_Games", "CyberDom");
+  appSettings.clear();
+  appSettings.sync();
 
-      QFile userSettingsFile(userSettingsPath);
-      if (userSettingsFile.exists()) {
-        if (!userSettingsFile.remove()) {
-          QMessageBox::warning(
-              this, "Reset Warning",
-              "Could not delete user settings file: " + userSettingsPath +
-                  "\nThe application will restart, but some settings may "
-                  "persist.");
-        } else {
-          qDebug() << "[INFO] Successfully deleted user settings file: "
-                   << userSettingsPath;
+  // Check if user settings file exists and delete it
+  if (!settingsFile.isEmpty()) {
+    QFile settingsFileObj(settingsFile);
+    if (settingsFileObj.exists()) {
+      if (!settingsFileObj.remove()) {
+        if (!force) { // Only show specific file warnings if interactive
+            QMessageBox::warning(
+                this, "Reset Warning",
+                "Could not delete the settings file: " + settingsFile +
+                    "\nThe application will restart, but settings may persist.");
         }
+      } else {
+        qDebug() << "[INFO] Successfully deleted settings file: "
+                 << settingsFile;
       }
     }
+  }
 
-    // Delete the stored session file if it exists
-    if (!sessionFilePath.isEmpty()) {
-      QFile sessionFile(sessionFilePath);
-      if (sessionFile.exists()) {
-        if (!sessionFile.remove()) {
-          QMessageBox::warning(
-              this, "Reset Warning",
-              "Could not delete the session file: " + sessionFilePath +
-                  "\nThe application will restart, but some session data may "
-                  "persist.");
-        } else {
-          qDebug() << "[INFO] Successfully deleted session file: "
-                   << sessionFilePath;
-        }
-      }
+  // Also try to find and delete any user_settings.ini in the script directory
+  if (!currentIniFile.isEmpty()) {
+    QFileInfo iniFileInfo(currentIniFile);
+    QString userSettingsPath =
+        iniFileInfo.absolutePath() + "/user_settings.ini";
+
+    QFile userSettingsFile(userSettingsPath);
+    if (userSettingsFile.exists()) {
+      userSettingsFile.remove(); // Attempt remove, ignore errors on forced reset
     }
+  }
 
-    // Clear paths so the destructor doesn't recreate the files
-    settingsFile.clear();
-    sessionFilePath.clear();
-
-    // Explicitly clear the INI file path selection
-    appSettings.setValue("SelectedIniFile", "");
-
-    // Create a flag file to indicate a fresh start is needed
-    QString flagFilePath = QDir::currentPath() + "/.fresh_start";
-    QFile flagFile(flagFilePath);
-    if (flagFile.open(QIODevice::WriteOnly)) {
-      flagFile.close();
-      qDebug() << "[INFO] Created fresh start flag file";
+  // Delete the stored session file if it exists
+  if (!sessionFilePath.isEmpty()) {
+    QFile sessionFile(sessionFilePath);
+    if (sessionFile.exists()) {
+      sessionFile.remove();
     }
+  }
+  
+  // Also delete from standard location just in case
+  QString stdSession = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/CyberDom/session.cds";
+  if (QFile::exists(stdSession)) QFile::remove(stdSession);
 
-    appSettings.setValue("FreshStart", true);
-    appSettings.sync();
-    qDebug() << "[SYSTEM] RESET TRIGGERED. Deleting settings and restarting "
-                "application.";
+  // Clear paths
+  settingsFile.clear();
+  sessionFilePath.clear();
 
-    // Notify the user
-    QMessageBox::information(this, "Application Successfully Reset",
-                             "The application will now restart and prompt you "
-                             "to select a new script file.");
+  // Explicitly clear the INI file path selection to force new selection next run
+  appSettings.setValue("SelectedIniFile", "");
 
-    // Restart the application
+  // Create a flag file to indicate a fresh start is needed
+  QString flagFilePath = QDir::currentPath() + "/.fresh_start";
+  QFile flagFile(flagFilePath);
+  if (flagFile.open(QIODevice::WriteOnly)) {
+    flagFile.close();
+  }
+
+  appSettings.setValue("FreshStart", true);
+  appSettings.sync();
+  
+  qDebug() << "[SYSTEM] RESET TRIGGERED. Restarting application.";
+
+  // Only show the "Success" message if this was a manual user action.
+  // If it was a forced safety reset, the previous dialog already explained why.
+  if (!force) {
+      QMessageBox::information(this, "Application Successfully Reset",
+                               "The application will now restart and prompt you "
+                               "to select a new script file.");
+  }
+
+  // Restart the application
+  QProcess::startDetached(QCoreApplication::applicationFilePath(),
+                          QStringList());
+
+  if (force) {
+    std::exit(0);
+  } else {
+    // For manual resets, quit() is cleaner as it allows destructors to run,
+    // but strictly speaking std::exit(0) is fine for restarts too.
     QCoreApplication::quit();
-    QProcess::startDetached(QCoreApplication::applicationFilePath(),
-                            QStringList());
   }
 }
 
@@ -3168,6 +3173,18 @@ void CyberDom::loadAndParseScript(const QString &filePath) {
                           "Failed to parse the script file. Please check that "
                           "it's a valid script.");
     return;
+  }
+
+  // Safety Check (Perform immediately after parsing)
+  if (!performSafetyChecks()) {
+      // User selected "No" (Risk Rejected)
+      QMessageBox::information(this, tr("Aborted"),
+          tr("Script loading aborted by user. The application will now close."));
+
+      // Cleanup or reset if necessary, then exit
+      resetApplication(true);
+
+      return;
   }
 
   // --- ENHANCED LOGGING ---
@@ -9895,4 +9912,41 @@ void CyberDom::handleReportInput(const QString &prompt) {
     interaction.answer = answer;
     currentActiveReportLog->interactions.append(interaction);
   }
+}
+
+bool CyberDom::performSafetyChecks() {
+  if (!scriptParser) return true;
+
+  const QSet<SafetyRisk> &risks = scriptParser->getScriptData().detectedRisks;
+
+  if (risks.isEmpty()) return true;
+
+  // Map Risks to Warning Messages
+  QMap<SafetyRisk, QString> warningMessages;
+
+  warningMessages[SafetyRisk::Webcam] =
+    tr("This script contains functions that utilize your Webcam "
+       "(e.g., PointCamera, PoseCamera, or CameraInterval). \n\n"
+       "While the script may allow you to opt-out, we believe that you should be "
+       "made aware that these functions exist in the script.\n\n"
+       "Do you accept the risk and wish to continue?");
+
+    // Future Example:
+    // warningMessages[SafetyRisk::FileSystem] = tr("This script can write files...");
+
+  // Iterate through detected risks
+  for (const SafetyRisk &risk : risks) {
+    if (warningMessages.contains(risk)) {
+        QMessageBox::StandardButton reply;
+        reply = QMessageBox::warning(this, tr("Security Warning"),
+                                      warningMessages[risk],
+                                      QMessageBox::Yes | QMessageBox::No);
+
+        if (reply == QMessageBox::No) {
+            return false; // User rejected the risk
+        }
+    }
+  }
+
+  return true; // All checks passed/accepted
 }

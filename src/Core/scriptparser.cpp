@@ -1,4 +1,5 @@
 #include "scriptparser.h"
+#include "ScriptData.h"
 #include "ScriptUtils.h"
 #include <QSettings>
 #include <QFile>
@@ -7,6 +8,7 @@
 #include <QFileInfo>
 #include <QDir>
 #include <QRandomGenerator>
+#include <qnamespace.h>
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
 #include <QStringConverter>
 #endif
@@ -50,6 +52,13 @@ QMap<QString, QMap<QString, QStringList>> ScriptParser::parseIniFile(const QStri
 
             continue;
         }
+
+        // Webcam Check
+        if (line.contains("CameraInterval", Qt::CaseInsensitive) ||
+            line.contains("PointCamera", Qt::CaseInsensitive) ||
+            line.contains("PoseCamera", Qt::CaseInsensitive)) {
+                scriptData.detectedRisks.insert(SafetyRisk::Webcam);
+            }
 
         lines << line;
     }
@@ -112,6 +121,8 @@ QStringList ScriptParser::readIniLines(const QString &path) {
 }
 
 bool ScriptParser::parseScript(const QString& path) {
+    scriptData.detectedRisks.clear();
+    
     scriptFilePath = path;
     auto sections = parseIniFile(path);
     scriptData.rawSections = sections;
