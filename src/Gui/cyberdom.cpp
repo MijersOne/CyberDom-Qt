@@ -1,4 +1,5 @@
 #include "cyberdom.h"
+#include "ScriptData.h"
 #include "askpunishment.h" // Include the header for the AskPunishments UI
 #include "changemerits.h"  // Include the header for the ChangeMerits UI
 #include "changestatus.h"  // Include the header for the ChangeStatus UI
@@ -49,6 +50,7 @@
 #include <cstdlib>
 #include <ctime>
 #include <qcontainerfwd.h>
+#include <qcoreapplication.h>
 #include <qdebug.h>
 #include <qfiledevice.h>
 #include <qimage.h>
@@ -56,7 +58,9 @@
 #include <qjsondocument.h>
 #include <qjsonobject.h>
 #include <qjsonvalue.h>
+#include <qlineedit.h>
 #include <qlogging.h>
+#include <qmainwindow.h>
 #include <qmessagebox.h>
 #include <qnamespace.h>
 #include <qrandom.h>
@@ -1060,145 +1064,163 @@ void CyberDom::openPermission(const QString &name) {
 
   const PermissionDefinition &perm = perms.value(name);
 
-  // --- 0. Pick a random name ---
+  // --- 0. Pick a name ---
   QString subName = scriptParser->getSubName();
   if (subName.isEmpty())
     subName = "sub";
 
-  // --- 1. Check PreStatus ---
-  if (!perm.preStatuses.isEmpty()) {
-    QString lowerCurrentStatus = currentStatus.toLower();
-    bool foundMatch = false;
-    for (const QString &preStatus : perm.preStatuses) {
-      if (preStatus.toLower() == lowerCurrentStatus) {
-        foundMatch = true;
-        break;
-      }
-    }
-    if (!foundMatch) {
-      QMessageBox::information(
-          this, tr("Permission"),
-          tr("This permission is not available in your current status."));
-      return;
-    }
+  bool forcedMode = false;
+  bool granted = false; // Will be determined by logic or override
+
+  // Check "Always Deny" first (usually takes precedence in logic)
+  if (ui->actionAlways_Deny->isChecked()) {
+      forcedMode = true;
+      granted = false;
+      qDebug() << "[Test Menu] Always Deny active. Permission denied:" << name;
+  }
+  // Check "Always Permit"
+  else if (ui->actionAlways_Permit->isChecked()) {
+      forcedMode = true;
+      granted = true;
+      qDebug() << "[Test Menu] Always Permit active. Permission granted:" << name;
   }
 
-  // --- 2. Check Time (Lockout) ---
-  // Check if currently locked due to MinInterval or Delay
-  if (permissionNextAvailable.contains(name)) {
-    QDateTime unlockTime = permissionNextAvailable.value(name);
-    if (internalClock < unlockTime) {
-      // Denied due to timer lock
-      int delaySecs = calculateSecondsFromTimeRange(perm.delay);
-      if (delaySecs > 0) {
-        QDateTime newUnlock = internalClock.addSecs(delaySecs);
+  // If we are NOT in a forced mode, run the standard checks
+  if (!forcedMode) {
 
-        if (!permissionFirstDenied.contains(name)) {
-          permissionFirstDenied[name] = internalClock;
+      // --- 1. Check PreStatus ---
+      if (!perm.preStatuses.isEmpty()) {
+        QString lowerCurrentStatus = currentStatus.toLower();
+        bool foundMatch = false;
+        for (const QString &preStatus : perm.preStatuses) {
+          if (preStatus.toLower() == lowerCurrentStatus) {
+            foundMatch = true;
+            break;
+          }
         }
-
-        int maxWaitSecs = calculateSecondsFromTimeRange(perm.maxWait);
-        if (maxWaitSecs > 0) {
-          QDateTime absoluteMax =
-              permissionFirstDenied[name].addSecs(maxWaitSecs);
-          if (newUnlock > absoluteMax)
-            newUnlock = absoluteMax;
-        }
-
-        if (newUnlock > unlockTime) {
-          permissionNextAvailable[name] = newUnlock;
+        if (!foundMatch) {
+          QMessageBox::information(
+              this, tr("Permission"),
+              tr("This permission is not available in your current status."));
+          return;
         }
       }
 
-      QMessageBox::information(
-          this, tr("Permission Denied"),
-          tr("You must wait longer before asking for this permission."));
-      return;
-    }
+      // --- 2. Check Time (Lockout) ---
+      if (permissionNextAvailable.contains(name)) {
+        QDateTime unlockTime = permissionNextAvailable.value(name);
+        if (internalClock < unlockTime) {
+          // Denied due to timer lock
+          int delaySecs = calculateSecondsFromTimeRange(perm.delay);
+          if (delaySecs > 0) {
+            QDateTime newUnlock = internalClock.addSecs(delaySecs);
+
+            if (!permissionFirstDenied.contains(name)) {
+              permissionFirstDenied[name] = internalClock;
+            }
+
+            int maxWaitSecs = calculateSecondsFromTimeRange(perm.maxWait);
+            if (maxWaitSecs > 0) {
+              QDateTime absoluteMax =
+                  permissionFirstDenied[name].addSecs(maxWaitSecs);
+              if (newUnlock > absoluteMax)
+                newUnlock = absoluteMax;
+            }
+
+            if (newUnlock > unlockTime) {
+              permissionNextAvailable[name] = newUnlock;
+            }
+          }
+
+          QMessageBox::information(
+              this, tr("Permission Denied"),
+              tr("You must wait longer before asking for this permission."));
+          return;
+        }
+      }
+
+      // Check Global Time Restrictions
+      if (!isTimeAllowed(perm.notBeforeTimes, perm.notAfterTimes,
+                         perm.notBetweenTimes)) {
+        QMessageBox::information(
+            this, tr("Permission"),
+            tr("This permission is not available at this time."));
+        return;
+      }
+
+      incrementUsageCount(QString("Permission/%1").arg(name));
+
+      // --- 3. Check Merit Limits ---
+      int currentMerits = getMeritsFromIni();
+      if ((perm.denyBelowMin != -1 && currentMerits < perm.denyBelowMin) ||
+          (perm.denyAboveMin != -1 && currentMerits > perm.denyAboveMin)) {
+
+        QMessageBox::information(
+            this, tr("Permission Denied"),
+            tr("You do not have the required merit points for this permission."));
+        return;
+      }
+
+      // --- 4. Check Forbidden (Punishments) ---
+      if (isPermissionForbidden(name)) {
+        QString title = perm.title.isEmpty() ? perm.name : perm.title;
+        QMessageBox::information(this, tr("Permission"),
+                                 tr("No %1 you may not %2").arg(subName, title));
+
+        if (!perm.denyProcedure.isEmpty())
+          runProcedure(perm.denyProcedure);
+        QString eventProc =
+            scriptParser->getScriptData().eventHandlers.permissionDenied;
+        if (!eventProc.isEmpty())
+          runProcedure(eventProc);
+
+        // Trigger Delay
+        int delaySecs = calculateSecondsFromTimeRange(perm.delay);
+        if (delaySecs > 0) {
+          permissionNextAvailable[name] = internalClock.addSecs(delaySecs);
+          if (!permissionFirstDenied.contains(name))
+            permissionFirstDenied[name] = internalClock;
+        }
+        return;
+      }
+
+      // --- 5. Run BeforeProcedure ---
+      if (!perm.beforeProcedure.isEmpty())
+        runProcedure(perm.beforeProcedure);
+
+      // --- 6. CALCULATE OUTCOME (Standard Logic) ---
+      int chance = perm.pct;
+
+      // Calculate variable chance based on merits
+      if (perm.pctIsVariable ||
+          (perm.highMeritsMin != -1 && perm.lowMeritsMin != -1)) {
+        int highM = (perm.highMeritsMin != -1) ? perm.highMeritsMin : 1000;
+        int lowM = (perm.lowMeritsMin != -1) ? perm.lowMeritsMin : 0;
+        int highP = (perm.highPctMin != -1) ? perm.highPctMin : 100;
+        int lowP = (perm.lowPctMin != -1) ? perm.lowPctMin : 0;
+
+        if (currentMerits >= highM)
+          chance = highP;
+        else if (currentMerits <= lowM)
+          chance = lowP;
+        else {
+          double ratio = (double)(currentMerits - lowM) / (highM - lowM);
+          chance = lowP + (int)(ratio * (highP - lowP));
+        }
+      }
+
+      // Default to 100% if no Pct logic provided
+      if (chance == 0 && !perm.pctIsVariable && perm.highMeritsMin == -1) {
+        chance = 100;
+      }
+
+      // Roll the dice
+      int roll = ScriptUtils::randomInRange(1, 100, perm.centerRandom);
+      granted = (roll <= chance);
+
+      qDebug() << "[Permission]" << name << "Chance:" << chance << "Roll:" << roll
+               << "Granted:" << granted;
   }
-
-  // Check Global Time Restrictions
-  if (!isTimeAllowed(perm.notBeforeTimes, perm.notAfterTimes,
-                     perm.notBetweenTimes)) {
-    QMessageBox::information(
-        this, tr("Permission"),
-        tr("This permission is not available at this time."));
-    return;
-  }
-
-  incrementUsageCount(QString("Permission/%1").arg(name));
-
-  // --- 3. Check Merit Limits ---
-  int currentMerits = getMeritsFromIni();
-  if ((perm.denyBelowMin != -1 && currentMerits < perm.denyBelowMin) ||
-      (perm.denyAboveMin != -1 && currentMerits > perm.denyAboveMin)) {
-
-    QMessageBox::information(
-        this, tr("Permission Denied"),
-        tr("You do not have the required merit points for this permission."));
-    return;
-  }
-
-  // --- 4. Check Forbidden (Punishments) ---
-  if (isPermissionForbidden(name)) {
-    QString title = perm.title.isEmpty() ? perm.name : perm.title;
-    QMessageBox::information(this, tr("Permission"),
-                             tr("No %1 you may not %2").arg(subName, title));
-
-    if (!perm.denyProcedure.isEmpty())
-      runProcedure(perm.denyProcedure);
-    QString eventProc =
-        scriptParser->getScriptData().eventHandlers.permissionDenied;
-    if (!eventProc.isEmpty())
-      runProcedure(eventProc);
-
-    // Trigger Delay
-    int delaySecs = calculateSecondsFromTimeRange(perm.delay);
-    if (delaySecs > 0) {
-      permissionNextAvailable[name] = internalClock.addSecs(delaySecs);
-      if (!permissionFirstDenied.contains(name))
-        permissionFirstDenied[name] = internalClock;
-    }
-    return;
-  }
-
-  // --- 5. Run BeforeProcedure ---
-  if (!perm.beforeProcedure.isEmpty())
-    runProcedure(perm.beforeProcedure);
-
-  // --- 6. CALCULATE OUTCOME (Automatic) ---
-  bool granted = false;
-  int chance = perm.pct;
-
-  // Calculate variable chance based on merits
-  if (perm.pctIsVariable ||
-      (perm.highMeritsMin != -1 && perm.lowMeritsMin != -1)) {
-    int highM = (perm.highMeritsMin != -1) ? perm.highMeritsMin : 1000;
-    int lowM = (perm.lowMeritsMin != -1) ? perm.lowMeritsMin : 0;
-    int highP = (perm.highPctMin != -1) ? perm.highPctMin : 100;
-    int lowP = (perm.lowPctMin != -1) ? perm.lowPctMin : 0;
-
-    if (currentMerits >= highM)
-      chance = highP;
-    else if (currentMerits <= lowM)
-      chance = lowP;
-    else {
-      double ratio = (double)(currentMerits - lowM) / (highM - lowM);
-      chance = lowP + (int)(ratio * (highP - lowP));
-    }
-  }
-
-  // Default to 100% if no Pct logic provided (standard behavior)
-  if (chance == 0 && !perm.pctIsVariable && perm.highMeritsMin == -1) {
-    chance = 100;
-  }
-
-  // Roll the dice
-  int roll = ScriptUtils::randomInRange(1, 100, perm.centerRandom);
-  granted = (roll <= chance);
-
-  qDebug() << "[Permission]" << name << "Chance:" << chance << "Roll:" << roll
-           << "Granted:" << granted;
 
   // --- 7. Execute Result ---
   if (granted) {
@@ -1228,6 +1250,7 @@ void CyberDom::openPermission(const QString &name) {
       runProcedure(eventProc);
 
     // Merits
+    int currentMerits = getMeritsFromIni(); // Refresh merits
     auto getMeritValue = [&](const QString &s) -> int {
       if (s.isEmpty())
         return 0;
@@ -2169,15 +2192,31 @@ QString CyberDom::promptForIniFile() {
 }
 
 void CyberDom::saveIniFilePath(const QString &filePath) {
-  QSettings settings(QCoreApplication::applicationDirPath() +
-                         "/cyberdom_settings.ini",
+  QSettings globalSettings("Desire_Games", "CyberDom");
+  globalSettings.setValue("SelectedIniFile", filePath);
+  globalSettings.sync();
+  
+  QFileInfo iniFileInfo(filePath);
+  QSettings settings(iniFileInfo.absolutePath() + "/user_settings.ini",
                      QSettings::IniFormat);
   settings.setValue("SelectedIniFile", filePath);
+  settings.sync();
 }
 
 QString CyberDom::loadIniFilePath() {
-  QSettings settings(QCoreApplication::applicationDirPath() +
-                         "/cyberdom_settings.ini",
+  QSettings globalSettings("Desire_Games", "CyberDom");
+
+  QString path = globalSettings.value("SelectedIniFile", "").toString();
+
+  if (!path.isEmpty() && !QFile::exists(path)) {
+    QMessageBox::warning(this, "Script Not Found", "The previously loaded script was not found at: \n\n'" + path + "' \n\nPlease select the new location for the script.");
+
+    qDebug() << "[Startup] Saved script path no longer exists:" << path;
+    return "";
+  }
+
+  QFileInfo iniFileInfo(currentIniFile);
+  QSettings settings(iniFileInfo.absolutePath() + "/user_settings.ini",
                      QSettings::IniFormat);
   return settings.value("SelectedIniFile", "").toString();
 }
@@ -2649,105 +2688,107 @@ void CyberDom::removeFlag(const QString &flagName) {
   }
 }
 
-void CyberDom::resetApplication() {
-  // Confirm reset with the user
-  int response = QMessageBox::warning(
-      this, "Reset Application",
-      "Are you sure you want to reset the application? This will delete all "
-      "saved settings and restart the application.",
-      QMessageBox::Yes | QMessageBox::No);
+void CyberDom::resetApplication(bool force) {
+  // Only ask for confirmation if NOT forced
+  if (!force) {
+      int response = QMessageBox::warning(
+          this, "Reset Application",
+          "Are you sure you want to reset the application? This will delete all "
+          "saved settings and restart the application.",
+          QMessageBox::Yes | QMessageBox::No);
 
-  if (response == QMessageBox::Yes) {
-    // Clear organization/application settings
-    QSettings appSettings("Desire_Games", "CyberDom");
-    appSettings.clear();
-    appSettings.sync();
-
-    // Check if user settings file exists and delete it
-    if (!settingsFile.isEmpty()) {
-      QFile settingsFileObj(settingsFile);
-      if (settingsFileObj.exists()) {
-        if (!settingsFileObj.remove()) {
-          QMessageBox::warning(
-              this, "Reset Warning",
-              "Could not delete the settings file: " + settingsFile +
-                  "\nThe application will restart, but settings may persist.");
-        } else {
-          qDebug() << "[INFO] Successfully deleted settings file: "
-                   << settingsFile;
-        }
+      if (response != QMessageBox::Yes) {
+          return; // User cancelled
       }
-    } else {
-      qDebug() << "[WARNING] Settings file path is empty";
-    }
+  }
+  
+  // Hide the window immediately so it doesn't "ghost" while restarting
+  this->hide();
 
-    // Also try to find and delete any user_settings.ini in the script directory
-    if (!currentIniFile.isEmpty()) {
-      QFileInfo iniFileInfo(currentIniFile);
-      QString userSettingsPath =
-          iniFileInfo.absolutePath() + "/user_settings.ini";
+  // Clear organization/application settings
+  QSettings appSettings("Desire_Games", "CyberDom");
+  appSettings.clear();
+  appSettings.sync();
 
-      QFile userSettingsFile(userSettingsPath);
-      if (userSettingsFile.exists()) {
-        if (!userSettingsFile.remove()) {
-          QMessageBox::warning(
-              this, "Reset Warning",
-              "Could not delete user settings file: " + userSettingsPath +
-                  "\nThe application will restart, but some settings may "
-                  "persist.");
-        } else {
-          qDebug() << "[INFO] Successfully deleted user settings file: "
-                   << userSettingsPath;
+  // Check if user settings file exists and delete it
+  if (!settingsFile.isEmpty()) {
+    QFile settingsFileObj(settingsFile);
+    if (settingsFileObj.exists()) {
+      if (!settingsFileObj.remove()) {
+        if (!force) { // Only show specific file warnings if interactive
+            QMessageBox::warning(
+                this, "Reset Warning",
+                "Could not delete the settings file: " + settingsFile +
+                    "\nThe application will restart, but settings may persist.");
         }
+      } else {
+        qDebug() << "[INFO] Successfully deleted settings file: "
+                 << settingsFile;
       }
     }
+  }
 
-    // Delete the stored session file if it exists
-    if (!sessionFilePath.isEmpty()) {
-      QFile sessionFile(sessionFilePath);
-      if (sessionFile.exists()) {
-        if (!sessionFile.remove()) {
-          QMessageBox::warning(
-              this, "Reset Warning",
-              "Could not delete the session file: " + sessionFilePath +
-                  "\nThe application will restart, but some session data may "
-                  "persist.");
-        } else {
-          qDebug() << "[INFO] Successfully deleted session file: "
-                   << sessionFilePath;
-        }
-      }
+  // Also try to find and delete any user_settings.ini in the script directory
+  if (!currentIniFile.isEmpty()) {
+    QFileInfo iniFileInfo(currentIniFile);
+    QString userSettingsPath =
+        iniFileInfo.absolutePath() + "/user_settings.ini";
+
+    QFile userSettingsFile(userSettingsPath);
+    if (userSettingsFile.exists()) {
+      userSettingsFile.remove(); // Attempt remove, ignore errors on forced reset
     }
+  }
 
-    // Clear paths so the destructor doesn't recreate the files
-    settingsFile.clear();
-    sessionFilePath.clear();
-
-    // Explicitly clear the INI file path selection
-    appSettings.setValue("SelectedIniFile", "");
-
-    // Create a flag file to indicate a fresh start is needed
-    QString flagFilePath = QDir::currentPath() + "/.fresh_start";
-    QFile flagFile(flagFilePath);
-    if (flagFile.open(QIODevice::WriteOnly)) {
-      flagFile.close();
-      qDebug() << "[INFO] Created fresh start flag file";
+  // Delete the stored session file if it exists
+  if (!sessionFilePath.isEmpty()) {
+    QFile sessionFile(sessionFilePath);
+    if (sessionFile.exists()) {
+      sessionFile.remove();
     }
+  }
+  
+  // Also delete from standard location just in case
+  QString stdSession = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/CyberDom/session.cds";
+  if (QFile::exists(stdSession)) QFile::remove(stdSession);
 
-    appSettings.setValue("FreshStart", true);
-    appSettings.sync();
-    qDebug() << "[SYSTEM] RESET TRIGGERED. Deleting settings and restarting "
-                "application.";
+  // Clear paths
+  settingsFile.clear();
+  sessionFilePath.clear();
 
-    // Notify the user
-    QMessageBox::information(this, "Application Successfully Reset",
-                             "The application will now restart and prompt you "
-                             "to select a new script file.");
+  // Explicitly clear the INI file path selection to force new selection next run
+  appSettings.setValue("SelectedIniFile", "");
 
-    // Restart the application
+  // Create a flag file to indicate a fresh start is needed
+  QString flagFilePath = QDir::currentPath() + "/.fresh_start";
+  QFile flagFile(flagFilePath);
+  if (flagFile.open(QIODevice::WriteOnly)) {
+    flagFile.close();
+  }
+
+  appSettings.setValue("FreshStart", true);
+  appSettings.sync();
+  
+  qDebug() << "[SYSTEM] RESET TRIGGERED. Restarting application.";
+
+  // Only show the "Success" message if this was a manual user action.
+  // If it was a forced safety reset, the previous dialog already explained why.
+  if (!force) {
+      QMessageBox::information(this, "Application Successfully Reset",
+                               "The application will now restart and prompt you "
+                               "to select a new script file.");
+  }
+
+  // Restart the application
+  QProcess::startDetached(QCoreApplication::applicationFilePath(),
+                          QStringList());
+
+  if (force) {
+    std::exit(0);
+  } else {
+    // For manual resets, quit() is cleaner as it allows destructors to run,
+    // but strictly speaking std::exit(0) is fine for restarts too.
     QCoreApplication::quit();
-    QProcess::startDetached(QCoreApplication::applicationFilePath(),
-                            QStringList());
   }
 }
 
@@ -3169,6 +3210,23 @@ void CyberDom::loadAndParseScript(const QString &filePath) {
     return;
   }
 
+  // Setup Settings Path before Safety Check
+  this->currentIniFile = filePath;
+  QFileInfo iniFileInfo(currentIniFile);
+  settingsFile = iniFileInfo.absolutePath() + "/user_settings.ini";
+
+  // Safety Check (Perform immediately after parsing)
+  if (!performSafetyChecks()) {
+      // User selected "No" (Risk Rejected)
+      QMessageBox::information(this, tr("Aborted"),
+          tr("Script loading aborted by user. The application will now close."));
+
+      // Cleanup or reset if necessary, then exit
+      resetApplication(true);
+
+      return;
+  }
+
   // --- ENHANCED LOGGING ---
   qDebug() << "==========================================";
   qDebug() << "   SCRIPT LOADED";
@@ -3185,10 +3243,6 @@ void CyberDom::loadAndParseScript(const QString &filePath) {
 
   // Store the path to the current ini file
   this->currentIniFile = filePath;
-
-  // Setup a separate settings file for user data
-  QFileInfo iniFileInfo(currentIniFile);
-  settingsFile = iniFileInfo.absolutePath() + "/user_settings.ini";
 
   // Apply the script settings to the application
   applyScriptSettings();
@@ -5975,6 +6029,8 @@ void CyberDom::executeQuestion(const QString &questionKey,
     questionAnswers[questionKey] = selectedAnswer;
     saveQuestionAnswers();
 
+    QString displayAnswer = selectedAnswer;
+
     bool matchFound = false;
 
     for (const auto &answerBlock : questionData.answers) {
@@ -5993,6 +6049,12 @@ void CyberDom::executeQuestion(const QString &questionKey,
 
       if (textMatch || procMatch || varMatch) {
         matchFound = true;
+
+        // Capture the Display Text
+        displayAnswer = answerBlock.answerText;
+        if (displayAnswer.startsWith("?")) {
+            displayAnswer = displayAnswer.mid(1);
+        }
 
         QString procedureName = answerBlock.procedureName;
 
@@ -6036,7 +6098,16 @@ void CyberDom::executeQuestion(const QString &questionKey,
         qDebug() << "[Question] No input selected. Running NoInputProcedure:"
                  << questionData.noInputProcedure;
         runProcedure(questionData.noInputProcedure);
+        displayAnswer = "(No Answer)";
       }
+    }
+
+    // Log question and response
+    if (currentActiveReportLog) {
+      ReportInteraction interaction;
+      interaction.prompt = questionData.text;
+      interaction.answer = displayAnswer;
+      currentActiveReportLog->interactions.append(interaction);
     }
   }
 }
@@ -6587,6 +6658,13 @@ void CyberDom::executeReport(const QString &name) {
 
   todayStats.reportsMade.append(name);
 
+  // ---Start Logging Context ---
+  ReportLogEntry newLog;
+  newLog.reportName = name;
+  newLog.timestamp = internalClock;
+
+  currentActiveReportLog = &newLog;
+
   // --- NEW: Handle StopAutoAssign ---
   if (rep.stopAutoAssign) {
     // Logic to stop auto-assign (if you have a flag or setting for this)
@@ -6676,14 +6754,12 @@ void CyberDom::executeReport(const QString &name) {
                                replaceVariables(action.value));
       break;
 
-    // --- ADDED MISSING CASES ---
     case ScriptActionType::Question:
       executeQuestion(action.value.trimmed().toLower(), "Question");
       break;
     case ScriptActionType::Input:
-      executeQuestion(action.value.trimmed().toLower(), "Input Required");
+      handleReportInput(action.value);
       break;
-      // ---------------------------
 
     case ScriptActionType::NewStatus:
       changeStatus(action.value, false);
@@ -6773,6 +6849,9 @@ void CyberDom::executeReport(const QString &name) {
       break;
     }
   }
+
+  todayStats.reportHistory.append(newLog);
+  currentActiveReportLog = nullptr;
 }
 
 bool CyberDom::loadSessionData(const QString &path) {
@@ -7988,93 +8067,158 @@ void CyberDom::trackPermissionEvent(const QString &name,
 
 // Generate the HTML content
 QString CyberDom::generateReportHtml(bool isEndOfDay) {
-  QString title =
-      isEndOfDay ? "Daily Activity Report" : "Activity Report (Interim)";
+  QString title = isEndOfDay ? "Daily Activity Report" : "Activity Report";
   QString dateStr = internalClock.date().toString("dddd, MMMM d, yyyy");
 
-  QString html = R"(
+  // --- HTML HEADER & CSS ---
+  QString html = R"HTML(
+    <!DOCTYPE html>
     <html>
     <head>
+        <meta charset="UTF-8">
         <style>
-            body { font-family: sans-serif; color: #333; background-color: #f4f4f4; padding: 20px; }
-            .container { max-width: 800px; margin: auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-            h1 { color: #2c3e50; border-bottom: 2px solid #eee; padding-bottom: 10px; }
-            h2 { color: #e67e22; margin-top: 25px; font-size: 1.2em; }
-            ul { list-style-type: none; padding: 0; }
-            li { background: #f9f9f9; margin: 5px 0; padding: 8px; border-left: 4px solid #3498db; }
-            .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
-            .stat-box { background: #ecf0f1; padding: 15px; text-align: center; border-radius: 5px; }
-            .stat-num { font-size: 24px; font-weight: bold; color: #2980b9; }
-            .stat-label { color: #7f8c8d; font-size: 0.9em; }
+            :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --card: #ffffff; }
+            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg); color: #333; margin: 0; padding: 0; }
+            
+            /* Navbar */
+            .navbar { background-color: var(--primary); padding: 15px 30px; display: flex; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+            .navbar h1 { color: white; margin: 0; font-size: 1.5em; flex-grow: 1; }
+            .nav-tabs { display: flex; gap: 10px; }
+            .tab-btn { background: rgba(255,255,255,0.1); color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; transition: 0.3s; font-weight: 600; }
+            .tab-btn:hover { background: rgba(255,255,255,0.3); }
+            .tab-btn.active { background: var(--accent); }
+
+            /* Content Area */
+            .container { max-width: 900px; margin: 30px auto; padding: 0 20px; }
+            .tab-content { display: none; animation: fadeIn 0.3s; }
+            .tab-content.active { display: block; }
+
+            /* Dashboard Cards */
+            .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }
+            .card { background: var(--card); padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); text-align: center; }
+            .stat-num { font-size: 2.5em; font-weight: bold; color: var(--accent); margin-bottom: 5px; }
+            .stat-label { color: #7f8c8d; text-transform: uppercase; font-size: 0.85em; letter-spacing: 1px; }
+
+            /* Lists */
+            .list-section h2 { border-bottom: 2px solid #eee; padding-bottom: 10px; color: var(--primary); margin-top: 40px; }
+            ul.styled-list { list-style: none; padding: 0; }
+            ul.styled-list li { background: white; border-bottom: 1px solid #eee; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; }
+            ul.styled-list li:first-child { border-top-left-radius: 8px; border-top-right-radius: 8px; }
+            ul.styled-list li:last-child { border-bottom: none; border-bottom-left-radius: 8px; border-bottom-right-radius: 8px; }
+
+            /* Detailed Reports Section */
+            .report-entry { background: white; border-radius: 8px; padding: 25px; margin-bottom: 25px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); border-left: 5px solid var(--accent); }
+            .report-header { display: flex; justify-content: space-between; border-bottom: 1px solid #eee; padding-bottom: 15px; margin-bottom: 15px; }
+            .report-title { font-size: 1.2em; font-weight: bold; color: var(--primary); }
+            .report-time { color: #95a5a6; font-size: 0.9em; }
+            
+            .qa-pair { margin-bottom: 15px; }
+            .qa-question { font-weight: 600; color: #555; margin-bottom: 4px; display: block; }
+            .qa-answer { background: #f8f9fa; padding: 8px 12px; border-radius: 4px; color: #2c3e50; display: inline-block; min-width: 50%; border-left: 3px solid #bdc3c7; }
+
+            @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         </style>
+
+        <script>
+            function openTab(tabName) {
+                var i;
+                var x = document.getElementsByClassName("tab-content");
+                var tabs = document.getElementsByClassName("tab-btn");
+                for (i = 0; i < x.length; i++) { x[i].className = "tab-content"; }
+                for (i = 0; i < tabs.length; i++) { tabs[i].className = tabs[i].className.replace(" active", ""); }
+                document.getElementById(tabName).className += " active";
+                event.currentTarget.className += " active";
+            }
+        </script>
     </head>
     <body>
-    <div class="container">
-    )";
+    )HTML";
 
-  html += QString("<h1>%1</h1>").arg(title);
-  html += QString("<p><strong>Date:</strong> %1</p>").arg(dateStr);
-  html += QString("<p><strong>Status:</strong> %1</p>").arg(currentStatus);
+  // --- NAVBAR ---
+  html += QString(R"HTML(
+    <div class="navbar">
+        <h1>%1</h1>
+        <div class="nav-tabs">
+            <button class="tab-btn active" onclick="openTab('dashboard')">Dashboard</button>
+            <button class="tab-btn" onclick="openTab('reports')">Reports (%2)</button>
+        </div>
+    </div>
+    )HTML").arg(title).arg(todayStats.reportHistory.size());
 
-  // Stats Grid
+  html += "<div class='container'>";
+
+  // --- TAB 1: DASHBOARD ---
+  html += "<div id='dashboard' class='tab-content active'>";
+  
+  // 1. Stats Grid
   html += "<div class='stats-grid'>";
-  html += QString("<div class='stat-box'><div class='stat-num'>+%1</div><div "
-                  "class='stat-label'>Merits Gained</div></div>")
-              .arg(todayStats.meritsGained);
-  html += QString("<div class='stat-box'><div class='stat-num' "
-                  "style='color:#c0392b'>-%1</div><div "
-                  "class='stat-label'>Merits Lost</div></div>")
-              .arg(todayStats.meritsLost);
-  html += QString("<div class='stat-box'><div class='stat-num'>%1</div><div "
-                  "class='stat-label'>Jobs Done</div></div>")
-              .arg(todayStats.jobsCompleted.size());
-  html += QString("<div class='stat-box'><div class='stat-num'>%1</div><div "
-                  "class='stat-label'>Punishments</div></div>")
-              .arg(todayStats.punishmentsCompleted.size());
+  html += QString("<div class='card'><div class='stat-num'>+%1</div><div class='stat-label'>Merits Gained</div></div>").arg(todayStats.meritsGained);
+  html += QString("<div class='card'><div class='stat-num' style='color:#e74c3c'>-%1</div><div class='stat-label'>Merits Lost</div></div>").arg(todayStats.meritsLost);
+  html += QString("<div class='card'><div class='stat-num'>%1</div><div class='stat-label'>Jobs Done</div></div>").arg(todayStats.jobsCompleted.size());
+  html += QString("<div class='card'><div class='stat-num'>%1</div><div class='stat-label'>Punishments</div></div>").arg(todayStats.punishmentsCompleted.size());
   html += "</div>";
 
-  // Helper to add sections
-  auto addSection = [&](const QString &header, const QStringList &items) {
-    if (items.isEmpty())
-      return;
-    html += QString("<h2>%1</h2><ul>").arg(header);
-    for (const QString &item : items)
-      html += QString("<li>%1</li>").arg(item);
-    html += "</ul>";
+  // 2. Simple Lists (Helper function for cleaner code)
+  auto addSimpleList = [&](const QString &title, const QStringList &items) {
+      if(items.isEmpty()) return;
+      html += QString("<div class='list-section'><h2>%1</h2><ul class='styled-list'>").arg(title);
+      for(const QString &item : items) html += QString("<li>%1</li>").arg(item);
+      html += "</ul></div>";
   };
 
-  addSection("Jobs Completed", todayStats.jobsCompleted);
-  addSection("Punishments Completed", todayStats.punishmentsCompleted);
-  addSection("Outfits Worn", todayStats.outfitsWorn);
-  addSection("Permissions", todayStats.permissionsAsked);
-  addSection("Reports Submitted", todayStats.reportsMade);
-  addSection("Confessions", todayStats.confessionsMade);
-
-  // Currently Active
-  html += "<h2>Current Status</h2><ul>";
+  addSimpleList("Jobs Completed", todayStats.jobsCompleted);
+  addSimpleList("Punishments Completed", todayStats.punishmentsCompleted);
+  addSimpleList("Permissions Requested", todayStats.permissionsAsked);
+  addSimpleList("Confessions", todayStats.confessionsMade);
+  
+  // 3. Current Active Status
+  html += "<div class='list-section'><h2>Active Now</h2><ul class='styled-list'>";
   if (activeAssignments.isEmpty()) {
-    html += "<li>No active assignments.</li>";
+      html += "<li>No active assignments</li>";
   } else {
-    for (const QString &name : activeAssignments) {
-      QString deadline = jobDeadlines.value(name).toString("MM-dd hh:mm AP");
-
-      bool isPun = false;
-      if (getPunishmentDefinition(name))
-        isPun = true;
-
-      // Use helper to get nice name
-      QString displayName = getAssignmentDisplayName(name, isPun);
-
-      QString startFlag = (isPun ? "punishment_" : "job_") + name + "_started";
-      bool isStarted = isFlagSet(startFlag);
-
-      QString statusStr =
-          isStarted ? "<strong>(Started)</strong>" : "(Not Started)";
-      html += QString("<li>%1 %2 - Due: %3</li>")
-                  .arg(displayName, statusStr, deadline);
-    }
+      for (const QString &name : activeAssignments) {
+           QString deadline = jobDeadlines.value(name).toString("MM-dd hh:mm AP");
+           bool isPun = getPunishmentDefinition(name) != nullptr;
+           html += QString("<li><span>%1</span> <span style='font-size:0.9em; color:#888'>Due: %2</span></li>")
+                   .arg(getAssignmentDisplayName(name, isPun), deadline);
+      }
   }
-  html += "</ul></div></body></html>";
+  html += "</ul></div>";
+  html += "</div>"; // End Dashboard Tab
+
+  // --- TAB 2: DETAILED REPORTS ---
+  html += "<div id='reports' class='tab-content'>";
+  
+  if (todayStats.reportHistory.isEmpty()) {
+      html += "<div style='text-align:center; padding:50px; color:#aaa;'>No reports were run today.</div>";
+  } else {
+      // Iterate through the history
+      for (const ReportLogEntry &log : todayStats.reportHistory) {
+          html += "<div class='report-entry'>";
+          
+          // Header: Name and Time
+          html += "<div class='report-header'>";
+          html += QString("<span class='report-title'>%1</span>").arg(log.reportName);
+          html += QString("<span class='report-time'>%1</span>").arg(log.timestamp.toString("hh:mm AP"));
+          html += "</div>";
+
+          // Interactions
+          if (log.interactions.isEmpty()) {
+              html += "<p style='color:#ccc; font-style:italic;'>No inputs recorded.</p>";
+          } else {
+              for (const ReportInteraction &qa : log.interactions) {
+                  html += "<div class='qa-pair'>";
+                  html += QString("<span class='qa-question'>%1</span>").arg(qa.prompt);
+                  html += QString("<span class='qa-answer'>%1</span>").arg(qa.answer);
+                  html += "</div>";
+              }
+          }
+          html += "</div>"; // End report-entry
+      }
+  }
+  html += "</div>"; // End Reports Tab
+
+  html += "</div></body></html>";
   return html;
 }
 
@@ -8311,6 +8455,16 @@ void CyberDom::executeCounterAction(ScriptActionType type,
   if (varName.startsWith("#"))
     varName = varName.mid(1); // Strip #
 
+  // Helper lambda to log the interaction to the HTML Report context
+  auto logInteraction = [&](const QString &q, int a) {
+    if (currentActiveReportLog) {
+      ReportInteraction interaction;
+      interaction.prompt = q;
+      interaction.answer = QString::number(a);
+      currentActiveReportLog->interactions.append(interaction);
+    }
+  };
+
   // Handle Input#
   if (type == ScriptActionType::InputCounter) {
     bool ok;
@@ -8324,6 +8478,9 @@ void CyberDom::executeCounterAction(ScriptActionType type,
     if (ok) {
       scriptParser->setVariable(varName, QString::number(val));
       qDebug() << "[Input#] Set" << varName << "to" << val;
+
+      // --- Log to HTML Report ---
+      logInteraction(varName, val);
     }
     return;
   }
@@ -8344,6 +8501,9 @@ void CyberDom::executeCounterAction(ScriptActionType type,
     if (ok) {
       scriptParser->setVariable(varName, QString::number(val));
       qDebug() << "[Change#] Set" << varName << "to" << val;
+
+      // --- Log to HTML Report ---
+      logInteraction(varName, val);
     }
     return;
   }
@@ -8361,6 +8521,9 @@ void CyberDom::executeCounterAction(ScriptActionType type,
     if (ok) {
       scriptParser->setVariable(varName, QString::number(val));
       qDebug() << "[InputNeg#] Set" << varName << "to" << val;
+
+      // --- Log to HTML Report ---
+      logInteraction(varName, val);
     }
     return;
   }
@@ -9767,4 +9930,99 @@ void CyberDom::saveClothingInventory() {
   settings.sync();
 
   qDebug() << "Saved merged inventory to disk.";
+}
+
+void CyberDom::handleReportInput(const QString &prompt) {
+  bool ok;
+  // Show a simple dialog asking for text
+  QString text = QInputDialog::getText(this, tr("Report Input"),
+                                       prompt, QLineEdit::Normal,
+                                       "", &ok);
+
+  QString answer = (ok && !text.isEmpty()) ? text : "(No Answer)";
+
+  // If we are inside a running report, log it there
+  if (currentActiveReportLog) {
+    ReportInteraction interaction;
+    interaction.prompt = prompt;
+    interaction.answer = answer;
+    currentActiveReportLog->interactions.append(interaction);
+  }
+}
+
+bool CyberDom::performSafetyChecks() {
+  if (!scriptParser) return true;
+
+  // Get Detected Risks from the script
+  const QSet<SafetyRisk> &detectedRisks = scriptParser->getScriptData().detectedRisks;
+  if (detectedRisks.isEmpty()) return true;
+
+  // Prepare Settings Access
+  QSettings userSettings(settingsFile, QSettings::IniFormat);
+
+  // Helper lambda to get string name for risks
+  auto getRiskName = [](SafetyRisk r) -> QString {
+    switch(r) {
+      case SafetyRisk::Webcam: return "Webcam";
+      // Add future cases here:
+      // case SafetyRisk::Browser: return "Browser";
+    }
+    return "Unknown";
+  };
+
+  // Filter: Find which risks are NOT yet accepted
+  QSet<SafetyRisk> newRisks;
+
+  for (const SafetyRisk &risk : detectedRisks) {
+    QString riskKey = "Permissions/" + getRiskName(risk);
+    bool alreadyAccepted = userSettings.value(riskKey, false).toBool();
+
+    if (!alreadyAccepted) {
+      newRisks.insert(risk);
+    }
+  }
+
+  // If all risks were previously accepted, we proceed silently!
+  if (newRisks.isEmpty()) {
+    return true;
+  }
+
+  // Build the Warning Message for NEW risks only
+  QString message = tr("The script you are loading requests the following new permissions:\n\n");
+
+  QMap<SafetyRisk, QString> riskDescriptions;
+  riskDescriptions[SafetyRisk::Webcam] = tr("- Webcam Control (PointCamera, PoseCamera, etc.)");
+  // riskDescriptions[SafetyRisk::Browser] = tr("- Open Web Browser");
+
+  for (const SafetyRisk &risk : newRisks) {
+    if (riskDescriptions.contains(risk)) {
+        message += riskDescriptions[risk] + "\n";
+    } else {
+      message += tr("- Unknown Risk Type") + "\n";
+    }
+  }
+
+  message += tr("\nWhile the script may allow you to opt-out during runtime, "
+                   "we believe that you should be made aware that the capabilities exist in the script.\n\n"
+                   "Do you accept these risks and wish to continue?");
+
+  // Ask the User
+  QMessageBox::StandardButton reply;
+  reply = QMessageBox::warning(this, tr("Security Warning"),
+                               message,
+                               QMessageBox::Yes | QMessageBox::No);
+
+  if (reply == QMessageBox::No) {
+      return false;
+  }
+
+  // Save Permissions (Only if User said Yes)
+  for (const SafetyRisk &risk : newRisks) {
+      QString riskKey = "Permissions/" + getRiskName(risk);
+      userSettings.setValue(riskKey, true);
+  }
+  userSettings.sync();
+
+  qDebug() << "[Safety] User accepted new risks:" << newRisks.size();
+  return true;
 }
