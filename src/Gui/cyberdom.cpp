@@ -2173,15 +2173,31 @@ QString CyberDom::promptForIniFile() {
 }
 
 void CyberDom::saveIniFilePath(const QString &filePath) {
-  QSettings settings(QCoreApplication::applicationDirPath() +
-                         "/cyberdom_settings.ini",
+  QSettings globalSettings("Desire_Games", "CyberDom");
+  globalSettings.setValue("SelectedIniFile", filePath);
+  globalSettings.sync();
+  
+  QFileInfo iniFileInfo(filePath);
+  QSettings settings(iniFileInfo.absolutePath() + "/user_settings.ini",
                      QSettings::IniFormat);
   settings.setValue("SelectedIniFile", filePath);
+  settings.sync();
 }
 
 QString CyberDom::loadIniFilePath() {
-  QSettings settings(QCoreApplication::applicationDirPath() +
-                         "/cyberdom_settings.ini",
+  QSettings globalSettings("Desire_Games", "CyberDom");
+
+  QString path = globalSettings.value("SelectedIniFile", "").toString();
+
+  if (!path.isEmpty() && !QFile::exists(path)) {
+    QMessageBox::warning(this, "Script Not Found", "The previously loaded script was not found at: \n\n'" + path + "' \n\nPlease select the new location for the script.");
+
+    qDebug() << "[Startup] Saved script path no longer exists:" << path;
+    return "";
+  }
+
+  QFileInfo iniFileInfo(currentIniFile);
+  QSettings settings(iniFileInfo.absolutePath() + "/user_settings.ini",
                      QSettings::IniFormat);
   return settings.value("SelectedIniFile", "").toString();
 }
@@ -3175,6 +3191,11 @@ void CyberDom::loadAndParseScript(const QString &filePath) {
     return;
   }
 
+  // Setup Settings Path before Safety Check
+  this->currentIniFile = filePath;
+  QFileInfo iniFileInfo(currentIniFile);
+  settingsFile = iniFileInfo.absolutePath() + "/user_settings.ini";
+
   // Safety Check (Perform immediately after parsing)
   if (!performSafetyChecks()) {
       // User selected "No" (Risk Rejected)
@@ -3203,10 +3224,6 @@ void CyberDom::loadAndParseScript(const QString &filePath) {
 
   // Store the path to the current ini file
   this->currentIniFile = filePath;
-
-  // Setup a separate settings file for user data
-  QFileInfo iniFileInfo(currentIniFile);
-  settingsFile = iniFileInfo.absolutePath() + "/user_settings.ini";
 
   // Apply the script settings to the application
   applyScriptSettings();
@@ -9917,36 +9934,76 @@ void CyberDom::handleReportInput(const QString &prompt) {
 bool CyberDom::performSafetyChecks() {
   if (!scriptParser) return true;
 
-  const QSet<SafetyRisk> &risks = scriptParser->getScriptData().detectedRisks;
+  // Get Detected Risks from the script
+  const QSet<SafetyRisk> &detectedRisks = scriptParser->getScriptData().detectedRisks;
+  if (detectedRisks.isEmpty()) return true;
 
-  if (risks.isEmpty()) return true;
+  // Prepare Settings Access
+  QSettings userSettings(settingsFile, QSettings::IniFormat);
 
-  // Map Risks to Warning Messages
-  QMap<SafetyRisk, QString> warningMessages;
+  // Helper lambda to get string name for risks
+  auto getRiskName = [](SafetyRisk r) -> QString {
+    switch(r) {
+      case SafetyRisk::Webcam: return "Webcam";
+      // Add future cases here:
+      // case SafetyRisk::Browser: return "Browser";
+    }
+    return "Unknown";
+  };
 
-  warningMessages[SafetyRisk::Webcam] =
-    tr("This script contains functions that utilize your Webcam "
-       "(e.g., PointCamera, PoseCamera, or CameraInterval). \n\n"
-       "While the script may allow you to opt-out, we believe that you should be "
-       "made aware that these functions exist in the script.\n\n"
-       "Do you accept the risk and wish to continue?");
+  // Filter: Find which risks are NOT yet accepted
+  QSet<SafetyRisk> newRisks;
 
-    // Future Example:
-    // warningMessages[SafetyRisk::FileSystem] = tr("This script can write files...");
+  for (const SafetyRisk &risk : detectedRisks) {
+    QString riskKey = "Permissions/" + getRiskName(risk);
+    bool alreadyAccepted = userSettings.value(riskKey, false).toBool();
 
-  // Iterate through detected risks
-  for (const SafetyRisk &risk : risks) {
-    if (warningMessages.contains(risk)) {
-        QMessageBox::StandardButton reply;
-        reply = QMessageBox::warning(this, tr("Security Warning"),
-                                      warningMessages[risk],
-                                      QMessageBox::Yes | QMessageBox::No);
-
-        if (reply == QMessageBox::No) {
-            return false; // User rejected the risk
-        }
+    if (!alreadyAccepted) {
+      newRisks.insert(risk);
     }
   }
 
-  return true; // All checks passed/accepted
+  // If all risks were previously accepted, we proceed silently!
+  if (newRisks.isEmpty()) {
+    return true;
+  }
+
+  // Build the Warning Message for NEW risks only
+  QString message = tr("The script you are loading requests the following new permissions:\n\n");
+
+  QMap<SafetyRisk, QString> riskDescriptions;
+  riskDescriptions[SafetyRisk::Webcam] = tr("- Webcam Control (PointCamera, PoseCamera, etc.)");
+  // riskDescriptions[SafetyRisk::Browser] = tr("- Open Web Browser");
+
+  for (const SafetyRisk &risk : newRisks) {
+    if (riskDescriptions.contains(risk)) {
+        message += riskDescriptions[risk] + "\n";
+    } else {
+      message += tr("- Unknown Risk Type") + "\n";
+    }
+  }
+
+  message += tr("\nWhile the script may allow you to opt-out during runtime, "
+                   "we believe that you should be made aware that the capabilities exist in the script.\n\n"
+                   "Do you accept these risks and wish to continue?");
+
+  // Ask the User
+  QMessageBox::StandardButton reply;
+  reply = QMessageBox::warning(this, tr("Security Warning"),
+                               message,
+                               QMessageBox::Yes | QMessageBox::No);
+
+  if (reply == QMessageBox::No) {
+      return false;
+  }
+
+  // Save Permissions (Only if User said Yes)
+  for (const SafetyRisk &risk : newRisks) {
+      QString riskKey = "Permissions/" + getRiskName(risk);
+      userSettings.setValue(riskKey, true);
+  }
+  userSettings.sync();
+
+  qDebug() << "[Safety] User accepted new risks:" << newRisks.size();
+  return true;
 }
