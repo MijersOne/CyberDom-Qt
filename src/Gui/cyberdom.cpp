@@ -1064,145 +1064,163 @@ void CyberDom::openPermission(const QString &name) {
 
   const PermissionDefinition &perm = perms.value(name);
 
-  // --- 0. Pick a random name ---
+  // --- 0. Pick a name ---
   QString subName = scriptParser->getSubName();
   if (subName.isEmpty())
     subName = "sub";
 
-  // --- 1. Check PreStatus ---
-  if (!perm.preStatuses.isEmpty()) {
-    QString lowerCurrentStatus = currentStatus.toLower();
-    bool foundMatch = false;
-    for (const QString &preStatus : perm.preStatuses) {
-      if (preStatus.toLower() == lowerCurrentStatus) {
-        foundMatch = true;
-        break;
-      }
-    }
-    if (!foundMatch) {
-      QMessageBox::information(
-          this, tr("Permission"),
-          tr("This permission is not available in your current status."));
-      return;
-    }
+  bool forcedMode = false;
+  bool granted = false; // Will be determined by logic or override
+
+  // Check "Always Deny" first (usually takes precedence in logic)
+  if (ui->actionAlways_Deny->isChecked()) {
+      forcedMode = true;
+      granted = false;
+      qDebug() << "[Test Menu] Always Deny active. Permission denied:" << name;
+  }
+  // Check "Always Permit"
+  else if (ui->actionAlways_Permit->isChecked()) {
+      forcedMode = true;
+      granted = true;
+      qDebug() << "[Test Menu] Always Permit active. Permission granted:" << name;
   }
 
-  // --- 2. Check Time (Lockout) ---
-  // Check if currently locked due to MinInterval or Delay
-  if (permissionNextAvailable.contains(name)) {
-    QDateTime unlockTime = permissionNextAvailable.value(name);
-    if (internalClock < unlockTime) {
-      // Denied due to timer lock
-      int delaySecs = calculateSecondsFromTimeRange(perm.delay);
-      if (delaySecs > 0) {
-        QDateTime newUnlock = internalClock.addSecs(delaySecs);
+  // If we are NOT in a forced mode, run the standard checks
+  if (!forcedMode) {
 
-        if (!permissionFirstDenied.contains(name)) {
-          permissionFirstDenied[name] = internalClock;
+      // --- 1. Check PreStatus ---
+      if (!perm.preStatuses.isEmpty()) {
+        QString lowerCurrentStatus = currentStatus.toLower();
+        bool foundMatch = false;
+        for (const QString &preStatus : perm.preStatuses) {
+          if (preStatus.toLower() == lowerCurrentStatus) {
+            foundMatch = true;
+            break;
+          }
         }
-
-        int maxWaitSecs = calculateSecondsFromTimeRange(perm.maxWait);
-        if (maxWaitSecs > 0) {
-          QDateTime absoluteMax =
-              permissionFirstDenied[name].addSecs(maxWaitSecs);
-          if (newUnlock > absoluteMax)
-            newUnlock = absoluteMax;
-        }
-
-        if (newUnlock > unlockTime) {
-          permissionNextAvailable[name] = newUnlock;
+        if (!foundMatch) {
+          QMessageBox::information(
+              this, tr("Permission"),
+              tr("This permission is not available in your current status."));
+          return;
         }
       }
 
-      QMessageBox::information(
-          this, tr("Permission Denied"),
-          tr("You must wait longer before asking for this permission."));
-      return;
-    }
+      // --- 2. Check Time (Lockout) ---
+      if (permissionNextAvailable.contains(name)) {
+        QDateTime unlockTime = permissionNextAvailable.value(name);
+        if (internalClock < unlockTime) {
+          // Denied due to timer lock
+          int delaySecs = calculateSecondsFromTimeRange(perm.delay);
+          if (delaySecs > 0) {
+            QDateTime newUnlock = internalClock.addSecs(delaySecs);
+
+            if (!permissionFirstDenied.contains(name)) {
+              permissionFirstDenied[name] = internalClock;
+            }
+
+            int maxWaitSecs = calculateSecondsFromTimeRange(perm.maxWait);
+            if (maxWaitSecs > 0) {
+              QDateTime absoluteMax =
+                  permissionFirstDenied[name].addSecs(maxWaitSecs);
+              if (newUnlock > absoluteMax)
+                newUnlock = absoluteMax;
+            }
+
+            if (newUnlock > unlockTime) {
+              permissionNextAvailable[name] = newUnlock;
+            }
+          }
+
+          QMessageBox::information(
+              this, tr("Permission Denied"),
+              tr("You must wait longer before asking for this permission."));
+          return;
+        }
+      }
+
+      // Check Global Time Restrictions
+      if (!isTimeAllowed(perm.notBeforeTimes, perm.notAfterTimes,
+                         perm.notBetweenTimes)) {
+        QMessageBox::information(
+            this, tr("Permission"),
+            tr("This permission is not available at this time."));
+        return;
+      }
+
+      incrementUsageCount(QString("Permission/%1").arg(name));
+
+      // --- 3. Check Merit Limits ---
+      int currentMerits = getMeritsFromIni();
+      if ((perm.denyBelowMin != -1 && currentMerits < perm.denyBelowMin) ||
+          (perm.denyAboveMin != -1 && currentMerits > perm.denyAboveMin)) {
+
+        QMessageBox::information(
+            this, tr("Permission Denied"),
+            tr("You do not have the required merit points for this permission."));
+        return;
+      }
+
+      // --- 4. Check Forbidden (Punishments) ---
+      if (isPermissionForbidden(name)) {
+        QString title = perm.title.isEmpty() ? perm.name : perm.title;
+        QMessageBox::information(this, tr("Permission"),
+                                 tr("No %1 you may not %2").arg(subName, title));
+
+        if (!perm.denyProcedure.isEmpty())
+          runProcedure(perm.denyProcedure);
+        QString eventProc =
+            scriptParser->getScriptData().eventHandlers.permissionDenied;
+        if (!eventProc.isEmpty())
+          runProcedure(eventProc);
+
+        // Trigger Delay
+        int delaySecs = calculateSecondsFromTimeRange(perm.delay);
+        if (delaySecs > 0) {
+          permissionNextAvailable[name] = internalClock.addSecs(delaySecs);
+          if (!permissionFirstDenied.contains(name))
+            permissionFirstDenied[name] = internalClock;
+        }
+        return;
+      }
+
+      // --- 5. Run BeforeProcedure ---
+      if (!perm.beforeProcedure.isEmpty())
+        runProcedure(perm.beforeProcedure);
+
+      // --- 6. CALCULATE OUTCOME (Standard Logic) ---
+      int chance = perm.pct;
+
+      // Calculate variable chance based on merits
+      if (perm.pctIsVariable ||
+          (perm.highMeritsMin != -1 && perm.lowMeritsMin != -1)) {
+        int highM = (perm.highMeritsMin != -1) ? perm.highMeritsMin : 1000;
+        int lowM = (perm.lowMeritsMin != -1) ? perm.lowMeritsMin : 0;
+        int highP = (perm.highPctMin != -1) ? perm.highPctMin : 100;
+        int lowP = (perm.lowPctMin != -1) ? perm.lowPctMin : 0;
+
+        if (currentMerits >= highM)
+          chance = highP;
+        else if (currentMerits <= lowM)
+          chance = lowP;
+        else {
+          double ratio = (double)(currentMerits - lowM) / (highM - lowM);
+          chance = lowP + (int)(ratio * (highP - lowP));
+        }
+      }
+
+      // Default to 100% if no Pct logic provided
+      if (chance == 0 && !perm.pctIsVariable && perm.highMeritsMin == -1) {
+        chance = 100;
+      }
+
+      // Roll the dice
+      int roll = ScriptUtils::randomInRange(1, 100, perm.centerRandom);
+      granted = (roll <= chance);
+
+      qDebug() << "[Permission]" << name << "Chance:" << chance << "Roll:" << roll
+               << "Granted:" << granted;
   }
-
-  // Check Global Time Restrictions
-  if (!isTimeAllowed(perm.notBeforeTimes, perm.notAfterTimes,
-                     perm.notBetweenTimes)) {
-    QMessageBox::information(
-        this, tr("Permission"),
-        tr("This permission is not available at this time."));
-    return;
-  }
-
-  incrementUsageCount(QString("Permission/%1").arg(name));
-
-  // --- 3. Check Merit Limits ---
-  int currentMerits = getMeritsFromIni();
-  if ((perm.denyBelowMin != -1 && currentMerits < perm.denyBelowMin) ||
-      (perm.denyAboveMin != -1 && currentMerits > perm.denyAboveMin)) {
-
-    QMessageBox::information(
-        this, tr("Permission Denied"),
-        tr("You do not have the required merit points for this permission."));
-    return;
-  }
-
-  // --- 4. Check Forbidden (Punishments) ---
-  if (isPermissionForbidden(name)) {
-    QString title = perm.title.isEmpty() ? perm.name : perm.title;
-    QMessageBox::information(this, tr("Permission"),
-                             tr("No %1 you may not %2").arg(subName, title));
-
-    if (!perm.denyProcedure.isEmpty())
-      runProcedure(perm.denyProcedure);
-    QString eventProc =
-        scriptParser->getScriptData().eventHandlers.permissionDenied;
-    if (!eventProc.isEmpty())
-      runProcedure(eventProc);
-
-    // Trigger Delay
-    int delaySecs = calculateSecondsFromTimeRange(perm.delay);
-    if (delaySecs > 0) {
-      permissionNextAvailable[name] = internalClock.addSecs(delaySecs);
-      if (!permissionFirstDenied.contains(name))
-        permissionFirstDenied[name] = internalClock;
-    }
-    return;
-  }
-
-  // --- 5. Run BeforeProcedure ---
-  if (!perm.beforeProcedure.isEmpty())
-    runProcedure(perm.beforeProcedure);
-
-  // --- 6. CALCULATE OUTCOME (Automatic) ---
-  bool granted = false;
-  int chance = perm.pct;
-
-  // Calculate variable chance based on merits
-  if (perm.pctIsVariable ||
-      (perm.highMeritsMin != -1 && perm.lowMeritsMin != -1)) {
-    int highM = (perm.highMeritsMin != -1) ? perm.highMeritsMin : 1000;
-    int lowM = (perm.lowMeritsMin != -1) ? perm.lowMeritsMin : 0;
-    int highP = (perm.highPctMin != -1) ? perm.highPctMin : 100;
-    int lowP = (perm.lowPctMin != -1) ? perm.lowPctMin : 0;
-
-    if (currentMerits >= highM)
-      chance = highP;
-    else if (currentMerits <= lowM)
-      chance = lowP;
-    else {
-      double ratio = (double)(currentMerits - lowM) / (highM - lowM);
-      chance = lowP + (int)(ratio * (highP - lowP));
-    }
-  }
-
-  // Default to 100% if no Pct logic provided (standard behavior)
-  if (chance == 0 && !perm.pctIsVariable && perm.highMeritsMin == -1) {
-    chance = 100;
-  }
-
-  // Roll the dice
-  int roll = ScriptUtils::randomInRange(1, 100, perm.centerRandom);
-  granted = (roll <= chance);
-
-  qDebug() << "[Permission]" << name << "Chance:" << chance << "Roll:" << roll
-           << "Granted:" << granted;
 
   // --- 7. Execute Result ---
   if (granted) {
@@ -1232,6 +1250,7 @@ void CyberDom::openPermission(const QString &name) {
       runProcedure(eventProc);
 
     // Merits
+    int currentMerits = getMeritsFromIni(); // Refresh merits
     auto getMeritValue = [&](const QString &s) -> int {
       if (s.isEmpty())
         return 0;
