@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 # --- 1. SET THE VERSION HERE ---
-project(CyberDom VERSION 0.0.5 LANGUAGES CXX)
+project(CyberDom VERSION 0.0.6 LANGUAGES CXX)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
