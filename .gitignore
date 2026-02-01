@@ -99,3 +99,6 @@ build_appimage/
 *.bak
 
 *.bat
+
+# Other
+GEMINI.md

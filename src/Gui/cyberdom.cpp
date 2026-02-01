@@ -1283,14 +1283,26 @@ void CyberDom::openPermission(const QString &name) {
       }
 
       switch (action.type) {
-      case ScriptActionType::If:
-        if (!evaluateCondition(action.value))
+      case ScriptActionType::If: {
+        QString resolvedCondition;
+        if (!evaluateCondition(action.value, &resolvedCondition)) {
+          qDebug() << "[Permission] Action in" << name << "skipped due to failed If check:" << resolvedCondition;
           skipNextAction = true;
+        } else {
+          qDebug() << "[Permission] Action in" << name << "passed If check:" << resolvedCondition;
+        }
         break;
-      case ScriptActionType::NotIf:
-        if (evaluateCondition(action.value))
+      }
+      case ScriptActionType::NotIf: {
+        QString resolvedCondition;
+        if (evaluateCondition(action.value, &resolvedCondition)) {
+          qDebug() << "[Permission] Action in" << name << "skipped due to failed NotIf check:" << resolvedCondition;
           skipNextAction = true;
+        } else {
+          qDebug() << "[Permission] Action in" << name << "passed NotIf check:" << resolvedCondition;
+        }
         break;
+      }
       case ScriptActionType::ProcedureCall:
         runProcedure(action.value.split(",").first().trimmed().toLower());
         break;
@@ -6348,18 +6360,26 @@ bool CyberDom::runProcedure(const QString &procedureName) {
 
     // Handle all other actions
     switch (action.type) {
-    case ScriptActionType::If:
-      if (!evaluateCondition(action.value)) {
-        qDebug() << "[Procedure] Aborting due to failed If:" << action.value;
+    case ScriptActionType::If: {
+      QString resolvedCondition;
+      if (!evaluateCondition(action.value, &resolvedCondition)) {
+        qDebug() << "[Procedure]" << proc.name << "aborted due to failed If check:" << resolvedCondition;
         return true;
+      } else {
+        qDebug() << "[Procedure]" << proc.name << "passed If check:" << resolvedCondition;
       }
       break;
-    case ScriptActionType::NotIf:
-      if (evaluateCondition(action.value)) {
-        qDebug() << "[Procedure] Aborting due to failed NotIf:" << action.value;
+    }
+    case ScriptActionType::NotIf: {
+      QString resolvedCondition;
+      if (evaluateCondition(action.value, &resolvedCondition)) {
+        qDebug() << "[Procedure]" << proc.name << "aborted due to failed NotIf check:" << resolvedCondition;
         return true;
+      } else {
+        qDebug() << "[Procedure]" << proc.name << "passed NotIf check:" << resolvedCondition;
       }
       break;
+    }
     case ScriptActionType::SetFlag:
       setFlag(action.value);
       break;
@@ -7551,13 +7571,35 @@ bool CyberDom::hasActiveBlockingPunishment() const {
   return false;
 }
 
-bool CyberDom::evaluateCondition(const QString &condition) {
+bool CyberDom::evaluateCondition(const QString &condition, QString* resolvedExpr) {
   if (!scriptParser)
     return false;
 
+  auto getVar = [this](const QString &name) -> QString {
+    // This universal getter resolves any known variable type to a string.
+
+    // 1. Check for predefined and custom Time variables first (!).
+    QVariant timeVal = getTimeVariableValue(name);
+    if (timeVal.isValid()) {
+      if (timeVal.userType() == QMetaType::QTime) {
+        return timeVal.toTime().toString("HH:mm:ss");
+      }
+      if (timeVal.userType() == QMetaType::QDateTime) {
+        return timeVal.toDateTime().toString(Qt::ISODate);
+      }
+      if (timeVal.canConvert<int>()) { // Duration in seconds
+        return QString::number(timeVal.toInt());
+      }
+      return timeVal.toString();
+    }
+
+    // 2. Fallback to predefined Counters (#) and custom String variables ($).
+    //    getVariableValue handles both of these.
+    return getVariableValue(name);
+  };
+
   return ScriptUtils::evaluateCondition(
-      condition, [this](const QString &n) { return isFlagSet(n); },
-      [this](const QString &n) { return scriptParser->getVariable(n); });
+      condition, [this](const QString &n) { return isFlagSet(n); }, getVar, resolvedExpr);
 }
 
 QString CyberDom::getAssignmentEstimate(const QString &assignmentName,

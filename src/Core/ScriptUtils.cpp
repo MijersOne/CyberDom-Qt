@@ -43,7 +43,7 @@ void processSelector(int itemCount, SelectMode mode, const std::function<bool(in
     }
 }
 
-bool evaluateCondition(const QString& expr, const FlagCheckFunc &checkFlag, const VarGetFunc &getVar)
+bool evaluateCondition(const QString& expr, const FlagCheckFunc &checkFlag, const VarGetFunc &getVar, QString* resolvedExpr)
 {
     static QStringList operators = {"==", "<=", ">=", "<>", "<", ">", "=", "[[", "["};
     QString opUsed, lhs, rhs;
@@ -58,7 +58,13 @@ bool evaluateCondition(const QString& expr, const FlagCheckFunc &checkFlag, cons
         }
     }
 
-    if (opUsed.isEmpty()) return checkFlag(expr.trimmed());
+    if (opUsed.isEmpty()) {
+      bool result = checkFlag(expr.trimmed());
+      if (resolvedExpr) {
+        *resolvedExpr = expr.trimmed() + " is " + (result ? "ON" : "OFF");
+      }
+      return result;
+    }
 
     auto resolve = [&](const QString& val) -> QString {
         if (val.startsWith("#") || val.startsWith("!") || val.startsWith("$")) {
@@ -69,6 +75,10 @@ bool evaluateCondition(const QString& expr, const FlagCheckFunc &checkFlag, cons
 
     QString lVal = resolve(lhs);
     QString rVal = resolve(rhs);
+
+    if (resolvedExpr) {
+      *resolvedExpr = lVal + " " + opUsed + " " + rVal;
+    }
 
     bool lOk, rOk;
     double lNum = lVal.toDouble(&lOk);
@@ -82,10 +92,41 @@ bool evaluateCondition(const QString& expr, const FlagCheckFunc &checkFlag, cons
         if (opUsed == ">") return lNum > rNum;
         if (opUsed == ">=") return lNum >= rNum;
     } else {
-        if (opUsed == "=" || opUsed == "==") return lVal.compare(rVal, Qt::CaseInsensitive) == 0;
-        if (opUsed == "<>" || opUsed == "!=") return lVal.compare(rVal, Qt::CaseInsensitive) != 0;
-        if (opUsed == "[") return lVal.toLower().contains(rVal.toLower());
-        if (opUsed == "[[") return lVal.contains(rVal);
+        // Try to parse as DateTime
+        QDateTime lDateTime = QDateTime::fromString(lVal, Qt::ISODate);
+        QDateTime rDateTime = QDateTime::fromString(rVal, Qt::ISODate);
+        if (!lDateTime.isValid()) lDateTime = QDateTime::fromString(lVal, "yyyy-MM-dd");
+        if (!rDateTime.isValid()) rDateTime = QDateTime::fromString(rVal, "yyyy-MM-dd");
+
+        if (lDateTime.isValid() && rDateTime.isValid()) {
+            if (opUsed == "=" || opUsed == "==") return lDateTime == rDateTime;
+            if (opUsed == "<>" || opUsed == "!=") return lDateTime != rDateTime;
+            if (opUsed == "<") return lDateTime < rDateTime;
+            if (opUsed == "<=") return lDateTime <= rDateTime;
+            if (opUsed == ">") return lDateTime > rDateTime;
+            if (opUsed == ">=") return lDateTime >= rDateTime;
+        } else {
+            // Try to parse as time
+            QTime lTime = QTime::fromString(lVal, "HH:mm:ss");
+            if (!lTime.isValid()) lTime = QTime::fromString(lVal, "HH:mm");
+            QTime rTime = QTime::fromString(rVal, "HH:mm:ss");
+            if (!rTime.isValid()) rTime = QTime::fromString(rVal, "HH:mm");
+
+            if (lTime.isValid() && rTime.isValid()) {
+                if (opUsed == "=" || opUsed == "==") return lTime == rTime;
+                if (opUsed == "<>" || opUsed == "!=") return lTime != rTime;
+                if (opUsed == "<") return lTime < rTime;
+                if (opUsed == "<=") return lTime <= rTime;
+                if (opUsed == ">") return lTime > rTime;
+                if (opUsed == ">=") return lTime >= rTime;
+            } else {
+                // Fallback to string comparison
+                if (opUsed == "=" || opUsed == "==") return lVal.compare(rVal, Qt::CaseInsensitive) == 0;
+                if (opUsed == "<>" || opUsed == "!=") return lVal.compare(rVal, Qt::CaseInsensitive) != 0;
+                if (opUsed == "[") return lVal.toLower().contains(rVal.toLower());
+                if (opUsed == "[[") return lVal.contains(rVal);
+            }
+        }
     }
     return false;
 }
@@ -100,7 +141,7 @@ bool checkConditions(const QList<QStringList> &ifGroups,
         for (const QStringList &group : ifGroups) {
             bool allInGroup = true;
             for (const QString &cond : group) {
-                if (!evaluateCondition(cond, checkFlag, getVar)) {
+                if (!evaluateCondition(cond, checkFlag, getVar, nullptr)) {
                     allInGroup = false;
                     break;
                 }
@@ -117,7 +158,7 @@ bool checkConditions(const QList<QStringList> &ifGroups,
         for (const QStringList &group : notIfGroups) {
             bool allInGroup = true;
             for (const QString &cond : group) {
-                if (!evaluateCondition(cond, checkFlag, getVar)) {
+                if (!evaluateCondition(cond, checkFlag, getVar, nullptr)) {
                     allInGroup = false;
                     break;
                 }

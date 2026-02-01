@@ -23,7 +23,7 @@ enum class SelectMode {
 using FlagCheckFunc = std::function<bool(const QString&)>;
 using VarGetFunc = std::function<QString(const QString&)>;
 
-bool evaluateCondition(const QString& expr, const FlagCheckFunc &checkFlag, const VarGetFunc &getVar);
+bool evaluateCondition(const QString& expr, const FlagCheckFunc &checkFlag, const VarGetFunc &getVar, QString* resolvedExpr = nullptr);
 
 bool checkConditions(const QList<QStringList> &ifGroups,
                      const QList<QStringList> &notIfGroups,
