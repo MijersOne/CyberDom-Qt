@@ -20,7 +20,12 @@ AskInstructions::AskInstructions(QWidget *parent, ScriptParser *parser, const QS
             this, &AskInstructions::onInstructionSelected);
 
     // Trigger initial selection if items exist and no specific target
-    if (targetInstruction.isEmpty() && ui->comboBox->count() > 0) {
+    // if (targetInstruction.isEmpty() && ui->comboBox->count() > 0) {
+    //     onInstructionSelected(0);
+    // }
+
+    if (ui->comboBox->count() > 0) {
+        ui->comboBox->setCurrentIndex(0);
         onInstructionSelected(0);
     }
 }

@@ -329,7 +329,7 @@ private:
   void executeQuestion(const QString &questionKey, const QString &title);
 
   // Condition Handling
-  bool evaluateCondition(const QString &condition);
+  bool evaluateCondition(const QString &condition, QString* resolvedExpr = nullptr);
 
   QString lastDisplayedStatusText;
 
