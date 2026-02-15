@@ -64,6 +64,7 @@
 #include <qmessagebox.h>
 #include <qnamespace.h>
 #include <qrandom.h>
+#include <qregularexpression.h>
 #include <qsettings.h>
 #include <qstandardpaths.h>
 
@@ -2486,14 +2487,27 @@ void CyberDom::updateStatusText() {
 
   const ScriptData &data = scriptParser->getScriptData();
 
+  // Define Regex for SubName
+  // Catches: {$zzSubName}, {!zzSubName}, $zzSubName, !zzSubName
+  QRegularExpression subNameRx("\\{[!$]zzSubName\\}|[$!]zzSubName",
+                               QRegularExpression::CaseInsensitiveOption);
+
+  // Helper lambda to apply the sticky SubName + standard replacement
+  auto processLine = [&](QString line) -> QString {
+    // Replace with sticky name first
+    line.replace(subNameRx, uiFixedSubName);
+    // Then resolve other variables
+    return replaceVariables(line);
+  };
+
   // --- Populate TopText ---
   for (const QString &line : data.general.topText) {
-    topLines.append(replaceVariables(line));
+    topLines.append(processLine(line));
   }
 
   // --- Populate BottomText ---
   for (const QString &line : data.general.bottomText) {
-    bottomLines.append(replaceVariables(line));
+    bottomLines.append(processLine(line));
   }
 
   // --- Populate Middle Content ---
@@ -2503,7 +2517,7 @@ void CyberDom::updateStatusText() {
   if (data.statuses.contains(currentStatus.toLower())) {
     for (const QString &line :
          data.statuses.value(currentStatus.toLower()).statusTexts) {
-      middleLines.append(replaceVariables(line));
+      middleLines.append(processLine(line));
     }
   }
 
@@ -2618,8 +2632,10 @@ void CyberDom::updateStatusText() {
           line = displayTitle + ": " + line;
         }
 
-        line =
-            replaceVariables(line, assignmentName, title, 0, minTimeStr,
+        // Replace SubName with Sticky Version
+        line.replace(subNameRx, uiFixedSubName);
+
+        line = replaceVariables(line, assignmentName, title, 0, minTimeStr,
                              maxTimeStr, start, creation, deadline, nextRemind);
         line.replace("{!zzMinTime}", minTimeStr, Qt::CaseInsensitive);
         line.replace("{!zzRunTime}", runTimeStr,
@@ -3762,6 +3778,8 @@ int CyberDom::getMeritsFromIni() const { return ui->progressBar->value(); }
 
 void CyberDom::initializeUiWithIniFile() {
 
+  if (!scriptParser) return;
+
   QSettings settings(settingsFile, QSettings::IniFormat);
   if (!settings.contains("User/Initialized")) {
     isFirstSessionRun = true;
@@ -3773,6 +3791,14 @@ void CyberDom::initializeUiWithIniFile() {
     const ScriptData &data = scriptParser->getScriptData();
 
     int initialMerits = 0;
+
+    // Pick a random SubName to be used consistently in the ScrollArea
+    if (!data.general.subNames.isEmpty()) {
+      int idx = ScriptUtils::randomInRange(0, data.general.subNames.size() -1, false);
+      uiFixedSubName = data.general.subNames[idx];
+    } else {
+      uiFixedSubName = "Sub"; // Fallback default
+    }
 
     // Check if merits are defined in the init section (merits = -1 is the "not
     // set" default)

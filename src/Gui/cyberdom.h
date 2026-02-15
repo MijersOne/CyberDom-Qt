@@ -492,6 +492,9 @@ private:
   QDate lastDateFlagsUpdated;
   void updateDateFlags();
 
+  // ScrollArea SubName
+  QString uiFixedSubName;
+
 private slots:
   void applyTimeToClock(int days, int hours, int minutes, int seconds);
   void openAboutDialog();
