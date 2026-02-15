@@ -832,8 +832,10 @@ void ScriptParser::parseReportSections(const QStringList& lines) {
         else if (key.compare("Procedure", Qt::CaseInsensitive) == 0) {
             currentReport.actions.append({ScriptActionType::ProcedureCall, value});
         } else if (key.compare("If", Qt::CaseInsensitive) == 0) {
+            currentReport.ifConditions.append(value);
             currentReport.actions.append({ScriptActionType::If, value});
         } else if (key.compare("NotIf", Qt::CaseInsensitive) == 0) {
+            currentReport.notIfConditions.append(value);
             currentReport.actions.append({ScriptActionType::NotIf, value});
         } else if (key.compare("SetFlag", Qt::CaseInsensitive) == 0) {
             currentReport.actions.append({ScriptActionType::SetFlag, value});
@@ -1082,8 +1084,10 @@ void ScriptParser::parseConfessionSections(const QStringList& lines) {
         else if (key.compare("Procedure", Qt::CaseInsensitive) == 0) {
             currentConf.actions.append({ScriptActionType::ProcedureCall, value});
         } else if (key.compare("If", Qt::CaseInsensitive) == 0) {
+            currentConf.ifConditions.append(value);
             currentConf.actions.append({ScriptActionType::If, value});
         } else if (key.compare("NotIf", Qt::CaseInsensitive) == 0) {
+            currentConf.notIfConditions.append(value);
             currentConf.actions.append({ScriptActionType::NotIf, value});
         } else if (key.compare("SetFlag", Qt::CaseInsensitive) == 0) {
             currentConf.actions.append({ScriptActionType::SetFlag, value});
@@ -1389,9 +1393,11 @@ void ScriptParser::parsePermissionSections(const QStringList& lines) {
             currentPermission.actions.append({ScriptActionType::ProcedureCall, value});
         }
         else if (key.compare("If", Qt::CaseInsensitive) == 0) {
+            currentPermission.ifConditions.append(value);
             currentPermission.actions.append({ScriptActionType::If, value});
         }
         else if (key.compare("NotIf", Qt::CaseInsensitive) == 0) {
+            currentPermission.notIfConditions.append(value);
             currentPermission.actions.append({ScriptActionType::NotIf, value});
         }
         else if (key.compare("SetFlag", Qt::CaseInsensitive) == 0) {

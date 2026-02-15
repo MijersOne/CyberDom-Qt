@@ -1,0 +1,35 @@
+## Function: populateReportMenu
+
+**File:** `src/Gui/cyberdom.cpp`
+
+**Description:**
+This function is responsible for populating the "Report" menu in the application's UI. It dynamically adds report options based on definitions loaded from the `scriptParser`.
+
+**Changes Made:**
+Added `QDebug` logging statements to provide detailed information about the process of populating the report menu. These logs indicate:
+- When the report menu is not found or the script parser is unavailable.
+- The current status being used for `PreStatus` checks.
+- For each report definition:
+    - Whether the report is being processed.
+    - If a report is skipped because its `showInMenu` property is `false`.
+    - If a report has `PreStatus` requirements, listing those requirements.
+    - If a `PreStatus` match is found for the current status.
+    - If a report is skipped because no matching `PreStatus` is found.
+    - When a report is successfully added to the menu, including its name and label.
+
+**Purpose of Changes:**
+To enhance debugging and understanding of why specific reports appear or do not appear in the Report Menu, especially when conditional display logic (like `showInMenu` and `PreStatus` checks) is in place.
+
+## UI Element: lbl_Date
+
+**File:** `src/Gui/cyberdom.ui`, `src/Gui/cyberdom.h`, `src/Gui/cyberdom.cpp`
+
+**Description:**
+A new `QLabel` named `lbl_Date` has been added to the main application window (`CyberDom`). It is positioned directly across from the `lbl_Status` label, within a new `QHBoxLayout`. This label displays the current date according to the application's internal clock.
+
+**Functionality:**
+The `lbl_Date` displays the date in the format "Day, Month, DayNumber, Year" (e.g., "Tuesday, February 3, 2026").
+The `updateDateLabel()` slot in the `CyberDom` class is responsible for updating this label. It is connected to the `clockTimer`'s `timeout()` signal, ensuring the date is updated every second. An initial call to `updateDateLabel()` is made in the `CyberDom` constructor to set the date upon application startup.
+
+**Purpose of Changes:**
+To provide users with a clear and continuously updated display of the current date as tracked by the application's internal clock, enhancing user awareness and context.

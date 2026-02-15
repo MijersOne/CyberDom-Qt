@@ -220,6 +220,7 @@ public slots:
   void openAssignmentsWindow();
   void openTimeAddDialog();
   void updateInternalClock();
+  void updateDateLabel();
   void updateStatus(const QString &newStatus);
   void openReportClothingDialog(bool forced = false, const QString &title = "");
   void openAskClothingDialog(const QString &target = "");
@@ -486,6 +487,10 @@ private:
 
   // Safety Risks
   bool performSafetyChecks();
+
+  // Date Flags
+  QDate lastDateFlagsUpdated;
+  void updateDateFlags();
 
 private slots:
   void applyTimeToClock(int days, int hours, int minutes, int seconds);

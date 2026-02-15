@@ -330,11 +330,13 @@ CyberDom::CyberDom(QWidget *parent)
   // Setup the timer
   clockTimer = new QTimer(this);
   connect(clockTimer, &QTimer::timeout, this, &CyberDom::updateInternalClock);
+  connect(clockTimer, &QTimer::timeout, this, &CyberDom::updateDateLabel); // Connect new date label update
   clockTimer->start(1000); // Update every second
 
   // Display the initial time in the QLabel (assuming it's named "clockLabel" in
   // the UI)
   ui->clockLabel->setText(internalClock.toString("hh:mm:ss AP"));
+  updateDateLabel(); // Initial call to update the date label
 
   // Setup menu connections for Rules submenu
   setupMenuConnections();
@@ -533,6 +535,7 @@ CyberDom::~CyberDom() {
   if (!settingsFile.isEmpty()) {
     QSettings settings(settingsFile, QSettings::IniFormat);
     settings.setValue("User/Initialized", true);
+    settings.setValue("User/CurrentStatus", currentStatus);
     settings.setValue("System/CurrentDate",
                       internalClock.date().toString("MM-dd-yyyy"));
     settings.setValue("User/BeginTime", scriptBeginTime.toString(Qt::ISODate));
@@ -611,6 +614,7 @@ void CyberDom::updateInternalClock() {
   // Update the QLabel to display the new time
   ui->clockLabel->setText(internalClock.toString("hh:mm:ss AP"));
   updateStatusText();
+  updateDateFlags();
 
   // Check if we crossed midnight (new day)
   if (previousTime.date() != internalClock.date()) {
@@ -900,6 +904,12 @@ void CyberDom::updateInternalClock() {
         }
       }
     }
+  }
+}
+
+void CyberDom::updateDateLabel() {
+  if (ui->lbl_Date) {
+    ui->lbl_Date->setText(internalClock.date().toString("dddd, MMMM d, yyyy"));
   }
 }
 
@@ -1804,13 +1814,19 @@ void CyberDom::openConfession(const QString &name) {
       break;
     }
   }
+
+  populateReportMenu();
+  populateConfessMenu();
+  populatePermissionMenu();
 }
 
 void CyberDom::populateReportMenu() {
   // Refresh the pointer each time in case the UI was recreated
   reportMenu = ui->menuReport;
-  if (!reportMenu)
+  if (!reportMenu) {
+    qDebug() << "[ReportMenu] Report menu not found (nullptr). Skipping population.";
     return;
+  }
 
   reportMenu->clear();
 
@@ -1819,38 +1835,86 @@ void CyberDom::populateReportMenu() {
   reportMenu->addAction(addClothing);
   connect(addClothing, &QAction::triggered, this,
           &CyberDom::openAddClothingDialog);
+  qDebug() << "[ReportMenu] Added 'Add Clothing' action.";
 
-  if (!scriptParser)
+
+  if (!scriptParser) {
+    qDebug() << "[ReportMenu] Script parser not available. Cannot populate dynamic reports.";
     return;
+  }
 
   // Insert a separator between the static and dynamic items
   reportMenu->addSeparator();
 
   // Get the current status (lowercase) for comparison
-  QString lowerCurrentStatus = currentStatus.toLower();
+  QString cleanedStatus = currentStatus;
+  cleanedStatus = cleanedStatus.trimmed();
+  if (cleanedStatus.startsWith('"') && cleanedStatus.endsWith('"')) {
+    cleanedStatus = cleanedStatus.mid(1, cleanedStatus.length() - 2);
+  }
+  QString lowerCurrentStatus = cleanedStatus.toLower();
+  qDebug() << "[ReportMenu] Current status for checks (raw):" << currentStatus;
+  qDebug() << "[ReportMenu] Current status for checks (cleaned):" << cleanedStatus;
+
 
   const auto &reports = scriptParser->getScriptData().reports;
   for (auto it = reports.constBegin(); it != reports.constEnd(); ++it) {
     const ReportDefinition &rep = it.value();
-    if (!rep.showInMenu)
+    qDebug() << "[ReportMenu] Processing report:" << rep.name;
+
+    if (!rep.showInMenu) {
+      qDebug() << "[ReportMenu] Skipping report" << rep.name << ": 'showInMenu' is false.";
       continue;
+    }
 
     // Check the PreStatus requirement
     if (!rep.preStatuses.isEmpty()) {
-      // This report has status requirements.
-      // We must find a match.
+      qDebug() << "[ReportMenu] Report" << rep.name << "has PreStatus requirements:" << rep.preStatuses.join(", ");
       bool foundMatch = false;
       for (const QString &preStatus : rep.preStatuses) {
         if (preStatus.toLower() == lowerCurrentStatus) {
           foundMatch = true;
+          qDebug() << "[ReportMenu] PreStatus match found for" << rep.name << ": '" << preStatus << "' matches current status '" << cleanedStatus << "'.";
           break;
+        }
+      }
+
+      // Check NotIf
+      // If ANY NofIf condition is true, we hide the report
+      bool blocked = false;
+      for (const QString &cond : rep.notIfConditions) {
+        if (evaluateCondition(cond)) {
+          qDebug() << "[ReportMenu] Hidden" << rep.name << "due to NotIf:" << cond;
+          blocked = true;
+          break;
+        }
+      }
+      if (blocked) continue;
+
+      // Check If
+      // If there are If conditions, AT LEAST ONE must be true
+      if (!rep.ifConditions.isEmpty()) {
+        bool allowed = false;
+        for (const QString &cond : rep.ifConditions) {
+          if (evaluateCondition(cond)) {
+            allowed = true;
+            break;
+          }
+        }
+
+        if (!allowed) {
+          qDebug() << "[ReportMenu] Hidden" << rep.name << "because no 'If' conditions were met.";
+          continue;
         }
       }
 
       // If no match was found, skip this report
       if (!foundMatch) {
+        qDebug() << "[ReportMenu] Skipping report" << rep.name << ": No matching PreStatus found for current status '" << cleanedStatus << "'.";
         continue;
       }
+    } else {
+        qDebug() << "[ReportMenu] Report" << rep.name << "has no PreStatus requirements.";
     }
 
     QString label = rep.title.isEmpty() ? rep.name : rep.title;
@@ -1861,7 +1925,7 @@ void CyberDom::populateReportMenu() {
       label[0] = label[0].toUpper();
     }
 
-    qDebug() << "[ReportMenu] Adding" << rep.name;
+    qDebug() << "[ReportMenu] Adding report" << rep.name << "to menu with label:" << label;
     QAction *act = new QAction(label, reportMenu);
     reportMenu->addAction(act);
     connect(act, &QAction::triggered, this,
@@ -1879,7 +1943,13 @@ void CyberDom::populateConfessMenu() {
   if (!scriptParser)
     return;
 
-  QString lowerCurrentStatus = currentStatus.toLower();
+  QString cleanedStatus = currentStatus;
+  cleanedStatus = cleanedStatus.trimmed();
+  if (cleanedStatus.startsWith('"') && cleanedStatus.endsWith('"')) {
+    cleanedStatus = cleanedStatus.mid(1, cleanedStatus.length() - 2);
+  }
+  QString lowerCurrentStatus = cleanedStatus.toLower();
+
   const auto confessions = scriptParser->getConfessionSections();
 
   for (const auto &conf : confessions) {
@@ -1897,6 +1967,18 @@ void CyberDom::populateConfessMenu() {
       }
       if (!foundMatch) {
         continue;
+
+      // Check If
+      if (!conf.ifConditions.isEmpty()) {
+        bool allowed = false;
+        for (const QString &cond : conf.ifConditions) {
+          if (evaluateCondition(cond)) {
+            allowed = true;
+            break;
+          }
+        }
+        if (!allowed) continue;
+      }
       }
     }
 
@@ -1925,7 +2007,13 @@ void CyberDom::populatePermissionMenu() {
   if (!scriptParser)
     return;
 
-  QString lowerCurrentStatus = currentStatus.toLower();
+  QString cleanedStatus = currentStatus;
+  cleanedStatus = cleanedStatus.trimmed();
+  if (cleanedStatus.startsWith('"') && cleanedStatus.endsWith('"')) {
+    cleanedStatus = cleanedStatus.mid(1, cleanedStatus.length() - 2);
+  }
+  QString lowerCurrentStatus = cleanedStatus.toLower();
+
   const auto perms = scriptParser->getPermissionSections();
 
   for (const auto &perm : perms) {
@@ -1941,6 +2029,27 @@ void CyberDom::populatePermissionMenu() {
       }
       if (!foundMatch) {
         continue;
+      }
+
+      bool blocked = false;
+      for (const QString &cond : perm.notIfConditions) {
+        if (evaluateCondition(cond)) {
+          blocked = true;
+          break;
+        }
+      }
+      if (blocked) continue;
+
+      // Check If (Allowers)
+      if (!perm.ifConditions.isEmpty()) {
+        bool allowed = false;
+        for (const QString &cond : perm.ifConditions) {
+          if (evaluateCondition(cond)) {
+            allowed = true;
+            break;
+          }
+        }
+        if (!allowed) continue;
       }
     }
 
@@ -2359,6 +2468,10 @@ void CyberDom::updateStatus(const QString &newStatus) {
     triggerPointCamera(camText, status.cameraIntervalMin,
                        status.cameraIntervalMax, "Status_" + currentStatus);
   }
+
+  populateReportMenu();
+  populateConfessMenu();
+  populatePermissionMenu();
 }
 
 void CyberDom::updateStatusText() {
@@ -3200,6 +3313,13 @@ void CyberDom::loadAndParseScript(const QString &filePath) {
     return;
   }
 
+  // --- FIX: Set these paths FIRST ---
+  this->currentIniFile = filePath;
+  QFileInfo iniFileInfo(currentIniFile);
+  settingsFile = iniFileInfo.absolutePath() + "/user_settings.ini";
+  qDebug() << "[INIT] Settings file path set to:" << settingsFile;
+  // --------------------------------
+
   if (!QFile::exists(filePath)) {
     qDebug() << "[ERROR] Script file not found:" << filePath;
     QMessageBox::critical(this, "Script Not Found",
@@ -3221,11 +3341,6 @@ void CyberDom::loadAndParseScript(const QString &filePath) {
                           "it's a valid script.");
     return;
   }
-
-  // Setup Settings Path before Safety Check
-  this->currentIniFile = filePath;
-  QFileInfo iniFileInfo(currentIniFile);
-  settingsFile = iniFileInfo.absolutePath() + "/user_settings.ini";
 
   // Safety Check (Perform immediately after parsing)
   if (!performSafetyChecks()) {
@@ -3252,9 +3367,6 @@ void CyberDom::loadAndParseScript(const QString &filePath) {
   // Debug information about parsed status sections
   QList<StatusSection> statuses = scriptParser->getStatusSections();
   qDebug() << "[DEBUG] Parsed " << statuses.size() << " status sections.";
-
-  // Store the path to the current ini file
-  this->currentIniFile = filePath;
 
   // Apply the script settings to the application
   applyScriptSettings();
@@ -3376,10 +3488,12 @@ void CyberDom::setupInitialStatus() {
 
   // If no saved status, check the init section for NewStatus
   if (savedStatus.isEmpty()) {
+    qDebug() << "[Status] Missing: No CurrentStatus found in user_settings.ini.";
     QString iniStatus = scriptParser->getIniValue("init", "NewStatus");
     if (!iniStatus.isEmpty()) {
       savedStatus = iniStatus;
     } else {
+      qDebug() << "[Status] Missing: No NewStatus found in [Init] section of the script.";
       // Default to "Normal" if no status is defined
       savedStatus = "Normal";
     }
@@ -3707,6 +3821,8 @@ void CyberDom::initializeUiWithIniFile() {
     }
   }
 
+  lastDateFlagsUpdated = QDate();
+  updateDateFlags();
   updateStatusText();
 }
 
@@ -5104,6 +5220,10 @@ bool CyberDom::startAssignment(const QString &assignmentName, bool isPunishment,
   emit jobListUpdated();
 
   return true;
+
+  populateReportMenu();
+  populatePermissionMenu();
+  populateConfessMenu();
 }
 
 bool CyberDom::markAssignmentDone(const QString &assignmentName,
@@ -5491,6 +5611,10 @@ bool CyberDom::markAssignmentDone(const QString &assignmentName,
   }
 
   return true;
+
+  populateReportMenu();
+  populateConfessMenu();
+  populatePermissionMenu();
 }
 
 void CyberDom::abortAssignment(const QString &assignmentName,
@@ -6872,6 +6996,10 @@ void CyberDom::executeReport(const QString &name) {
 
   todayStats.reportHistory.append(newLog);
   currentActiveReportLog = nullptr;
+  
+  populateReportMenu();
+  populateConfessMenu();
+  populatePermissionMenu();
 }
 
 bool CyberDom::loadSessionData(const QString &path) {
@@ -7057,10 +7185,6 @@ bool CyberDom::loadSessionData(const QString &path) {
 
   loadAndParseScript(script);
   updateMerits(merits);
-  if (!status.isEmpty()) {
-    currentStatus = status;
-    updateStatusDisplay();
-  }
 
   // Calculate time offset
   if (lastInternal.isValid() && lastSystem.isValid()) {
@@ -7071,6 +7195,7 @@ bool CyberDom::loadSessionData(const QString &path) {
   }
 
   saveIniFilePath(script);
+  updateAvailableActions();
   emit jobListUpdated();
   return true;
 }
@@ -7083,7 +7208,6 @@ void CyberDom::saveSessionData(const QString &path) const {
 
   session.setValue("Session/ScriptPath", currentIniFile);
   session.setValue("Session/Merits", ui->progressBar->value());
-  session.setValue("Session/Status", currentStatus);
   session.setValue("Session/InternalClock",
                    internalClock.toString(Qt::ISODate));
   session.setValue("Session/LastSystemTime",
@@ -7575,10 +7699,9 @@ bool CyberDom::evaluateCondition(const QString &condition, QString* resolvedExpr
   if (!scriptParser)
     return false;
 
+  // --- 1. Define Variable Getter ---
   auto getVar = [this](const QString &name) -> QString {
-    // This universal getter resolves any known variable type to a string.
-
-    // 1. Check for predefined and custom Time variables first (!).
+    // Check for predefined and custom Time variables first (!).
     QVariant timeVal = getTimeVariableValue(name);
     if (timeVal.isValid()) {
       if (timeVal.userType() == QMetaType::QTime) {
@@ -7592,14 +7715,20 @@ bool CyberDom::evaluateCondition(const QString &condition, QString* resolvedExpr
       }
       return timeVal.toString();
     }
-
-    // 2. Fallback to predefined Counters (#) and custom String variables ($).
-    //    getVariableValue handles both of these.
+    
+    // Fallback to predefined Counters (#) and custom String variables ($).
     return getVariableValue(name);
   };
 
-  return ScriptUtils::evaluateCondition(
-      condition, [this](const QString &n) { return isFlagSet(n); }, getVar, resolvedExpr);
+  // --- 2. Define Flag Checker ---
+  auto checkFlag = [this](const QString &n) -> bool {
+    // Because we added updateDateFlags(), "Monday", "February", etc. 
+    // are now real flags. We can simply use the standard check.
+    return isFlagSet(n);
+  };
+
+  // --- 3. Call ScriptUtils ---
+  return ScriptUtils::evaluateCondition(condition, checkFlag, getVar, resolvedExpr);
 }
 
 QString CyberDom::getAssignmentEstimate(const QString &assignmentName,
@@ -9188,6 +9317,10 @@ void CyberDom::executeTimeAction(ScriptActionType type, const QString &value) {
     scriptParser->setTimeVariable(varName, valToSet);
     qDebug() << "[SetTime] Set" << varName << "to value";
   }
+
+  populateReportMenu();
+  populateConfessMenu();
+  populatePermissionMenu();
 }
 
 void CyberDom::executeTimeExtraction(ScriptActionType type,
@@ -10067,4 +10200,48 @@ bool CyberDom::performSafetyChecks() {
 
   qDebug() << "[Safety] User accepted new risks:" << newRisks.size();
   return true;
+}
+
+void CyberDom::updateDateFlags() {
+  QDate currentDate = internalClock.date();
+
+  if (lastDateFlagsUpdated == currentDate) {
+    return;
+  }
+
+  // Clear OLD Date Flags
+  static const QStringList allDays = {
+    "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"
+  };
+  static const QStringList allMonths = {
+    "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"
+  };
+
+  for (const QString &d : allDays) removeFlag(d);
+  for (const QString &m : allMonths) removeFlag(m);
+
+  // Clear DAY1 through DAY31
+  for (int i = 1; i <= 31; ++i) {
+    removeFlag(QString("DAY%1").arg(i));
+  }
+
+  // Set NEW Flags
+  QLocale englishLocale(QLocale::English);
+
+  // Day of Week (e.g., "Sunday")
+  QString dayName = englishLocale.dayName(currentDate.dayOfWeek());
+  setFlag(dayName);
+
+  // Month (e.g., "February")
+  QString monthName = englishLocale.monthName(currentDate.month());
+  setFlag(monthName);
+  
+  // Day of Month (e.g., "DAY15")
+  QString dayNum = QString("DAY%1").arg(currentDate.day());
+  setFlag(dayNum);
+
+  // Update tracker
+  lastDateFlagsUpdated = currentDate;
+
+  qDebug() << "[Flags] Auto-Updated Date Flags:" << dayName << monthName << dayNum;
 }
