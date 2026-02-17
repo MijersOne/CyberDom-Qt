@@ -2322,7 +2322,7 @@ void ScriptParser::parseAssignmentBehavior(const QMap<QString, QStringList>& ent
 
 void ScriptParser::parseInstructionSections(const QStringList& lines) {
     InstructionDefinition currentInstr;
-    InstructionSet currentSet; // Implicit set for the instruction
+    InstructionSet currentSet; 
     InstructionChoice currentChoice;
 
     bool inSection = false;
@@ -2333,19 +2333,27 @@ void ScriptParser::parseInstructionSections(const QStringList& lines) {
         if (line.isEmpty() || line.startsWith("#") || line.startsWith(";"))
             continue;
 
-        // Check for section headers
+        // --- SECTION HEADERS ---
         if (line.startsWith("[") && line.endsWith("]")) {
             if (inSection) {
-                // Save previous instruction
+                // 1. Save pending choice
                 if (inChoice) {
-                    // Finish the last choice and add it as a step
                     InstructionStep step;
                     step.type = InstructionStepType::Choice;
                     step.choice = currentChoice;
                     currentSet.steps.append(step);
                 }
-                currentInstr.sets.append(currentSet);
+
+                // 2. Save final set to instruction
+                // (Even if empty, if it has flags it might be relevant, but usually checks steps)
+                if (!currentSet.steps.isEmpty() || !currentSet.ifFlagGroups.isEmpty()) {
+                    currentInstr.sets.append(currentSet);
+                }
+                
+                // 3. Save instruction to master data
                 scriptData.instructions.insert(currentInstr.name, currentInstr);
+                qDebug() << "[Parser] Finished parsing Instruction:" << currentInstr.name
+                         << "with" << currentInstr.sets.size() << "sets.";
             }
 
             // Reset state
@@ -2370,6 +2378,12 @@ void ScriptParser::parseInstructionSections(const QStringList& lines) {
                 currentInstr.isClothing = true;
                 inSection = true;
             }
+            
+            // Ensure the first set knows its parent name (good for debugging)
+            if (inSection) {
+                currentSet.name = currentInstr.name;
+                qDebug() << "[Parser] Started parsing Instruction section:" << currentInstr.name;
+            }
             continue;
         }
 
@@ -2381,20 +2395,55 @@ void ScriptParser::parseInstructionSections(const QStringList& lines) {
         QString key = line.left(equalsIndex).trimmed();
         QString value = line.mid(equalsIndex + 1).trimmed();
 
-        // --- Properties ---
+        // --- PROPERTIES ---
         if (key.compare("Askable", Qt::CaseInsensitive) == 0) {
             currentInstr.askable = (value != "0");
         } else if (key.compare("Title", Qt::CaseInsensitive) == 0) {
             currentInstr.title = value;
-        } else if (key.compare("Select", Qt::CaseInsensitive) == 0) {
+        } 
+        
+        // --- SELECT LOGIC (CRITICAL FIX) ---
+        else if (key.compare("Select", Qt::CaseInsensitive) == 0) {
+            // 1. Close pending choice if any
+            if (inChoice) {
+                InstructionStep step;
+                step.type = InstructionStepType::Choice;
+                step.choice = currentChoice;
+                currentSet.steps.append(step);
+                currentChoice = InstructionChoice();
+                inChoice = false;
+            }
+
+            // 2. SPLIT LOGIC: If the current set already has steps, 
+            // save it and start a new one. This ensures the new 'Select' mode
+            // applies only to the *following* choices.
+            if (!currentSet.steps.isEmpty()) {
+                qDebug() << "[Parser] 'Select=" << value << "' encountered. Splitting set for" << currentInstr.name
+                         << "- Previous set had" << currentSet.steps.size() << "steps.";
+                
+                currentInstr.sets.append(currentSet);
+                
+                InstructionSet newSet;
+                newSet.name = currentInstr.name; // Keep name consistency
+                currentSet = newSet;
+            } else {
+                qDebug() << "[Parser] 'Select=" << value << "' encountered at start of set (No split needed).";
+            }
+
+            // 3. Apply the mode to the current (fresh) set
             if (value.compare("first", Qt::CaseInsensitive) == 0)
-                currentInstr.selectMode = InstructionSelectMode::First;
+                currentSet.selectMode = InstructionSelectMode::First;
             else if (value.compare("random", Qt::CaseInsensitive) == 0)
-                currentInstr.selectMode = InstructionSelectMode::Random;
+                currentSet.selectMode = InstructionSelectMode::Random;
             else
-                currentInstr.selectMode = InstructionSelectMode::All;
-            currentSet.selectMode = currentInstr.selectMode;
-        } else if (key.compare("Change", Qt::CaseInsensitive) == 0) {
+                currentSet.selectMode = InstructionSelectMode::All;
+                
+            // Update the definition default just in case, though sets control execution
+            currentInstr.selectMode = currentSet.selectMode; 
+        } 
+        // -----------------------------------
+
+        else if (key.compare("Change", Qt::CaseInsensitive) == 0) {
             if (value.compare("Daily", Qt::CaseInsensitive) == 0)
                 currentInstr.changeMode = InstructionChangeMode::Daily;
             else if (value.compare("Program", Qt::CaseInsensitive) == 0)
@@ -2409,10 +2458,9 @@ void ScriptParser::parseInstructionSections(const QStringList& lines) {
             currentInstr.statusTexts.append(value);
         }
 
-        // --- Structure (Sets, Choices, Options) ---
+        // --- STRUCTURE (Set, Choice, Option) ---
 
         else if (key.compare("Set", Qt::CaseInsensitive) == 0) {
-            // 1. Close pending choice if any
             if (inChoice) {
                 InstructionStep step;
                 step.type = InstructionStepType::Choice;
@@ -2421,14 +2469,12 @@ void ScriptParser::parseInstructionSections(const QStringList& lines) {
                 currentChoice = InstructionChoice();
                 inChoice = false;
             }
-            // 2. Add Set Reference Step
             InstructionStep step;
             step.type = InstructionStepType::SetReference;
             step.setReference = "set:" + value.trimmed().toLower();
             currentSet.steps.append(step);
         }
         else if (key.compare("Choice", Qt::CaseInsensitive) == 0) {
-            // 1. Close pending choice if any
             if (inChoice) {
                 InstructionStep step;
                 step.type = InstructionStepType::Choice;
@@ -2438,16 +2484,13 @@ void ScriptParser::parseInstructionSections(const QStringList& lines) {
             }
             inChoice = true;
 
-            // 2. Start new choice
             if (value.contains(',')) {
-                // Legacy format
                 QStringList parts = value.split(',', Qt::SkipEmptyParts);
                 for (const QString& opt : parts) {
                     InstructionOption o;
                     o.text = opt.trimmed();
                     currentChoice.options.append(o);
                 }
-                // Close immediately
                 InstructionStep step;
                 step.type = InstructionStepType::Choice;
                 step.choice = currentChoice;
@@ -2462,17 +2505,18 @@ void ScriptParser::parseInstructionSections(const QStringList& lines) {
         else if (key.compare("Option", Qt::CaseInsensitive) == 0) {
             InstructionOption option;
             option.text = value;
-            // ... (keep your existing * skip and % hidden logic) ...
+            if (value == "*") option.skip = true;
+            else if (value.startsWith('%')) {
+                option.hidden = true;
+                option.text = value.mid(1).trimmed();
+            }
             currentChoice.options.append(option);
             if (!inChoice) inChoice = true;
         }
-
-        // --- WEIGHT LOGIC ---
         else if (key.compare("Weight", Qt::CaseInsensitive) == 0) {
             bool ok = false;
             int w = value.toInt(&ok);
             if (ok) {
-                // Because we parse line-by-line, 'last()' is definitely the Option above this line
                 if (inChoice && !currentChoice.options.isEmpty()) {
                     currentChoice.options.last().weight = w;
                 } else {
@@ -2480,8 +2524,6 @@ void ScriptParser::parseInstructionSections(const QStringList& lines) {
                 }
             }
         }
-        // --- END WEIGHT LOGIC ---
-
         else if (key.compare("Check", Qt::CaseInsensitive) == 0) {
             if (!currentChoice.options.isEmpty()) currentChoice.options.last().check.append(value);
         }
@@ -2498,8 +2540,11 @@ void ScriptParser::parseInstructionSections(const QStringList& lines) {
             step.choice = currentChoice;
             currentSet.steps.append(step);
         }
+        
         currentInstr.sets.append(currentSet);
         scriptData.instructions.insert(currentInstr.name, currentInstr);
+        qDebug() << "[Parser] Finished parsing Instruction:" << currentInstr.name
+                 << "with" << currentInstr.sets.size() << "sets.";
     }
 }
 

@@ -967,8 +967,17 @@ void CyberDom::openAskClothingDialog(const QString &target) {
 }
 
 void CyberDom::openAskInstructionsDialog(const QString &target) {
-  if (target.isEmpty() && checkInterruptableAssignments())
+  // Logging
+  if (target.isEmpty()) {
+      qDebug() << "[AskInstructions] Opening dialog (No specified target).";
+  } else {
+      qDebug() << "[AskInstructions] Opening dialog for target:" << target;
+  }
+  
+  if (target.isEmpty() && checkInterruptableAssignments()) {
+    qDebug() << "[AskInstructions] Aborted: Interruptable assignments found.";
     return;
+  }
 
   // Create dialog with the optional target
   AskInstructions askinstructionsDialog(this, scriptParser, target);
@@ -7891,7 +7900,6 @@ QString CyberDom::resolveInstruction(const QString &name,
                   (def.changeMode != InstructionChangeMode::Always);
   QSettings settings(settingsFile, QSettings::IniFormat);
 
-  // FIX: Update key to "v2" to force ignore old/bad cache data
   QString cacheKeyBase = "InstructionCache_v2/" + lowerName;
 
   if (useCache) {
@@ -7988,47 +7996,68 @@ QString CyberDom::resolveInstruction(const QString &name,
               resultLines.append(refText);
               return true;
             }
-          } else if (step.type == InstructionStepType::Choice) {
+          } 
+          else if (step.type == InstructionStepType::Choice) {
             const InstructionChoice &choice = step.choice;
             if (choice.options.isEmpty())
               return false;
 
+            // --- IMPROVED SELECTION LOGIC ---
             int totalWeight = 0;
-            for (const InstructionOption &opt : choice.options)
-              totalWeight += opt.weight;
+            bool anyPositiveWeight = false;
 
-            if (totalWeight > 0) {
-              int roll = ScriptUtils::randomInRange(1, totalWeight, false);
-              int current = 0;
-              for (const InstructionOption &opt : choice.options) {
-                current += opt.weight;
-                if (roll <= current) {
-                  if (!opt.skip && !opt.text.isEmpty() &&
-                      opt.text.trimmed() != "*") {
-                    QString txt = replaceVariables(opt.text);
-                    resultLines.append(txt);
-                    targetChosenItems->append(txt);
-                  }
+            // 1. Calculate Total Weight
+            for (const InstructionOption &opt : choice.options) {
+                if (opt.weight > 0) anyPositiveWeight = true;
+                totalWeight += opt.weight;
+            }
 
-                  if (currentContextIsClothing) {
-                    // Add to global lists (duplicates prevented)
-                    for (const QString &c : opt.check) {
-                      if (!requiredClothingChecks.contains(c,
-                                                           Qt::CaseInsensitive))
-                        requiredClothingChecks.append(c);
+            // Fallback: If no weights defined (all 0), treat all as weight 1
+            if (totalWeight <= 0 || !anyPositiveWeight) {
+                totalWeight = choice.options.size();
+            }
+
+            // 2. Roll Dice
+            int roll = ScriptUtils::randomInRange(1, totalWeight, false);
+            int current = 0;
+
+            // 3. Find Selection
+            for (int i = 0; i < choice.options.size(); ++i) {
+                const InstructionOption &opt = choice.options[i];
+                
+                // Use effective weight (handle the 0 -> 1 fallback)
+                int w = opt.weight;
+                if (!anyPositiveWeight) w = 1;
+                
+                current += w;
+
+                // MATCH if roll is within range, OR if this is the last item (Failsafe)
+                if (roll <= current || i == choice.options.size() - 1) {
+                    
+                    // Logic for "Blank" option (option=*) or empty option
+                    if (!opt.skip && !opt.text.isEmpty() &&
+                        opt.text.trimmed() != "*") {
+                        QString txt = replaceVariables(opt.text);
+                        resultLines.append(txt);
+                        targetChosenItems->append(txt);
                     }
-                    for (const QString &f : opt.checkOff) {
-                      if (!forbiddenClothingChecks.contains(
-                              f, Qt::CaseInsensitive))
-                        forbiddenClothingChecks.append(f);
-                    }
-                  }
 
-                  for (const QString &f : opt.optionFlags)
-                    setFlag(f);
-                  return true;
+                    if (currentContextIsClothing) {
+                        for (const QString &c : opt.check) {
+                            if (!requiredClothingChecks.contains(c, Qt::CaseInsensitive))
+                                requiredClothingChecks.append(c);
+                        }
+                        for (const QString &f : opt.checkOff) {
+                            if (!forbiddenClothingChecks.contains(f, Qt::CaseInsensitive))
+                                forbiddenClothingChecks.append(f);
+                        }
+                    }
+
+                    for (const QString &f : opt.optionFlags)
+                        setFlag(f);
+                    
+                    return true; // Selection successful
                 }
-              }
             }
           }
           return false;
@@ -8039,7 +8068,6 @@ QString CyberDom::resolveInstruction(const QString &name,
 
   // --- 3. CACHING LOGIC (Save) ---
   if (useCache) {
-    // Capture everything added during this execution (including recursion)
     QStringList checksToCache;
     QStringList forbidsToCache;
 
