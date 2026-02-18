@@ -273,6 +273,10 @@ CyberDom::CyberDom(QWidget *parent)
 
   // Update UI with loaded settings
 
+  QAction *importAction = new QAction("Import Legacy Save", this);
+  ui->menuFile->addAction(importAction);
+  connect(importAction, &QAction::triggered, this, &CyberDom::importLegacySaveFile);
+
   QString appDataDir =
       QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
   QDir dir(appDataDir);
@@ -10298,4 +10302,236 @@ void CyberDom::updateDateFlags() {
   lastDateFlagsUpdated = currentDate;
 
   qDebug() << "[Flags] Auto-Updated Date Flags:" << dayName << monthName << dayNum;
+}
+
+#include <QFileDialog>
+#include <QFile>
+#include <QTextStream>
+
+void CyberDom::importLegacySaveFile() {
+    // 1. Open File Dialog
+    QString fileName = QFileDialog::getOpenFileName(this, 
+        tr("Open Legacy Save File"), 
+        "", 
+        tr("VirMst Save Files (*.vmt);;All Files (*)"));
+
+    if (fileName.isEmpty()) return;
+
+    qDebug() << "[Import] Reading legacy file:" << fileName;
+
+    QFile file(fileName);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        QMessageBox::warning(this, tr("Import Failed"), tr("Could not open the selected file."));
+        return;
+    }
+
+    QTextStream in(&file);
+    // Handle potential UTF-8 encoding (common in modern systems)
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    in.setEncoding(QStringConverter::Utf8);
+#else
+    in.setCodec("UTF-8");
+#endif
+
+    // Prepare Destination Settings
+    QSettings dest(settingsFile, QSettings::IniFormat);
+
+    // Parsing State
+    QString currentSection = "";
+    int importedMerits = 0;
+    QString importedStatus = "";
+    int procCount = 0;
+    int statusCount = 0;
+    bool meritsFound = false;
+
+    // Task Variables (Buffer)
+    bool inTaskSection = false;
+    QString taskName;
+    QString taskAction;
+    QString taskClass;
+    QString taskDeadLine;
+    QString taskInitTime;
+    int taskCount = 0;
+
+    // Helper Lambda: Commit Task
+    // Defined helper to avoid code duplication
+    auto commitTask = [&]() {
+      if (taskAction.isEmpty() && taskName.isEmpty()) return;
+
+      // Determine taskID
+      QString taskId;
+
+      if (!taskAction.isEmpty()) {
+        // Strip "job-" or "punishment-" prefix
+        if (taskAction.startsWith("job-", Qt::CaseInsensitive)) {
+          taskId = taskAction.mid(4).toLower();
+        } else if (taskAction.startsWith("punishment-", Qt::CaseInsensitive)) {
+          taskId = taskAction.mid(11).toLower();
+        } else {
+          taskId = taskAction.toLower();
+        }
+      } else {
+          // Fallback: If no Action line, use Name (removing spaces/lowercasing)
+          taskId = taskName.toLower();
+      }
+
+      // Add to Active List
+      // Note: We use the name exactly as it appears in the VMT (Mixed Case)
+      activeAssignments.insert(taskId);
+
+      // Parse Dates
+      // VMT Format: "yyyy-MM-dd HH:mm:ss"
+      QDateTime created = QDateTime::fromString(taskInitTime, "yyyy-MM-dd HH:mm:ss");
+      QDateTime due = QDateTime::fromString(taskDeadLine, "yyyy-MM-dd HH:mm:ss");
+
+      // Store Metadata in Settings (Persist to user_settings.ini)
+      if (created.isValid()) {
+        dest.setValue("Assignments/" + taskName + "_creation_time", created);
+      }
+      dest.setValue("Assignments/" + taskName + "_source", "Imported");
+
+      // Update Runtime Deadline Map
+      if (due.isValid()) {
+        jobDeadlines[taskId] = due;
+      }
+
+      // Handle Punishments specific logic
+      // If it's a punishment, we ensure it has an entry in the amounts map
+      // VMT doesn't always strictly list "Amount", so we default to 1 to ensure it exists.
+      if (taskClass.compare("punishment", Qt::CaseInsensitive) == 0) {
+        if (!punishmentAmounts.contains(taskName)) {
+          punishmentAmounts[taskId] = 1;
+        }
+      }
+
+      qDebug() << "[Import] Task added ID:" << taskId << "(Action:" << taskAction << ")" << "| Class:" << taskClass << "| Due:" << due.toString();
+      taskCount++;
+    };
+
+    // 2. Loop through lines manually
+    while (!in.atEnd()) {
+        QString line = in.readLine().trimmed();
+
+        // Skip empty lines or comments
+        if (line.isEmpty() || line.startsWith(";") || line.startsWith("#")) continue;
+
+        // --- SECTION HEADER DETECTION ---
+        if (line.startsWith("[") && line.endsWith("]")) {
+
+            // IF we were previously reading a task, save it now before moving to the new section
+            if (inTaskSection) {
+              commitTask();
+              // Clear buffer
+              taskName.clear();
+              taskAction.clear();
+              taskClass.clear();
+              taskDeadLine.clear();
+              taskInitTime.clear();
+              inTaskSection = false;
+            }
+
+            // Remove brackets to get raw section name
+            currentSection = line.mid(1, line.length() - 2).trimmed();
+
+            // Check if this NEW section is a task
+            if (currentSection.startsWith("task-", Qt::CaseInsensitive)) {
+              inTaskSection = true;
+            }
+            continue;
+        }
+
+        // --- KEY=VALUE PARSING ---
+        int idx = line.indexOf('=');
+        if (idx == -1) continue; // Not a key-value pair
+
+        QString key = line.left(idx).trimmed();
+        QString value = line.mid(idx + 1).trimmed();
+
+        // --- LOGIC MAPPING ---
+
+        // TASK SECTIONS
+        if (inTaskSection) {
+          if (key.compare("Name", Qt::CaseInsensitive) == 0) {
+            taskName = value;
+          } else if (key.compare("Action", Qt::CaseInsensitive) == 0) {
+            taskAction = value;
+          } else if (key.compare("TaskClass", Qt::CaseInsensitive) == 0) {
+            taskClass = value;
+          } else if (key.compare("DeadLine", Qt::CaseInsensitive) == 0) {
+            taskDeadLine = value;
+          } else if (key.compare("InitTime", Qt::CaseInsensitive) == 0) {
+            taskInitTime = value;
+          }
+        }
+
+        // A. [General] Section
+        if (currentSection.compare("General", Qt::CaseInsensitive) == 0) {
+            
+            // Merits
+            if (key.compare("Merits", Qt::CaseInsensitive) == 0) {
+                bool ok;
+                int m = value.toInt(&ok);
+                if (ok) {
+                    importedMerits = m;
+                    meritsFound = true;
+                    dest.setValue("User/Merits", m);
+                    // Update UI immediately using your helper
+                    updateMerits(m); 
+                }
+            }
+            // Current Status
+            else if (key.compare("CurrentStatus", Qt::CaseInsensitive) == 0) {
+                importedStatus = value.toLower().trimmed();
+                dest.setValue("User/CurrentStatus", importedStatus);
+                currentStatus = importedStatus;
+                updateStatusText(); // Refresh UI text
+            }
+        }
+        
+        // B. [procedure-*] History
+        else if (currentSection.startsWith("procedure-", Qt::CaseInsensitive)) {
+            if (key.compare("UseCount", Qt::CaseInsensitive) == 0) {
+                int count = value.toInt();
+                if (count > 0) {
+                    // Save full lowercased name to History (e.g., "procedure-clean")
+                    dest.setValue("History/" + currentSection.toLower(), count);
+                    procCount++;
+                }
+            }
+        }
+
+        // C. [Status-*] History
+        else if (currentSection.startsWith("Status-", Qt::CaseInsensitive)) {
+            if (key.compare("UseCount", Qt::CaseInsensitive) == 0) {
+                int count = value.toInt();
+                if (count > 0) {
+                    // Save full lowercased name (e.g., "status-submit to me")
+                    // Note: Manual parsing handles the spaces in "Submit To Me" perfectly
+                    dest.setValue("History/" + currentSection.toLower(), count);
+                    statusCount++;
+                }
+            }
+        }
+    }
+
+    file.close();
+
+    // 3. Finalize
+    dest.sync(); // Write changes to disk
+
+    emit jobListUpdated();
+
+    qDebug() << "[Import] Finished. Merits:" << (meritsFound ? QString::number(importedMerits) : "Not Found")
+             << "| Status:" << importedStatus
+             << "| Procs:" << procCount
+             << "| Statuses:" << statusCount
+             << "| Tasks:" << taskCount;
+
+    QMessageBox::information(this, tr("Import Successful"), 
+        tr("Legacy save data loaded successfully.\n\n"
+           "Merits: %1\nStatus: %2\nHistory Items: %3\nActive Tasks: %4")
+           .arg(meritsFound ? QString::number(importedMerits) : "No Change")
+           .arg(importedStatus.isEmpty() ? "No Change" : importedStatus)
+           .arg(procCount + statusCount)
+           .arg(taskCount));
 }

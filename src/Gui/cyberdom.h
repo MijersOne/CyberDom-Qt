@@ -229,6 +229,7 @@ public slots:
   void onViewReportFile();
   void exportClothes();
   void importClothes();
+  void importLegacySaveFile();
 
 private:
   // File management
