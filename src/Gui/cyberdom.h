@@ -6,6 +6,7 @@
 #include "datainspectordialog.h"
 #include "rules.h"
 #include "scriptparser.h"
+#include "ListManager.h"
 #include <QCamera>
 #include <QCameraDevice>
 #include <QDateTime>
@@ -495,6 +496,10 @@ private:
 
   // ScrollArea SubName
   QString uiFixedSubName;
+
+  // Lists
+  ListManager *listManager;
+  void processJobLists(const JobDefinition &def);
 
 private slots:
   void applyTimeToClock(int days, int hours, int minutes, int seconds);

@@ -13,6 +13,7 @@ using ClothTypeSection = ClothingTypeDefinition;
 using QuestionSection = QuestionDefinition;
 
 class ScriptParser {
+
 public:
     bool parseScript(const QString& path);
 

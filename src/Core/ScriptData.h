@@ -1164,13 +1164,17 @@ enum class InstructionSelectMode {
 
 enum class InstructionStepType {
     Choice,
-    SetReference
+    SetReference,
+    ForEach,
+    Next,
+    Leave
 };
 
 struct InstructionStep {
     InstructionStepType type;
     InstructionChoice choice;
     QString setReference;
+    QString listName;
 };
 
 struct InstructionSet {

@@ -26,6 +26,7 @@
 #include "rules.h"          // Include the header for Rules UI
 #include "setflags.h"       // Include the header for the SetFlags UI
 #include "timeadd.h"        // Include the header for Time_Add UI
+#include "ListManager.h"
 
 #include <QAction>
 #include <QAudioOutput>
@@ -405,6 +406,9 @@ CyberDom::CyberDom(QWidget *parent)
 
   // Initialize Camera
   setupCamera();
+
+  // Initialize List Manager
+  listManager = new ListManager(settingsFile, this);
 }
 
 void CyberDom::setupCamera() {
@@ -10534,4 +10538,19 @@ void CyberDom::importLegacySaveFile() {
            .arg(importedStatus.isEmpty() ? "No Change" : importedStatus)
            .arg(procCount + statusCount)
            .arg(taskCount));
+}
+
+void CyberDom::processJobLists(const JobDefinition &def)  {
+  // Helper lambda to allow ListManager to call back into CyberDom to resolve variables
+  auto resolver = [this](QString input) -> QString {
+    return this->replaceVariables(input);
+  };
+
+  // listManager->processCommands(
+  //   def.listSets,
+  //   def.listAdds,
+  //   def.listRemoves,
+  //   def.listClears,
+  //   resolver
+  // );
 }

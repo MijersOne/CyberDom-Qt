@@ -2460,49 +2460,7 @@ void ScriptParser::parseInstructionSections(const QStringList& lines) {
 
         // --- STRUCTURE (Set, Choice, Option) ---
 
-        else if (key.compare("ForEach*", Qt::CaseInsensitive) == 0) {
-            if (inChoice) {
-                InstructionStep step;
-                step.type = InstructionStepType::Choice;
-                step.choice = currentChoice;
-                currentSet.steps.append(step);
-                currentChoice = InstructionChoice();
-                inChoice = false;
-            }
-            InstructionStep step;
-            step.type = InstructionStepType::ForEach;
-            // Strip the asterisk if they included it, so we store "mylist"
-            step.listName = value.startsWith('*') ? value.mid(1).toLower() : value.toLower();
-            currentSet.steps.append(step);
-        }
-        else if (key.compare("Next*", Qt::CaseInsensitive) == 0) {
-            if (inChoice) {
-                InstructionStep step;
-                step.type = InstructionStepType::Choice;
-                step.choice = currentChoice;
-                currentSet.steps.append(step);
-                currentChoice = InstructionChoice();
-                inChoice = false;
-            }
-            InstructionStep step;
-            step.type = InstructionStepType::Next;
-            step.listName = value.startsWith('*') ? value.mid(1).toLower() : value.toLower();
-            currentSet.steps.append(step);
-        }
-        else if (key.compare("Leave*", Qt::CaseInsensitive) == 0) {
-            if (inChoice) {
-                InstructionStep step;
-                step.type = InstructionStepType::Choice;
-                step.choice = currentChoice;
-                currentSet.steps.append(step);
-                currentChoice = InstructionChoice();
-                inChoice = false;
-            }
-            InstructionStep step;
-            step.type = InstructionStepType::Leave;
-            step.listName = value.startsWith('*') ? value.mid(1).toLower() : value.toLower();
-            currentSet.steps.append(step);
-        } else if (key.compare("Set", Qt::CaseInsensitive) == 0) {
+        else if (key.compare("Set", Qt::CaseInsensitive) == 0) {
             if (inChoice) {
                 InstructionStep step;
                 step.type = InstructionStepType::Choice;
