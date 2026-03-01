@@ -2108,6 +2108,8 @@ void CyberDom::setupMenuConnections() {
 
   connect(ui->actionImport_Clothes, &QAction::triggered, this,
           &CyberDom::importClothes);
+
+  connect(ui->actionExit, &QAction::triggered, this, &QWidget::close);
 }
 
 void CyberDom::openAskPunishmentDialog() {
