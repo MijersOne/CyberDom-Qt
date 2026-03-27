@@ -12,4 +12,9 @@
         <file>images/cyberdom_512x512.png</file>
         <file>images/cyberdom_512x512@2x.png</file>
     </qresource>
+    <qresource prefix="/">
+        <file>src/Gui/cyberdom.qml</file>
+        <file>src/Gui/reportclothing.qml</file>
+        <file>src/Widgets/cybercalendar.qml</file>
+    </qresource>
 </RCC>

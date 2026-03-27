@@ -52,14 +52,20 @@ void AskInstructions::onInstructionSelected(int index)
     QString name = ui->comboBox->currentData().toString();
     if (name.isEmpty()) return;
 
+    qDebug() << "[AskInstructions] User selected instruction:" << name;
+
     // Get access to the main application to use its resolver
     CyberDom *mainApp = qobject_cast<CyberDom*>(parentWidget());
     if (mainApp) {
         // Resolve the text (this handles logic, random objects, variables)
         QString text = mainApp->resolveInstruction(name);
 
+        qDebug() << "[AskInstructions] App resolved text for" << name << ":\n" << text;
+
         // Update the UI
         setInstructionText(text);
+    } else {
+        qWarning() << "[AskInstructions] Failed to cast parent to CyberDom!";
     }
 }
 

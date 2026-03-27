@@ -6,6 +6,7 @@
 #include "datainspectordialog.h"
 #include "rules.h"
 #include "scriptparser.h"
+#include "ListManager.h"
 #include <QCamera>
 #include <QCameraDevice>
 #include <QDateTime>
@@ -213,6 +214,9 @@ public:
   QString getAssignmentDisplayName(const QString &assignmentName,
                                    bool isPunishment) const;
 
+  // Clock/Date
+  QDate getInternalDate() const { return internalClock.date(); }
+
 signals:
   void jobListUpdated();
 
@@ -220,6 +224,7 @@ public slots:
   void openAssignmentsWindow();
   void openTimeAddDialog();
   void updateInternalClock();
+  void updateDateLabel();
   void updateStatus(const QString &newStatus);
   void openReportClothingDialog(bool forced = false, const QString &title = "");
   void openAskClothingDialog(const QString &target = "");
@@ -228,6 +233,7 @@ public slots:
   void onViewReportFile();
   void exportClothes();
   void importClothes();
+  void importLegacySaveFile();
 
 private:
   // File management
@@ -486,6 +492,17 @@ private:
 
   // Safety Risks
   bool performSafetyChecks();
+
+  // Date Flags
+  QDate lastDateFlagsUpdated;
+  void updateDateFlags();
+
+  // ScrollArea SubName
+  QString uiFixedSubName;
+
+  // Lists
+  ListManager *listManager;
+  void processJobLists(const JobDefinition &def);
 
 private slots:
   void applyTimeToClock(int days, int hours, int minutes, int seconds);

@@ -83,7 +83,6 @@ void SelectPunishment::on_buttonBox_accepted()
     const PunishmentDefinition &def = punishments.value(selectedPunishmentName.toLower());
 
     // --- Calculate Severity / Amount ---
-    // This mimics your old logic but uses the clean struct data
 
     // Calculate Min/Max Severity based on 'value' (severity per unit)
     int minSeverity = qRound(def.value * def.min);

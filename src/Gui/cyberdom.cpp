@@ -26,6 +26,7 @@
 #include "rules.h"          // Include the header for Rules UI
 #include "setflags.h"       // Include the header for the SetFlags UI
 #include "timeadd.h"        // Include the header for Time_Add UI
+#include "ListManager.h"
 
 #include <QAction>
 #include <QAudioOutput>
@@ -64,6 +65,7 @@
 #include <qmessagebox.h>
 #include <qnamespace.h>
 #include <qrandom.h>
+#include <qregularexpression.h>
 #include <qsettings.h>
 #include <qstandardpaths.h>
 
@@ -272,6 +274,10 @@ CyberDom::CyberDom(QWidget *parent)
 
   // Update UI with loaded settings
 
+  QAction *importAction = new QAction("Import Legacy Save", this);
+  ui->menuFile->addAction(importAction);
+  connect(importAction, &QAction::triggered, this, &CyberDom::importLegacySaveFile);
+
   QString appDataDir =
       QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
   QDir dir(appDataDir);
@@ -330,11 +336,13 @@ CyberDom::CyberDom(QWidget *parent)
   // Setup the timer
   clockTimer = new QTimer(this);
   connect(clockTimer, &QTimer::timeout, this, &CyberDom::updateInternalClock);
+  connect(clockTimer, &QTimer::timeout, this, &CyberDom::updateDateLabel); // Connect new date label update
   clockTimer->start(1000); // Update every second
 
   // Display the initial time in the QLabel (assuming it's named "clockLabel" in
   // the UI)
   ui->clockLabel->setText(internalClock.toString("hh:mm:ss AP"));
+  updateDateLabel(); // Initial call to update the date label
 
   // Setup menu connections for Rules submenu
   setupMenuConnections();
@@ -398,6 +406,9 @@ CyberDom::CyberDom(QWidget *parent)
 
   // Initialize Camera
   setupCamera();
+
+  // Initialize List Manager
+  listManager = new ListManager(settingsFile, this);
 }
 
 void CyberDom::setupCamera() {
@@ -533,6 +544,7 @@ CyberDom::~CyberDom() {
   if (!settingsFile.isEmpty()) {
     QSettings settings(settingsFile, QSettings::IniFormat);
     settings.setValue("User/Initialized", true);
+    settings.setValue("User/CurrentStatus", currentStatus);
     settings.setValue("System/CurrentDate",
                       internalClock.date().toString("MM-dd-yyyy"));
     settings.setValue("User/BeginTime", scriptBeginTime.toString(Qt::ISODate));
@@ -611,6 +623,7 @@ void CyberDom::updateInternalClock() {
   // Update the QLabel to display the new time
   ui->clockLabel->setText(internalClock.toString("hh:mm:ss AP"));
   updateStatusText();
+  updateDateFlags();
 
   // Check if we crossed midnight (new day)
   if (previousTime.date() != internalClock.date()) {
@@ -903,6 +916,12 @@ void CyberDom::updateInternalClock() {
   }
 }
 
+void CyberDom::updateDateLabel() {
+  if (ui->lbl_Date) {
+    ui->lbl_Date->setText(internalClock.date().toString("dddd, MMMM d, yyyy"));
+  }
+}
+
 void CyberDom::openAboutDialog() {
   if (checkInterruptableAssignments())
     return;
@@ -956,8 +975,17 @@ void CyberDom::openAskClothingDialog(const QString &target) {
 }
 
 void CyberDom::openAskInstructionsDialog(const QString &target) {
-  if (target.isEmpty() && checkInterruptableAssignments())
+  // Logging
+  if (target.isEmpty()) {
+      qDebug() << "[AskInstructions] Opening dialog (No specified target).";
+  } else {
+      qDebug() << "[AskInstructions] Opening dialog for target:" << target;
+  }
+  
+  if (target.isEmpty() && checkInterruptableAssignments()) {
+    qDebug() << "[AskInstructions] Aborted: Interruptable assignments found.";
     return;
+  }
 
   // Create dialog with the optional target
   AskInstructions askinstructionsDialog(this, scriptParser, target);
@@ -1804,13 +1832,19 @@ void CyberDom::openConfession(const QString &name) {
       break;
     }
   }
+
+  populateReportMenu();
+  populateConfessMenu();
+  populatePermissionMenu();
 }
 
 void CyberDom::populateReportMenu() {
   // Refresh the pointer each time in case the UI was recreated
   reportMenu = ui->menuReport;
-  if (!reportMenu)
+  if (!reportMenu) {
+    qDebug() << "[ReportMenu] Report menu not found (nullptr). Skipping population.";
     return;
+  }
 
   reportMenu->clear();
 
@@ -1819,38 +1853,86 @@ void CyberDom::populateReportMenu() {
   reportMenu->addAction(addClothing);
   connect(addClothing, &QAction::triggered, this,
           &CyberDom::openAddClothingDialog);
+  qDebug() << "[ReportMenu] Added 'Add Clothing' action.";
 
-  if (!scriptParser)
+
+  if (!scriptParser) {
+    qDebug() << "[ReportMenu] Script parser not available. Cannot populate dynamic reports.";
     return;
+  }
 
   // Insert a separator between the static and dynamic items
   reportMenu->addSeparator();
 
   // Get the current status (lowercase) for comparison
-  QString lowerCurrentStatus = currentStatus.toLower();
+  QString cleanedStatus = currentStatus;
+  cleanedStatus = cleanedStatus.trimmed();
+  if (cleanedStatus.startsWith('"') && cleanedStatus.endsWith('"')) {
+    cleanedStatus = cleanedStatus.mid(1, cleanedStatus.length() - 2);
+  }
+  QString lowerCurrentStatus = cleanedStatus.toLower();
+  qDebug() << "[ReportMenu] Current status for checks (raw):" << currentStatus;
+  qDebug() << "[ReportMenu] Current status for checks (cleaned):" << cleanedStatus;
+
 
   const auto &reports = scriptParser->getScriptData().reports;
   for (auto it = reports.constBegin(); it != reports.constEnd(); ++it) {
     const ReportDefinition &rep = it.value();
-    if (!rep.showInMenu)
+    qDebug() << "[ReportMenu] Processing report:" << rep.name;
+
+    if (!rep.showInMenu) {
+      qDebug() << "[ReportMenu] Skipping report" << rep.name << ": 'showInMenu' is false.";
       continue;
+    }
 
     // Check the PreStatus requirement
     if (!rep.preStatuses.isEmpty()) {
-      // This report has status requirements.
-      // We must find a match.
+      qDebug() << "[ReportMenu] Report" << rep.name << "has PreStatus requirements:" << rep.preStatuses.join(", ");
       bool foundMatch = false;
       for (const QString &preStatus : rep.preStatuses) {
         if (preStatus.toLower() == lowerCurrentStatus) {
           foundMatch = true;
+          qDebug() << "[ReportMenu] PreStatus match found for" << rep.name << ": '" << preStatus << "' matches current status '" << cleanedStatus << "'.";
           break;
+        }
+      }
+
+      // Check NotIf
+      // If ANY NofIf condition is true, we hide the report
+      bool blocked = false;
+      for (const QString &cond : rep.notIfConditions) {
+        if (evaluateCondition(cond)) {
+          qDebug() << "[ReportMenu] Hidden" << rep.name << "due to NotIf:" << cond;
+          blocked = true;
+          break;
+        }
+      }
+      if (blocked) continue;
+
+      // Check If
+      // If there are If conditions, AT LEAST ONE must be true
+      if (!rep.ifConditions.isEmpty()) {
+        bool allowed = false;
+        for (const QString &cond : rep.ifConditions) {
+          if (evaluateCondition(cond)) {
+            allowed = true;
+            break;
+          }
+        }
+
+        if (!allowed) {
+          qDebug() << "[ReportMenu] Hidden" << rep.name << "because no 'If' conditions were met.";
+          continue;
         }
       }
 
       // If no match was found, skip this report
       if (!foundMatch) {
+        qDebug() << "[ReportMenu] Skipping report" << rep.name << ": No matching PreStatus found for current status '" << cleanedStatus << "'.";
         continue;
       }
+    } else {
+        qDebug() << "[ReportMenu] Report" << rep.name << "has no PreStatus requirements.";
     }
 
     QString label = rep.title.isEmpty() ? rep.name : rep.title;
@@ -1861,7 +1943,7 @@ void CyberDom::populateReportMenu() {
       label[0] = label[0].toUpper();
     }
 
-    qDebug() << "[ReportMenu] Adding" << rep.name;
+    qDebug() << "[ReportMenu] Adding report" << rep.name << "to menu with label:" << label;
     QAction *act = new QAction(label, reportMenu);
     reportMenu->addAction(act);
     connect(act, &QAction::triggered, this,
@@ -1879,7 +1961,13 @@ void CyberDom::populateConfessMenu() {
   if (!scriptParser)
     return;
 
-  QString lowerCurrentStatus = currentStatus.toLower();
+  QString cleanedStatus = currentStatus;
+  cleanedStatus = cleanedStatus.trimmed();
+  if (cleanedStatus.startsWith('"') && cleanedStatus.endsWith('"')) {
+    cleanedStatus = cleanedStatus.mid(1, cleanedStatus.length() - 2);
+  }
+  QString lowerCurrentStatus = cleanedStatus.toLower();
+
   const auto confessions = scriptParser->getConfessionSections();
 
   for (const auto &conf : confessions) {
@@ -1897,6 +1985,18 @@ void CyberDom::populateConfessMenu() {
       }
       if (!foundMatch) {
         continue;
+
+      // Check If
+      if (!conf.ifConditions.isEmpty()) {
+        bool allowed = false;
+        for (const QString &cond : conf.ifConditions) {
+          if (evaluateCondition(cond)) {
+            allowed = true;
+            break;
+          }
+        }
+        if (!allowed) continue;
+      }
       }
     }
 
@@ -1925,7 +2025,13 @@ void CyberDom::populatePermissionMenu() {
   if (!scriptParser)
     return;
 
-  QString lowerCurrentStatus = currentStatus.toLower();
+  QString cleanedStatus = currentStatus;
+  cleanedStatus = cleanedStatus.trimmed();
+  if (cleanedStatus.startsWith('"') && cleanedStatus.endsWith('"')) {
+    cleanedStatus = cleanedStatus.mid(1, cleanedStatus.length() - 2);
+  }
+  QString lowerCurrentStatus = cleanedStatus.toLower();
+
   const auto perms = scriptParser->getPermissionSections();
 
   for (const auto &perm : perms) {
@@ -1941,6 +2047,27 @@ void CyberDom::populatePermissionMenu() {
       }
       if (!foundMatch) {
         continue;
+      }
+
+      bool blocked = false;
+      for (const QString &cond : perm.notIfConditions) {
+        if (evaluateCondition(cond)) {
+          blocked = true;
+          break;
+        }
+      }
+      if (blocked) continue;
+
+      // Check If (Allowers)
+      if (!perm.ifConditions.isEmpty()) {
+        bool allowed = false;
+        for (const QString &cond : perm.ifConditions) {
+          if (evaluateCondition(cond)) {
+            allowed = true;
+            break;
+          }
+        }
+        if (!allowed) continue;
       }
     }
 
@@ -1981,6 +2108,8 @@ void CyberDom::setupMenuConnections() {
 
   connect(ui->actionImport_Clothes, &QAction::triggered, this,
           &CyberDom::importClothes);
+
+  connect(ui->actionExit, &QAction::triggered, this, &QWidget::close);
 }
 
 void CyberDom::openAskPunishmentDialog() {
@@ -2359,6 +2488,10 @@ void CyberDom::updateStatus(const QString &newStatus) {
     triggerPointCamera(camText, status.cameraIntervalMin,
                        status.cameraIntervalMax, "Status_" + currentStatus);
   }
+
+  populateReportMenu();
+  populateConfessMenu();
+  populatePermissionMenu();
 }
 
 void CyberDom::updateStatusText() {
@@ -2373,14 +2506,27 @@ void CyberDom::updateStatusText() {
 
   const ScriptData &data = scriptParser->getScriptData();
 
+  // Define Regex for SubName
+  // Catches: {$zzSubName}, {!zzSubName}, $zzSubName, !zzSubName
+  QRegularExpression subNameRx("\\{[!$]zzSubName\\}|[$!]zzSubName",
+                               QRegularExpression::CaseInsensitiveOption);
+
+  // Helper lambda to apply the sticky SubName + standard replacement
+  auto processLine = [&](QString line) -> QString {
+    // Replace with sticky name first
+    line.replace(subNameRx, uiFixedSubName);
+    // Then resolve other variables
+    return replaceVariables(line);
+  };
+
   // --- Populate TopText ---
   for (const QString &line : data.general.topText) {
-    topLines.append(replaceVariables(line));
+    topLines.append(processLine(line));
   }
 
   // --- Populate BottomText ---
   for (const QString &line : data.general.bottomText) {
-    bottomLines.append(replaceVariables(line));
+    bottomLines.append(processLine(line));
   }
 
   // --- Populate Middle Content ---
@@ -2390,7 +2536,7 @@ void CyberDom::updateStatusText() {
   if (data.statuses.contains(currentStatus.toLower())) {
     for (const QString &line :
          data.statuses.value(currentStatus.toLower()).statusTexts) {
-      middleLines.append(replaceVariables(line));
+      middleLines.append(processLine(line));
     }
   }
 
@@ -2505,8 +2651,10 @@ void CyberDom::updateStatusText() {
           line = displayTitle + ": " + line;
         }
 
-        line =
-            replaceVariables(line, assignmentName, title, 0, minTimeStr,
+        // Replace SubName with Sticky Version
+        line.replace(subNameRx, uiFixedSubName);
+
+        line = replaceVariables(line, assignmentName, title, 0, minTimeStr,
                              maxTimeStr, start, creation, deadline, nextRemind);
         line.replace("{!zzMinTime}", minTimeStr, Qt::CaseInsensitive);
         line.replace("{!zzRunTime}", runTimeStr,
@@ -3200,6 +3348,13 @@ void CyberDom::loadAndParseScript(const QString &filePath) {
     return;
   }
 
+  // --- FIX: Set these paths FIRST ---
+  this->currentIniFile = filePath;
+  QFileInfo iniFileInfo(currentIniFile);
+  settingsFile = iniFileInfo.absolutePath() + "/user_settings.ini";
+  qDebug() << "[INIT] Settings file path set to:" << settingsFile;
+  // --------------------------------
+
   if (!QFile::exists(filePath)) {
     qDebug() << "[ERROR] Script file not found:" << filePath;
     QMessageBox::critical(this, "Script Not Found",
@@ -3221,11 +3376,6 @@ void CyberDom::loadAndParseScript(const QString &filePath) {
                           "it's a valid script.");
     return;
   }
-
-  // Setup Settings Path before Safety Check
-  this->currentIniFile = filePath;
-  QFileInfo iniFileInfo(currentIniFile);
-  settingsFile = iniFileInfo.absolutePath() + "/user_settings.ini";
 
   // Safety Check (Perform immediately after parsing)
   if (!performSafetyChecks()) {
@@ -3252,9 +3402,6 @@ void CyberDom::loadAndParseScript(const QString &filePath) {
   // Debug information about parsed status sections
   QList<StatusSection> statuses = scriptParser->getStatusSections();
   qDebug() << "[DEBUG] Parsed " << statuses.size() << " status sections.";
-
-  // Store the path to the current ini file
-  this->currentIniFile = filePath;
 
   // Apply the script settings to the application
   applyScriptSettings();
@@ -3376,10 +3523,12 @@ void CyberDom::setupInitialStatus() {
 
   // If no saved status, check the init section for NewStatus
   if (savedStatus.isEmpty()) {
+    qDebug() << "[Status] Missing: No CurrentStatus found in user_settings.ini.";
     QString iniStatus = scriptParser->getIniValue("init", "NewStatus");
     if (!iniStatus.isEmpty()) {
       savedStatus = iniStatus;
     } else {
+      qDebug() << "[Status] Missing: No NewStatus found in [Init] section of the script.";
       // Default to "Normal" if no status is defined
       savedStatus = "Normal";
     }
@@ -3648,6 +3797,8 @@ int CyberDom::getMeritsFromIni() const { return ui->progressBar->value(); }
 
 void CyberDom::initializeUiWithIniFile() {
 
+  if (!scriptParser) return;
+
   QSettings settings(settingsFile, QSettings::IniFormat);
   if (!settings.contains("User/Initialized")) {
     isFirstSessionRun = true;
@@ -3659,6 +3810,14 @@ void CyberDom::initializeUiWithIniFile() {
     const ScriptData &data = scriptParser->getScriptData();
 
     int initialMerits = 0;
+
+    // Pick a random SubName to be used consistently in the ScrollArea
+    if (!data.general.subNames.isEmpty()) {
+      int idx = ScriptUtils::randomInRange(0, data.general.subNames.size() -1, false);
+      uiFixedSubName = data.general.subNames[idx];
+    } else {
+      uiFixedSubName = "Sub"; // Fallback default
+    }
 
     // Check if merits are defined in the init section (merits = -1 is the "not
     // set" default)
@@ -3707,6 +3866,8 @@ void CyberDom::initializeUiWithIniFile() {
     }
   }
 
+  lastDateFlagsUpdated = QDate();
+  updateDateFlags();
   updateStatusText();
 }
 
@@ -4506,17 +4667,29 @@ void CyberDom::addPunishmentToAssignments(const QString &punishmentName,
     // --- ValueUnit Logic (Initial Calculation) ---
     if (!deadlineSet && !punDef->valueUnit.isEmpty()) {
       double val = punDef->value > 0 ? punDef->value : 1.0;
-      int total = qRound(val * amount);
+      int total = qRound(amount / val);
+      
+      qDebug() << "[DEBUG] Math Check -> Amount:" << amount << " | Value:" << val << " | Total Days:" << total;
+
+      int runSeconds = 0;
 
       if (punDef->valueUnit.compare("minute", Qt::CaseInsensitive) == 0) {
+        runSeconds = total * 60;
         deadline = deadline.addSecs(total * 60);
         deadlineSet = true;
       } else if (punDef->valueUnit.compare("hour", Qt::CaseInsensitive) == 0) {
+        runSeconds = total * 3600;
         deadline = deadline.addSecs(total * 3600);
         deadlineSet = true;
       } else if (punDef->valueUnit.compare("day", Qt::CaseInsensitive) == 0) {
+        runSeconds = total * 86400;
         deadline = deadline.addDays(total);
         deadlineSet = true;
+      }
+
+      if (runSeconds > 0) {
+        QSettings settings(settingsFile, QSettings::IniFormat);
+        settings.setValue("Assignments/" + targetInstance + "_run_seconds", runSeconds);
       }
 
       if (deadlineSet) {
@@ -4556,17 +4729,28 @@ void CyberDom::addPunishmentToAssignments(const QString &punishmentName,
     if (!punDef->valueUnit.isEmpty() && punDef->valueUnit != "once") {
       QDateTime deadline = jobDeadlines.value(targetInstance, internalClock);
       double val = punDef->value > 0 ? punDef->value : 1.0;
-      int total = qRound(val * amount);
+      int total = qRound(amount / val);
+      int addedSeconds = 0;
 
       if (punDef->valueUnit.compare("minute", Qt::CaseInsensitive) == 0) {
+        addedSeconds = total * 60;
         deadline = deadline.addSecs(total * 60);
       } else if (punDef->valueUnit.compare("hour", Qt::CaseInsensitive) == 0) {
+        addedSeconds = total * 3600;
         deadline = deadline.addSecs(total * 3600);
       } else if (punDef->valueUnit.compare("day", Qt::CaseInsensitive) == 0) {
+        addedSeconds = total * 86400;
         deadline = deadline.addDays(total);
       }
 
       jobDeadlines[targetInstance] = deadline;
+
+      if (addedSeconds > 0) {
+        QSettings settings(settingsFile, QSettings::IniFormat);
+        int currentRunSeconds = settings.value("Assignments/" + targetInstance + "_run_seconds", 0).toInt();
+        settings.setValue("Assignments/" + targetInstance + "_run_seconds", currentRunSeconds + addedSeconds);
+      }
+
       qDebug() << "[DEBUG] Extended deadline for" << targetInstance << "to"
                << deadline.toString("MM-dd-yyyy hh:mm AP");
     }
@@ -5079,7 +5263,8 @@ bool CyberDom::startAssignment(const QString &assignmentName, bool isPunishment,
   // Record the start time
   QDateTime startTime = internalClock;
   QSettings settings(settingsFile, QSettings::IniFormat);
-  settings.setValue("Assignments/" + assignmentName + "_start_time", startTime);
+  settings.setValue("Assignments/" + assignmentName + "_start_time", startTime.toString(Qt::ISODate));
+  settings.sync();
 
   // Execute StartProcedure if specified
   if (!startProcedure.isEmpty()) {
@@ -5104,6 +5289,10 @@ bool CyberDom::startAssignment(const QString &assignmentName, bool isPunishment,
   emit jobListUpdated();
 
   return true;
+
+  populateReportMenu();
+  populatePermissionMenu();
+  populateConfessMenu();
 }
 
 bool CyberDom::markAssignmentDone(const QString &assignmentName,
@@ -5491,6 +5680,10 @@ bool CyberDom::markAssignmentDone(const QString &assignmentName,
   }
 
   return true;
+
+  populateReportMenu();
+  populateConfessMenu();
+  populatePermissionMenu();
 }
 
 void CyberDom::abortAssignment(const QString &assignmentName,
@@ -6872,6 +7065,10 @@ void CyberDom::executeReport(const QString &name) {
 
   todayStats.reportHistory.append(newLog);
   currentActiveReportLog = nullptr;
+  
+  populateReportMenu();
+  populateConfessMenu();
+  populatePermissionMenu();
 }
 
 bool CyberDom::loadSessionData(const QString &path) {
@@ -7057,10 +7254,6 @@ bool CyberDom::loadSessionData(const QString &path) {
 
   loadAndParseScript(script);
   updateMerits(merits);
-  if (!status.isEmpty()) {
-    currentStatus = status;
-    updateStatusDisplay();
-  }
 
   // Calculate time offset
   if (lastInternal.isValid() && lastSystem.isValid()) {
@@ -7071,6 +7264,7 @@ bool CyberDom::loadSessionData(const QString &path) {
   }
 
   saveIniFilePath(script);
+  updateAvailableActions();
   emit jobListUpdated();
   return true;
 }
@@ -7083,7 +7277,6 @@ void CyberDom::saveSessionData(const QString &path) const {
 
   session.setValue("Session/ScriptPath", currentIniFile);
   session.setValue("Session/Merits", ui->progressBar->value());
-  session.setValue("Session/Status", currentStatus);
   session.setValue("Session/InternalClock",
                    internalClock.toString(Qt::ISODate));
   session.setValue("Session/LastSystemTime",
@@ -7434,34 +7627,64 @@ QList<CalendarEvent> CyberDom::getCalendarEvents() {
   QList<CalendarEvent> events;
 
   // Job and punishments stored in jobDeadlines
-  for (auto it = jobDeadlines.constBegin(); it != jobDeadlines.constEnd();
-       ++it) {
+  // Job and punishments stored in jobDeadlines
+  for (auto it = jobDeadlines.constBegin(); it != jobDeadlines.constEnd(); ++it) {
     const QString &name = it.key();
     QDateTime deadline = it.value();
 
-    // Determine if it is a punishment (robust check handling _2 suffixes)
     bool isPun = (getPunishmentDefinition(name) != nullptr);
 
     CalendarEvent ev;
-
-    // Use getAssignmentDisplayName to format the title
     ev.title = getAssignmentDisplayName(name, isPun);
-
     ev.type = isPun ? QStringLiteral("Punishment") : QStringLiteral("Job");
 
-    if (isPun && isAssignmentLongRunning(name, true)) {
-      QSettings settings(settingsFile, QSettings::IniFormat);
-      QDateTime start =
-          settings.value(QStringLiteral("Assignments/%1_start_time").arg(name))
-              .toDateTime();
-      if (!start.isValid())
-        start = internalClock;
-      ev.start = start;
-      ev.end = deadline;
-    } else {
-      ev.start = deadline;
-      ev.end = deadline;
+    // 1. Grab the start time mystery box
+    QSettings settings(settingsFile, QSettings::IniFormat);
+    QString key = QStringLiteral("Assignments/%1_start_time").arg(name);
+    QVariant savedValue = settings.value(key);
+    
+    QDateTime startTime;
+
+    // 2. Safely extract the Start Time
+    if (savedValue.isValid() && !savedValue.isNull()) {
+        if (savedValue.typeId() == QMetaType::QDateTime) {
+            startTime = savedValue.toDateTime();
+        } else {
+            QString dateStr = savedValue.toString();
+            startTime = QDateTime::fromString(dateStr, Qt::ISODate);
+            if (!startTime.isValid()) {
+                startTime = QDateTime::fromString(dateStr, "yyyy-MM-ddTHH:mm:ss");
+            }
+        }
     }
+
+    // 3. Read the Run Time and stretch the calendar!
+    if (startTime.isValid()) {
+        // Read our newly saved _run_seconds value
+        int runSeconds = settings.value(QStringLiteral("Assignments/%1_run_seconds").arg(name), 0).toInt();
+
+        if (runSeconds > 0) {
+            // It has a specific duration! Add the seconds directly to the start time.
+            ev.start = startTime;
+            ev.end = startTime.addSecs(runSeconds);
+        } else {
+            // Fallback for older save files or tasks that don't have a time duration
+            ev.start = startTime;
+            ev.end = deadline;
+        }
+        
+        // Safety Net
+        if (ev.start > ev.end) {
+            QDateTime temp = ev.start;
+            ev.start = ev.end;
+            ev.end = temp;
+        }
+    } else {
+        // The task hasn't been started yet. Only show it on the day it is due.
+        ev.start = deadline;
+        ev.end = deadline;
+    }
+
     events.append(ev);
   }
 
@@ -7575,10 +7798,9 @@ bool CyberDom::evaluateCondition(const QString &condition, QString* resolvedExpr
   if (!scriptParser)
     return false;
 
+  // --- 1. Define Variable Getter ---
   auto getVar = [this](const QString &name) -> QString {
-    // This universal getter resolves any known variable type to a string.
-
-    // 1. Check for predefined and custom Time variables first (!).
+    // Check for predefined and custom Time variables first (!).
     QVariant timeVal = getTimeVariableValue(name);
     if (timeVal.isValid()) {
       if (timeVal.userType() == QMetaType::QTime) {
@@ -7592,14 +7814,20 @@ bool CyberDom::evaluateCondition(const QString &condition, QString* resolvedExpr
       }
       return timeVal.toString();
     }
-
-    // 2. Fallback to predefined Counters (#) and custom String variables ($).
-    //    getVariableValue handles both of these.
+    
+    // Fallback to predefined Counters (#) and custom String variables ($).
     return getVariableValue(name);
   };
 
-  return ScriptUtils::evaluateCondition(
-      condition, [this](const QString &n) { return isFlagSet(n); }, getVar, resolvedExpr);
+  // --- 2. Define Flag Checker ---
+  auto checkFlag = [this](const QString &n) -> bool {
+    // Because we added updateDateFlags(), "Monday", "February", etc. 
+    // are now real flags. We can simply use the standard check.
+    return isFlagSet(n);
+  };
+
+  // --- 3. Call ScriptUtils ---
+  return ScriptUtils::evaluateCondition(condition, checkFlag, getVar, resolvedExpr);
 }
 
 QString CyberDom::getAssignmentEstimate(const QString &assignmentName,
@@ -7736,7 +7964,6 @@ QString CyberDom::resolveInstruction(const QString &name,
                   (def.changeMode != InstructionChangeMode::Always);
   QSettings settings(settingsFile, QSettings::IniFormat);
 
-  // FIX: Update key to "v2" to force ignore old/bad cache data
   QString cacheKeyBase = "InstructionCache_v2/" + lowerName;
 
   if (useCache) {
@@ -7833,47 +8060,68 @@ QString CyberDom::resolveInstruction(const QString &name,
               resultLines.append(refText);
               return true;
             }
-          } else if (step.type == InstructionStepType::Choice) {
+          } 
+          else if (step.type == InstructionStepType::Choice) {
             const InstructionChoice &choice = step.choice;
             if (choice.options.isEmpty())
               return false;
 
+            // --- IMPROVED SELECTION LOGIC ---
             int totalWeight = 0;
-            for (const InstructionOption &opt : choice.options)
-              totalWeight += opt.weight;
+            bool anyPositiveWeight = false;
 
-            if (totalWeight > 0) {
-              int roll = ScriptUtils::randomInRange(1, totalWeight, false);
-              int current = 0;
-              for (const InstructionOption &opt : choice.options) {
-                current += opt.weight;
-                if (roll <= current) {
-                  if (!opt.skip && !opt.text.isEmpty() &&
-                      opt.text.trimmed() != "*") {
-                    QString txt = replaceVariables(opt.text);
-                    resultLines.append(txt);
-                    targetChosenItems->append(txt);
-                  }
+            // 1. Calculate Total Weight
+            for (const InstructionOption &opt : choice.options) {
+                if (opt.weight > 0) anyPositiveWeight = true;
+                totalWeight += opt.weight;
+            }
 
-                  if (currentContextIsClothing) {
-                    // Add to global lists (duplicates prevented)
-                    for (const QString &c : opt.check) {
-                      if (!requiredClothingChecks.contains(c,
-                                                           Qt::CaseInsensitive))
-                        requiredClothingChecks.append(c);
+            // Fallback: If no weights defined (all 0), treat all as weight 1
+            if (totalWeight <= 0 || !anyPositiveWeight) {
+                totalWeight = choice.options.size();
+            }
+
+            // 2. Roll Dice
+            int roll = ScriptUtils::randomInRange(1, totalWeight, false);
+            int current = 0;
+
+            // 3. Find Selection
+            for (int i = 0; i < choice.options.size(); ++i) {
+                const InstructionOption &opt = choice.options[i];
+                
+                // Use effective weight (handle the 0 -> 1 fallback)
+                int w = opt.weight;
+                if (!anyPositiveWeight) w = 1;
+                
+                current += w;
+
+                // MATCH if roll is within range, OR if this is the last item (Failsafe)
+                if (roll <= current || i == choice.options.size() - 1) {
+                    
+                    // Logic for "Blank" option (option=*) or empty option
+                    if (!opt.skip && !opt.text.isEmpty() &&
+                        opt.text.trimmed() != "*") {
+                        QString txt = replaceVariables(opt.text);
+                        resultLines.append(txt);
+                        targetChosenItems->append(txt);
                     }
-                    for (const QString &f : opt.checkOff) {
-                      if (!forbiddenClothingChecks.contains(
-                              f, Qt::CaseInsensitive))
-                        forbiddenClothingChecks.append(f);
-                    }
-                  }
 
-                  for (const QString &f : opt.optionFlags)
-                    setFlag(f);
-                  return true;
+                    if (currentContextIsClothing) {
+                        for (const QString &c : opt.check) {
+                            if (!requiredClothingChecks.contains(c, Qt::CaseInsensitive))
+                                requiredClothingChecks.append(c);
+                        }
+                        for (const QString &f : opt.checkOff) {
+                            if (!forbiddenClothingChecks.contains(f, Qt::CaseInsensitive))
+                                forbiddenClothingChecks.append(f);
+                        }
+                    }
+
+                    for (const QString &f : opt.optionFlags)
+                        setFlag(f);
+                    
+                    return true; // Selection successful
                 }
-              }
             }
           }
           return false;
@@ -7884,7 +8132,6 @@ QString CyberDom::resolveInstruction(const QString &name,
 
   // --- 3. CACHING LOGIC (Save) ---
   if (useCache) {
-    // Capture everything added during this execution (including recursion)
     QStringList checksToCache;
     QStringList forbidsToCache;
 
@@ -9188,6 +9435,10 @@ void CyberDom::executeTimeAction(ScriptActionType type, const QString &value) {
     scriptParser->setTimeVariable(varName, valToSet);
     qDebug() << "[SetTime] Set" << varName << "to value";
   }
+
+  populateReportMenu();
+  populateConfessMenu();
+  populatePermissionMenu();
 }
 
 void CyberDom::executeTimeExtraction(ScriptActionType type,
@@ -10067,4 +10318,295 @@ bool CyberDom::performSafetyChecks() {
 
   qDebug() << "[Safety] User accepted new risks:" << newRisks.size();
   return true;
+}
+
+void CyberDom::updateDateFlags() {
+  QDate currentDate = internalClock.date();
+
+  if (lastDateFlagsUpdated == currentDate) {
+    return;
+  }
+
+  // Clear OLD Date Flags
+  static const QStringList allDays = {
+    "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"
+  };
+  static const QStringList allMonths = {
+    "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"
+  };
+
+  for (const QString &d : allDays) removeFlag(d);
+  for (const QString &m : allMonths) removeFlag(m);
+
+  // Clear DAY1 through DAY31
+  for (int i = 1; i <= 31; ++i) {
+    removeFlag(QString("DAY%1").arg(i));
+  }
+
+  // Set NEW Flags
+  QLocale englishLocale(QLocale::English);
+
+  // Day of Week (e.g., "Sunday")
+  QString dayName = englishLocale.dayName(currentDate.dayOfWeek());
+  setFlag(dayName);
+
+  // Month (e.g., "February")
+  QString monthName = englishLocale.monthName(currentDate.month());
+  setFlag(monthName);
+  
+  // Day of Month (e.g., "DAY15")
+  QString dayNum = QString("DAY%1").arg(currentDate.day());
+  setFlag(dayNum);
+
+  // Update tracker
+  lastDateFlagsUpdated = currentDate;
+
+  qDebug() << "[Flags] Auto-Updated Date Flags:" << dayName << monthName << dayNum;
+}
+
+#include <QFileDialog>
+#include <QFile>
+#include <QTextStream>
+
+void CyberDom::importLegacySaveFile() {
+    // 1. Open File Dialog
+    QString fileName = QFileDialog::getOpenFileName(this, 
+        tr("Open Legacy Save File"), 
+        "", 
+        tr("VirMst Save Files (*.vmt);;All Files (*)"));
+
+    if (fileName.isEmpty()) return;
+
+    qDebug() << "[Import] Reading legacy file:" << fileName;
+
+    QFile file(fileName);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        QMessageBox::warning(this, tr("Import Failed"), tr("Could not open the selected file."));
+        return;
+    }
+
+    QTextStream in(&file);
+    // Handle potential UTF-8 encoding (common in modern systems)
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    in.setEncoding(QStringConverter::Utf8);
+#else
+    in.setCodec("UTF-8");
+#endif
+
+    // Prepare Destination Settings
+    QSettings dest(settingsFile, QSettings::IniFormat);
+
+    // Parsing State
+    QString currentSection = "";
+    int importedMerits = 0;
+    QString importedStatus = "";
+    int procCount = 0;
+    int statusCount = 0;
+    bool meritsFound = false;
+
+    // Task Variables (Buffer)
+    bool inTaskSection = false;
+    QString taskName;
+    QString taskAction;
+    QString taskClass;
+    QString taskDeadLine;
+    QString taskInitTime;
+    int taskCount = 0;
+
+    // Helper Lambda: Commit Task
+    // Defined helper to avoid code duplication
+    auto commitTask = [&]() {
+      if (taskAction.isEmpty() && taskName.isEmpty()) return;
+
+      // Determine taskID
+      QString taskId;
+
+      if (!taskAction.isEmpty()) {
+        // Strip "job-" or "punishment-" prefix
+        if (taskAction.startsWith("job-", Qt::CaseInsensitive)) {
+          taskId = taskAction.mid(4).toLower();
+        } else if (taskAction.startsWith("punishment-", Qt::CaseInsensitive)) {
+          taskId = taskAction.mid(11).toLower();
+        } else {
+          taskId = taskAction.toLower();
+        }
+      } else {
+          // Fallback: If no Action line, use Name (removing spaces/lowercasing)
+          taskId = taskName.toLower();
+      }
+
+      // Add to Active List
+      // Note: We use the name exactly as it appears in the VMT (Mixed Case)
+      activeAssignments.insert(taskId);
+
+      // Parse Dates
+      // VMT Format: "yyyy-MM-dd HH:mm:ss"
+      QDateTime created = QDateTime::fromString(taskInitTime, "yyyy-MM-dd HH:mm:ss");
+      QDateTime due = QDateTime::fromString(taskDeadLine, "yyyy-MM-dd HH:mm:ss");
+
+      // Store Metadata in Settings (Persist to user_settings.ini)
+      if (created.isValid()) {
+        dest.setValue("Assignments/" + taskName + "_creation_time", created);
+      }
+      dest.setValue("Assignments/" + taskName + "_source", "Imported");
+
+      // Update Runtime Deadline Map
+      if (due.isValid()) {
+        jobDeadlines[taskId] = due;
+      }
+
+      // Handle Punishments specific logic
+      // If it's a punishment, we ensure it has an entry in the amounts map
+      // VMT doesn't always strictly list "Amount", so we default to 1 to ensure it exists.
+      if (taskClass.compare("punishment", Qt::CaseInsensitive) == 0) {
+        if (!punishmentAmounts.contains(taskName)) {
+          punishmentAmounts[taskId] = 1;
+        }
+      }
+
+      qDebug() << "[Import] Task added ID:" << taskId << "(Action:" << taskAction << ")" << "| Class:" << taskClass << "| Due:" << due.toString();
+      taskCount++;
+    };
+
+    // 2. Loop through lines manually
+    while (!in.atEnd()) {
+        QString line = in.readLine().trimmed();
+
+        // Skip empty lines or comments
+        if (line.isEmpty() || line.startsWith(";") || line.startsWith("#")) continue;
+
+        // --- SECTION HEADER DETECTION ---
+        if (line.startsWith("[") && line.endsWith("]")) {
+
+            // IF we were previously reading a task, save it now before moving to the new section
+            if (inTaskSection) {
+              commitTask();
+              // Clear buffer
+              taskName.clear();
+              taskAction.clear();
+              taskClass.clear();
+              taskDeadLine.clear();
+              taskInitTime.clear();
+              inTaskSection = false;
+            }
+
+            // Remove brackets to get raw section name
+            currentSection = line.mid(1, line.length() - 2).trimmed();
+
+            // Check if this NEW section is a task
+            if (currentSection.startsWith("task-", Qt::CaseInsensitive)) {
+              inTaskSection = true;
+            }
+            continue;
+        }
+
+        // --- KEY=VALUE PARSING ---
+        int idx = line.indexOf('=');
+        if (idx == -1) continue; // Not a key-value pair
+
+        QString key = line.left(idx).trimmed();
+        QString value = line.mid(idx + 1).trimmed();
+
+        // --- LOGIC MAPPING ---
+
+        // TASK SECTIONS
+        if (inTaskSection) {
+          if (key.compare("Name", Qt::CaseInsensitive) == 0) {
+            taskName = value;
+          } else if (key.compare("Action", Qt::CaseInsensitive) == 0) {
+            taskAction = value;
+          } else if (key.compare("TaskClass", Qt::CaseInsensitive) == 0) {
+            taskClass = value;
+          } else if (key.compare("DeadLine", Qt::CaseInsensitive) == 0) {
+            taskDeadLine = value;
+          } else if (key.compare("InitTime", Qt::CaseInsensitive) == 0) {
+            taskInitTime = value;
+          }
+        }
+
+        // A. [General] Section
+        if (currentSection.compare("General", Qt::CaseInsensitive) == 0) {
+            
+            // Merits
+            if (key.compare("Merits", Qt::CaseInsensitive) == 0) {
+                bool ok;
+                int m = value.toInt(&ok);
+                if (ok) {
+                    importedMerits = m;
+                    meritsFound = true;
+                    dest.setValue("User/Merits", m);
+                    // Update UI immediately using your helper
+                    updateMerits(m); 
+                }
+            }
+            // Current Status
+            else if (key.compare("CurrentStatus", Qt::CaseInsensitive) == 0) {
+                importedStatus = value.toLower().trimmed();
+                dest.setValue("User/CurrentStatus", importedStatus);
+                currentStatus = importedStatus;
+                updateStatusText(); // Refresh UI text
+            }
+        }
+        
+        // B. [procedure-*] History
+        else if (currentSection.startsWith("procedure-", Qt::CaseInsensitive)) {
+            if (key.compare("UseCount", Qt::CaseInsensitive) == 0) {
+                int count = value.toInt();
+                if (count > 0) {
+                    // Save full lowercased name to History (e.g., "procedure-clean")
+                    dest.setValue("History/" + currentSection.toLower(), count);
+                    procCount++;
+                }
+            }
+        }
+
+        // C. [Status-*] History
+        else if (currentSection.startsWith("Status-", Qt::CaseInsensitive)) {
+            if (key.compare("UseCount", Qt::CaseInsensitive) == 0) {
+                int count = value.toInt();
+                if (count > 0) {
+                    // Save full lowercased name (e.g., "status-submit to me")
+                    // Note: Manual parsing handles the spaces in "Submit To Me" perfectly
+                    dest.setValue("History/" + currentSection.toLower(), count);
+                    statusCount++;
+                }
+            }
+        }
+    }
+
+    file.close();
+
+    // 3. Finalize
+    dest.sync(); // Write changes to disk
+
+    emit jobListUpdated();
+
+    qDebug() << "[Import] Finished. Merits:" << (meritsFound ? QString::number(importedMerits) : "Not Found")
+             << "| Status:" << importedStatus
+             << "| Procs:" << procCount
+             << "| Statuses:" << statusCount
+             << "| Tasks:" << taskCount;
+
+    QMessageBox::information(this, tr("Import Successful"), 
+        tr("Legacy save data loaded successfully.\n\n"
+           "Merits: %1\nStatus: %2\nHistory Items: %3\nActive Tasks: %4")
+           .arg(meritsFound ? QString::number(importedMerits) : "No Change")
+           .arg(importedStatus.isEmpty() ? "No Change" : importedStatus)
+           .arg(procCount + statusCount)
+           .arg(taskCount));
+}
+
+void CyberDom::processJobLists(const JobDefinition &def)  {
+  // Helper lambda to allow ListManager to call back into CyberDom to resolve variables
+  auto resolver = [this](QString input) -> QString {
+    return this->replaceVariables(input);
+  };
+
+  // listManager->processCommands(
+  //   def.listSets,
+  //   def.listAdds,
+  //   def.listRemoves,
+  //   def.listClears,
+  //   resolver
+  // );
 }

@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 # --- 1. SET THE VERSION HERE ---
-project(CyberDom VERSION 0.0.7 LANGUAGES CXX)
+project(CyberDom VERSION 0.0.8 LANGUAGES CXX)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -10,10 +10,12 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Configure Qt (Qt6 implied by qmake6 usage in original file)
-find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Multimedia MultimediaWidgets)
+find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Multimedia MultimediaWidgets Qml Quick QuickWidgets)
 
 # Standard setup for Qt (Handles AUTOMOC, AUTOUIC, AUTORCC)
 qt_standard_project_setup()
+
+set(CMAKE_AUTORCC ON)
 
 # --- 3. FILES ---
 set(PROJECT_SOURCES
@@ -21,6 +23,7 @@ set(PROJECT_SOURCES
     src/Core/clothingitem.cpp
     src/Core/main.cpp
     src/Core/scriptparser.cpp
+    src/Core/ListManager.cpp
     src/Dialogs/Clothing/addclothing.cpp
     src/Dialogs/Clothing/addclothtype.cpp
     src/Dialogs/Clothing/askclothing.cpp
@@ -58,6 +61,7 @@ set(PROJECT_HEADERS
     src/Core/ScriptUtils.h
     src/Core/clothingitem.h
     src/Core/scriptparser.h
+    src/Core/ListManager.h
     src/Dialogs/Clothing/addclothing.h
     src/Dialogs/Clothing/addclothtype.h
     src/Dialogs/Clothing/askclothing.h
@@ -118,7 +122,6 @@ set(PROJECT_UIS
     src/Dialogs/Tasks/questiondialog.ui
     src/Gui/cyberdom.ui
     src/Gui/mainwindow.ui
-    src/Widgets/calendarview.ui
 )
 
 set(PROJECT_RESOURCES
@@ -167,6 +170,9 @@ target_link_libraries(CyberDom PRIVATE
     Qt6::Widgets
     Qt6::Multimedia
     Qt6::MultimediaWidgets
+    Qt6::Qml
+    Qt6::Quick
+    Qt6::QuickWidgets
 )
 
 # Windows specific libs

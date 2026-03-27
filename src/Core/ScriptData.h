@@ -716,6 +716,10 @@ struct ReportDefinition {
     QString cameraIntervalMin;
     QString cameraIntervalMax;
     QString poseCameraText;
+
+    // If/NotIf
+    QStringList ifConditions;
+    QStringList notIfConditions;
 };
 
 struct ConfessionDefinition {
@@ -750,8 +754,6 @@ struct ConfessionDefinition {
 
     QList<ScriptAction> actions;
 
-    QStringList ifConditions;
-    QStringList notIfConditions;
     QStringList denyIfConditions;
     QStringList permitIfConditions;
 
@@ -765,6 +767,10 @@ struct ConfessionDefinition {
     QString cameraIntervalMin;
     QString cameraIntervalMax;
     QString poseCameraText;
+
+    // If/NotIf
+    QStringList ifConditions;
+    QStringList notIfConditions;
 };
 
 struct TimeRange {
@@ -856,6 +862,10 @@ struct PermissionDefinition {
     QString cameraIntervalMin;
     QString cameraIntervalMax;
     QString poseCameraText;
+
+    // If/NotIf
+    QStringList ifConditions;
+    QStringList notIfConditions;
 };
 
 struct PunishmentDefinition : public AssignmentBehavior {
@@ -1154,13 +1164,17 @@ enum class InstructionSelectMode {
 
 enum class InstructionStepType {
     Choice,
-    SetReference
+    SetReference,
+    ForEach,
+    Next,
+    Leave
 };
 
 struct InstructionStep {
     InstructionStepType type;
     InstructionChoice choice;
     QString setReference;
+    QString listName;
 };
 
 struct InstructionSet {
