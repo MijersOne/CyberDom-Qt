@@ -10,10 +10,12 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Configure Qt (Qt6 implied by qmake6 usage in original file)
-find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Multimedia MultimediaWidgets Qml Quick)
+find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Multimedia MultimediaWidgets Qml Quick QuickWidgets)
 
 # Standard setup for Qt (Handles AUTOMOC, AUTOUIC, AUTORCC)
 qt_standard_project_setup()
+
+set(CMAKE_AUTORCC ON)
 
 # --- 3. FILES ---
 set(PROJECT_SOURCES
@@ -120,8 +122,6 @@ set(PROJECT_UIS
     src/Dialogs/Tasks/questiondialog.ui
     src/Gui/cyberdom.ui
     src/Gui/mainwindow.ui
-    src/Gui/cyberdom.qml
-    src/Widgets/calendarview.ui
 )
 
 set(PROJECT_RESOURCES
@@ -172,6 +172,7 @@ target_link_libraries(CyberDom PRIVATE
     Qt6::MultimediaWidgets
     Qt6::Qml
     Qt6::Quick
+    Qt6::QuickWidgets
 )
 
 # Windows specific libs

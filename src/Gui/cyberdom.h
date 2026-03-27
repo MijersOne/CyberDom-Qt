@@ -214,6 +214,9 @@ public:
   QString getAssignmentDisplayName(const QString &assignmentName,
                                    bool isPunishment) const;
 
+  // Clock/Date
+  QDate getInternalDate() const { return internalClock.date(); }
+
 signals:
   void jobListUpdated();
 

@@ -15,5 +15,6 @@
     <qresource prefix="/">
         <file>src/Gui/cyberdom.qml</file>
         <file>src/Gui/reportclothing.qml</file>
+        <file>src/Widgets/cybercalendar.qml</file>
     </qresource>
 </RCC>

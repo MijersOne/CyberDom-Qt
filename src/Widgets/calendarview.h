@@ -1,13 +1,9 @@
 #ifndef CALENDARVIEW_H
 #define CALENDARVIEW_H
 
-
 #include <QDialog>
+#include <QQuickWidget>
 #include "cyberdom.h"
-
-namespace Ui {
-class CalendarView;
-}
 
 class CalendarView : public QDialog
 {
@@ -20,8 +16,8 @@ protected:
     void showEvent(QShowEvent *event) override;
 
 private:
-    Ui::CalendarView *ui;
     CyberDom *mainApp;
+    QQuickWidget *qmlWidget; // Replaces the old 'ui' pointer
 };
 
 #endif // CALENDARVIEW_H

@@ -4667,17 +4667,29 @@ void CyberDom::addPunishmentToAssignments(const QString &punishmentName,
     // --- ValueUnit Logic (Initial Calculation) ---
     if (!deadlineSet && !punDef->valueUnit.isEmpty()) {
       double val = punDef->value > 0 ? punDef->value : 1.0;
-      int total = qRound(val * amount);
+      int total = qRound(amount / val);
+      
+      qDebug() << "[DEBUG] Math Check -> Amount:" << amount << " | Value:" << val << " | Total Days:" << total;
+
+      int runSeconds = 0;
 
       if (punDef->valueUnit.compare("minute", Qt::CaseInsensitive) == 0) {
+        runSeconds = total * 60;
         deadline = deadline.addSecs(total * 60);
         deadlineSet = true;
       } else if (punDef->valueUnit.compare("hour", Qt::CaseInsensitive) == 0) {
+        runSeconds = total * 3600;
         deadline = deadline.addSecs(total * 3600);
         deadlineSet = true;
       } else if (punDef->valueUnit.compare("day", Qt::CaseInsensitive) == 0) {
+        runSeconds = total * 86400;
         deadline = deadline.addDays(total);
         deadlineSet = true;
+      }
+
+      if (runSeconds > 0) {
+        QSettings settings(settingsFile, QSettings::IniFormat);
+        settings.setValue("Assignments/" + targetInstance + "_run_seconds", runSeconds);
       }
 
       if (deadlineSet) {
@@ -4717,17 +4729,28 @@ void CyberDom::addPunishmentToAssignments(const QString &punishmentName,
     if (!punDef->valueUnit.isEmpty() && punDef->valueUnit != "once") {
       QDateTime deadline = jobDeadlines.value(targetInstance, internalClock);
       double val = punDef->value > 0 ? punDef->value : 1.0;
-      int total = qRound(val * amount);
+      int total = qRound(amount / val);
+      int addedSeconds = 0;
 
       if (punDef->valueUnit.compare("minute", Qt::CaseInsensitive) == 0) {
+        addedSeconds = total * 60;
         deadline = deadline.addSecs(total * 60);
       } else if (punDef->valueUnit.compare("hour", Qt::CaseInsensitive) == 0) {
+        addedSeconds = total * 3600;
         deadline = deadline.addSecs(total * 3600);
       } else if (punDef->valueUnit.compare("day", Qt::CaseInsensitive) == 0) {
+        addedSeconds = total * 86400;
         deadline = deadline.addDays(total);
       }
 
       jobDeadlines[targetInstance] = deadline;
+
+      if (addedSeconds > 0) {
+        QSettings settings(settingsFile, QSettings::IniFormat);
+        int currentRunSeconds = settings.value("Assignments/" + targetInstance + "_run_seconds", 0).toInt();
+        settings.setValue("Assignments/" + targetInstance + "_run_seconds", currentRunSeconds + addedSeconds);
+      }
+
       qDebug() << "[DEBUG] Extended deadline for" << targetInstance << "to"
                << deadline.toString("MM-dd-yyyy hh:mm AP");
     }
@@ -5240,7 +5263,8 @@ bool CyberDom::startAssignment(const QString &assignmentName, bool isPunishment,
   // Record the start time
   QDateTime startTime = internalClock;
   QSettings settings(settingsFile, QSettings::IniFormat);
-  settings.setValue("Assignments/" + assignmentName + "_start_time", startTime);
+  settings.setValue("Assignments/" + assignmentName + "_start_time", startTime.toString(Qt::ISODate));
+  settings.sync();
 
   // Execute StartProcedure if specified
   if (!startProcedure.isEmpty()) {
@@ -7603,34 +7627,64 @@ QList<CalendarEvent> CyberDom::getCalendarEvents() {
   QList<CalendarEvent> events;
 
   // Job and punishments stored in jobDeadlines
-  for (auto it = jobDeadlines.constBegin(); it != jobDeadlines.constEnd();
-       ++it) {
+  // Job and punishments stored in jobDeadlines
+  for (auto it = jobDeadlines.constBegin(); it != jobDeadlines.constEnd(); ++it) {
     const QString &name = it.key();
     QDateTime deadline = it.value();
 
-    // Determine if it is a punishment (robust check handling _2 suffixes)
     bool isPun = (getPunishmentDefinition(name) != nullptr);
 
     CalendarEvent ev;
-
-    // Use getAssignmentDisplayName to format the title
     ev.title = getAssignmentDisplayName(name, isPun);
-
     ev.type = isPun ? QStringLiteral("Punishment") : QStringLiteral("Job");
 
-    if (isPun && isAssignmentLongRunning(name, true)) {
-      QSettings settings(settingsFile, QSettings::IniFormat);
-      QDateTime start =
-          settings.value(QStringLiteral("Assignments/%1_start_time").arg(name))
-              .toDateTime();
-      if (!start.isValid())
-        start = internalClock;
-      ev.start = start;
-      ev.end = deadline;
-    } else {
-      ev.start = deadline;
-      ev.end = deadline;
+    // 1. Grab the start time mystery box
+    QSettings settings(settingsFile, QSettings::IniFormat);
+    QString key = QStringLiteral("Assignments/%1_start_time").arg(name);
+    QVariant savedValue = settings.value(key);
+    
+    QDateTime startTime;
+
+    // 2. Safely extract the Start Time
+    if (savedValue.isValid() && !savedValue.isNull()) {
+        if (savedValue.typeId() == QMetaType::QDateTime) {
+            startTime = savedValue.toDateTime();
+        } else {
+            QString dateStr = savedValue.toString();
+            startTime = QDateTime::fromString(dateStr, Qt::ISODate);
+            if (!startTime.isValid()) {
+                startTime = QDateTime::fromString(dateStr, "yyyy-MM-ddTHH:mm:ss");
+            }
+        }
     }
+
+    // 3. Read the Run Time and stretch the calendar!
+    if (startTime.isValid()) {
+        // Read our newly saved _run_seconds value
+        int runSeconds = settings.value(QStringLiteral("Assignments/%1_run_seconds").arg(name), 0).toInt();
+
+        if (runSeconds > 0) {
+            // It has a specific duration! Add the seconds directly to the start time.
+            ev.start = startTime;
+            ev.end = startTime.addSecs(runSeconds);
+        } else {
+            // Fallback for older save files or tasks that don't have a time duration
+            ev.start = startTime;
+            ev.end = deadline;
+        }
+        
+        // Safety Net
+        if (ev.start > ev.end) {
+            QDateTime temp = ev.start;
+            ev.start = ev.end;
+            ev.end = temp;
+        }
+    } else {
+        // The task hasn't been started yet. Only show it on the day it is due.
+        ev.start = deadline;
+        ev.end = deadline;
+    }
+
     events.append(ev);
   }
 
