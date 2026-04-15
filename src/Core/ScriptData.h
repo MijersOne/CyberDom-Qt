@@ -82,7 +82,8 @@ enum class ScriptActionType {
     ConvertSeconds,
     RoundTime,
     RandomTime,
-    DropTime
+    DropTime,
+    PgmAction
 };
 
 struct ScriptAction {
@@ -287,6 +288,9 @@ struct TimerDefinition {
     QString cameraIntervalMin;
     QString cameraIntervalMax;
     QString poseCameraText;
+
+    // PgmAction
+    QString pgmAction;
 };
 
 enum class MessageSelectMode {
@@ -344,6 +348,9 @@ struct ProcedureDefinition {
     QString cameraIntervalMin;
     QString cameraIntervalMax;
     QString poseCameraText;
+
+    // PgmAction
+    QString pgmAction;
 };
 
 struct QuestionAnswerBlock {
@@ -720,6 +727,9 @@ struct ReportDefinition {
     // If/NotIf
     QStringList ifConditions;
     QStringList notIfConditions;
+
+    // PgmAction
+    QString pgmAction;
 };
 
 struct ConfessionDefinition {
@@ -771,6 +781,9 @@ struct ConfessionDefinition {
     // If/NotIf
     QStringList ifConditions;
     QStringList notIfConditions;
+
+    // PgmAction
+    QString pgmAction;
 };
 
 struct TimeRange {
@@ -866,6 +879,9 @@ struct PermissionDefinition {
     // If/NotIf
     QStringList ifConditions;
     QStringList notIfConditions;
+
+    // PgmAction
+    QString pgmAction;
 };
 
 struct PunishmentDefinition : public AssignmentBehavior {
@@ -1253,6 +1269,9 @@ struct PopupDefinition {
     QList<CaseBlock> cases;
 
     QList<ScriptAction> actions;
+
+    // PgmAction
+    QString pgmAction;
 };
 
 struct PopupGroupDefinition {
