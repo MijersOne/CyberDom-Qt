@@ -7,6 +7,7 @@
 #include "scriptparser.h"
 #include "selectpopup.h"      // Include the header for the SelectPopups UI
 #include "selectpunishment.h" // Include the header for the SelectPunishments UI
+#include "src/Gui/ui_cyberdom.h"
 #include "ui_cyberdom.h"
 
 // #include "ui_assignments.h" // Include the header for Assignments UI
@@ -47,6 +48,8 @@
 #include <QStandardPaths>
 #include <QTextStream>
 #include <QUrl>
+#include <QApplication>
+#include <QProcess>
 #include <QtMath>
 #include <cstdlib>
 #include <ctime>
@@ -1450,6 +1453,42 @@ void CyberDom::openPermission(const QString &name) {
         executeStringAction(action.type, action.value);
         break;
 
+      case ScriptActionType::PgmAction:
+          if (action.value.compare("Close", Qt::CaseInsensitive) == 0) {
+              qDebug() << "[ACTION] PgmAction=Close triggered by report. Shutting down...";
+              QApplication::quit();
+              return;
+          }
+          else if (action.value.compare("Restart", Qt::CaseInsensitive) == 0) {
+              qDebug() << "[ACTION] PgmAction=Restart triggered. Reloading app...";
+
+              // Spawn a new instance
+              QProcess::startDetached(QCoreApplication::applicationFilePath(), QStringList());
+
+              // Kill the current instance
+              QApplication::quit();
+
+              return;
+          }
+          else if (action.value.compare("Minimize", Qt::CaseInsensitive) == 0) {
+              qDebug() << "[ACTION] PgmAction=Minimize triggered. Reloading app...";
+
+              this->showMinimized();
+              break;
+          }
+          else if (action.value.compare("Maximize", Qt::CaseInsensitive) == 0) {
+              qDebug() << "[ACTION] PgmAction=Maximize triggered. Reloading app...";
+
+              this->showMaximized();
+              break;
+          }
+          else if (action.value.compare("Normalize", Qt::CaseInsensitive) == 0) {
+              qDebug() << "[ACTION] PgmAction=Normalize triggered. Restoring window...";
+              this->showNormal();
+              break;
+          }
+          break;
+
       default:
         break;
       }
@@ -1825,6 +1864,42 @@ void CyberDom::openConfession(const QString &name) {
     case ScriptActionType::DropString:
       executeStringAction(action.type, action.value);
       break;
+
+    case ScriptActionType::PgmAction:
+        if (action.value.compare("Close", Qt::CaseInsensitive) == 0) {
+            qDebug() << "[ACTION] PgmAction=Close triggered by report. Shutting down...";
+            QApplication::quit();
+            return;
+        }
+        else if (action.value.compare("Restart", Qt::CaseInsensitive) == 0) {
+            qDebug() << "[ACTION] PgmAction=Restart triggered. Reloading app...";
+
+            // Spawn new instance
+            QProcess::startDetached(QCoreApplication::applicationFilePath(), QStringList());
+
+            // Kill current instance
+            QApplication::quit();
+
+            return;
+        }
+        else if (action.value.compare("Minimize", Qt::CaseInsensitive) == 0) {
+            qDebug() << "[ACTION] PgmAction=Minimize triggered. Minimizing window...";
+
+            this->showMinimized();
+            break;
+        }
+        else if (action.value.compare("Maximize", Qt::CaseInsensitive) == 0) {
+            qDebug() << "[ACTION] PgmAction=Maximize triggered. Maximizing window...";
+
+            this->showMaximized();
+            break;
+        }
+        else if (action.value.compare("Normalize", Qt::CaseInsensitive) == 0) {
+            qDebug() << "[ACTION] PgmAction=Normalize triggered. Restoring window...";
+            this->showNormal();
+            break;
+        }
+        break;
 
     default:
       qDebug() << "[WARN] Unhandled action type in confession:"
@@ -6749,9 +6824,45 @@ bool CyberDom::runProcedure(const QString &procedureName) {
     case ScriptActionType::ChangeString:
     case ScriptActionType::InputLongString:
     case ScriptActionType::ChangeLongString:
-    case ScriptActionType::DropString:
+    case ScriptActionType::DropString: {
       executeStringAction(action.type, action.value);
       break;
+    }
+    case ScriptActionType::PgmAction:
+        if (action.value.compare("Close", Qt::CaseInsensitive) == 0) {
+            qDebug() << "[ACTION] PgmAction=Close triggered by report. Shutting down...";
+            QApplication::quit();
+            return true;
+        }
+        else if (action.value.compare("Restart", Qt::CaseInsensitive) == 0) {
+            qDebug() << "[ACTION] PgmAction=Restart triggered. Reloading app...";
+
+            // Spawn new instance of the application
+            QProcess::startDetached(QCoreApplication::applicationFilePath(), QStringList());
+
+            // Kill the current instance
+            QApplication::quit();
+
+            return true;
+        }
+        else if (action.value.compare("Minimize", Qt::CaseInsensitive) == 0) {
+            qDebug() << "[ACTION] PgmAction=Minimize triggered. Reloading app...";
+
+            this->showMinimized();
+            break;
+        }
+        else if (action.value.compare("Maximize", Qt::CaseInsensitive) == 0) {
+            qDebug() << "[ACTION] PgmAction=Maximize triggered. Reloading app...";
+
+            this->showMaximized();
+            break;
+        }
+        else if (action.value.compare("Normalize", Qt::CaseInsensitive) == 0) {
+            qDebug() << "[ACTION] PgmAction=Normalize triggered. Restoring window...";
+            this->showNormal();
+            break;
+        }
+        break;
     default:
       break;
     }
@@ -7055,6 +7166,38 @@ void CyberDom::executeReport(const QString &name) {
     case ScriptActionType::DropString:
       executeStringAction(action.type, action.value);
       break;
+
+    case ScriptActionType::PgmAction:
+        if (action.value.compare("Close", Qt::CaseInsensitive) == 0) {
+            qDebug() << "[ACTION] PgmAction=Close triggered by report. Shutting down...";
+            QApplication::quit();
+            return;
+        }
+        else if (action.value.compare("Restart", Qt::CaseInsensitive) == 0) {
+            qDebug() << "[ACTION] PgmAction=Restart triggered. Reloading app...";
+
+            QProcess::startDetached(QCoreApplication::applicationFilePath(), QStringList());
+
+            QApplication::quit();
+
+            return;
+        }
+        else if (action.value.compare("Minimize", Qt::CaseInsensitive) == 0) {
+            qDebug() << "[ACTION] PgmAction=Minimize triggered. Minimizing window...";
+            this->showMinimized();
+            break;
+        }
+        else if (action.value.compare("Maximize", Qt::CaseInsensitive) == 0) {
+            qDebug() << "[ACTION] PgmAction=Maximize triggered. Maximizing window...";
+            this->showMaximized();
+            break;
+        }
+        else if (action.value.compare("Normalize", Qt::CaseInsensitive) == 0) {
+            qDebug() << "[ACTION] PgmAction=Normalize triggered. Restoring window...";
+            this->showNormal();
+            break;
+        }
+    break;
 
     default:
       qDebug() << "[WARN] Unhandled action type in report:"
