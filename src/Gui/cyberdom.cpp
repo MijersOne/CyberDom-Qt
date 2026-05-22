@@ -136,6 +136,9 @@ CyberDom::CyberDom(QWidget *parent)
 
   ui->setupUi(this);
 
+  // Check if we are waking up from a Paused state
+  processStandbyWakeUp();
+
   // Load Clothing Inventory
   loadClothingInventory();
 
@@ -1487,6 +1490,18 @@ void CyberDom::openPermission(const QString &name) {
               this->showNormal();
               break;
           }
+          else if (action.value.compare("Pause", Qt::CaseInsensitive) == 0) {
+              qDebug() << "[ACTION] PgmAction=Pause triggered. Entering Standby Mode...";
+
+              // Save the exact moment the app closed to the system settings
+              QSettings settings(settingsFile, QSettings::IniFormat);
+              settings.setValue("StandbyStartTime", internalClock);
+
+              // Shutdown the application
+              QApplication::quit();
+
+              return;
+            }
           break;
 
       default:
@@ -1898,6 +1913,18 @@ void CyberDom::openConfession(const QString &name) {
             qDebug() << "[ACTION] PgmAction=Normalize triggered. Restoring window...";
             this->showNormal();
             break;
+        }
+        else if (action.value.compare("Pause", Qt::CaseInsensitive) == 0) {
+            qDebug() << "[ACTION] PgmAction=Pause triggered. Entering Standby Mode...";
+
+            // Save the exact moment the app closed to the system settings
+            QSettings settings(settingsFile, QSettings::IniFormat);
+            settings.setValue("StandbyStartTime", internalClock);
+
+            //Shutdown the application
+            QApplication::quit();
+
+            return;
         }
         break;
 
@@ -6862,6 +6889,18 @@ bool CyberDom::runProcedure(const QString &procedureName) {
             this->showNormal();
             break;
         }
+        else if (action.value.compare("Pause", Qt::CaseInsensitive) == 0) {
+            qDebug() << "[ACTION] PgmAction=Pause triggered. Entering Standby Mode...";
+
+            // Save the exact moment the app closed to the system settings
+            QSettings settings(settingsFile, QSettings::IniFormat);
+            settings.setValue("StandbyStartTime", internalClock);
+
+            // Shutdown the application
+            QApplication::quit();
+
+            return true;
+        }
         break;
     default:
       break;
@@ -7195,6 +7234,13 @@ void CyberDom::executeReport(const QString &name) {
         else if (action.value.compare("Normalize", Qt::CaseInsensitive) == 0) {
             qDebug() << "[ACTION] PgmAction=Normalize triggered. Restoring window...";
             this->showNormal();
+            break;
+        }
+        else if (action.value.compare("Pause", Qt::CaseInsensitive) == 0) {
+            qDebug() << "[ACTION] PgmAction=Pause triggered. Entering Standby Mode...";
+
+            setStandbyMode(true);
+
             break;
         }
     break;
@@ -10752,4 +10798,78 @@ void CyberDom::processJobLists(const JobDefinition &def)  {
   //   def.listClears,
   //   resolver
   // );
+}
+
+void CyberDom::setStandbyMode(bool active) {
+    if (active == isStandbyMode) return;
+
+    isStandbyMode = active;
+
+    // Use QSettings to save this state so it survives if the app is closed!
+    QSettings settings("DesireGames", "CyberDom");
+
+    if (active) {
+        // --- ENTERING STANDBY ---
+        standbyStartTime = QDateTime::currentDateTime();
+        settings.setValue("StandbyMode", true);
+        settings.setValue("StandbyStartTime", standbyStartTime);
+
+        qDebug() << "[STANDBY] Program paused. Start time:" << standbyStartTime.toString();
+
+        // TODO: Add locking code
+    } else {
+        // --- EXITING STANDBY ---
+        QDateTime now = QDateTime::currentDateTime();
+
+        // Grab the start time from settings in case the app was completely closed
+        QDateTime savedStartTime = settings.value("StandbyStartTime", now).toDateTime();
+
+        // Calculate exactly how many seconds they were gone
+        qint64 secondsOnStandby = savedStartTime.secsTo(now);
+
+        qDebug() << "[STANDBY] Program resumed. Pushing deadlines forward by" << secondsOnStandby << "seconds.";
+
+        // TODO: Loop through deadlines/assignments
+
+        // Clean up the settings
+        settings.setValue("StandbyMode", false);
+        settings.remove("StandbyStartTime");
+    }
+}
+
+void CyberDom::processStandbyWakeUp() {
+    QSettings settings(settingsFile, QSettings::IniFormat);
+
+    // If the app wasn't put on Pause last time, just skip this entirel
+    if (!settings.contains("StandbyStartTime")) {
+        return;
+    }
+
+    // Grab the saved time and the current time
+    QDateTime standbyStart = settings.value("StandbyStartTime").toDateTime();
+    QDateTime now = internalClock;
+
+    // Calculate exactly how many seconds the app was closed
+    qint64 secondsOffline = standbyStart.secsTo(now);
+
+    if (secondsOffline > 0) {
+        qDebug() << "[STANDBY] Waking up from Pause. Pushing deadlines forward by" << secondsOffline << "seconds.";
+
+        // Push all active Assignment Deadlines forward
+        for (auto it = jobDeadlines.begin(); it != jobDeadlines.end(); ++it) {
+            it.value() = it.value().addSecs(secondsOffline);
+            qDebug() << "[STANDBY] Shifted deadline for" << it.key() << "to" << it.value().toString("MM-dd-yyyy hh:mm AP");
+        }
+
+        // Push all Assignment Expirations forward (so they don't expire while paused!)
+        for (auto it = jobExpiryTimes.begin(); it != jobExpiryTimes.end(); ++it) {
+            it.value() == it.value().addSecs(secondsOffline);
+        }
+    }
+
+    // Erase the timestamp so this only happens once per Pause
+    settings.remove("StandbyStartTime");
+
+    // Refresh job list
+    emit jobListUpdated();
 }
