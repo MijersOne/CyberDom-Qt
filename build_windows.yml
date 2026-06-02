@@ -1,0 +1,70 @@
+trigger:
+- main 
+
+pool:
+  vmImage: 'windows-latest'
+
+variables:
+  QT_VERSION: '6.10.2' 
+  APP_NAME: 'CyberDom'
+  # FIXED: Define the exact Qt root path globally so Windows CMD can't mangle it
+  QT_ROOT: '$(Build.SourcesDirectory)\Qt\$(QT_VERSION)\msvc2022_64'
+
+steps:
+- task: UsePythonVersion@0
+  inputs:
+    versionSpec: '3.x'
+  displayName: 'Set up Python'
+
+- script: |
+    pip install aqtinstall
+    python -m aqt install-qt windows desktop $(QT_VERSION) win64_msvc2022_64 --modules qtmultimedia --outputdir $(Build.SourcesDirectory)\Qt
+  displayName: 'Install Qt via aqtinstall'
+
+- script: |
+    if exist build_cmake rmdir /s /q build_cmake
+    mkdir build_cmake
+    
+    :: Temporarily add Qt to the system path for this step
+    set "PATH=$(QT_ROOT)\bin;%PATH%"
+
+    :: FIXED: Use the direct, absolute QT_ROOT path
+    cmake -S . -B build_cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$(QT_ROOT)"
+    
+    cmake --build build_cmake --config Release
+  displayName: 'Build CyberDom with CMake'
+
+- script: |
+    set "PATH=$(QT_ROOT)\bin;%PATH%"
+    
+    if exist release_deploy rmdir /s /q release_deploy
+    mkdir release_deploy
+    
+    copy build_cmake\Release\$(APP_NAME).exe release_deploy\
+    
+    :: Call windeployqt using the direct path
+    "$(QT_ROOT)\bin\windeployqt.exe" release_deploy\$(APP_NAME).exe --release --no-translations --compiler-runtime --qmldir src --verbose 1
+  displayName: 'Deploy Qt Libraries (windeployqt)'
+
+- powershell: |
+    # Safety net: Remove the target folder if it somehow already exists from a failed run
+    if (Test-Path "$(APP_NAME)-x86_64") { Remove-Item -Recurse -Force "$(APP_NAME)-x86_64" }
+    
+    Rename-Item -Path "release_deploy" -NewName "$(APP_NAME)-x86_64"
+  displayName: 'Rename Folder to CyberDom-x86_64'
+
+- task: ArchiveFiles@2
+  inputs:
+    rootFolderOrFile: '$(System.DefaultWorkingDirectory)/$(APP_NAME)-x86_64'
+    includeRootFolder: true
+    archiveType: '7z'
+    archiveFile: '$(Build.ArtifactStagingDirectory)/$(APP_NAME)-x86_64.7z'
+    replaceExistingArchive: true
+  displayName: 'Compress to .7z Archive'
+
+- task: PublishPipelineArtifact@1
+  inputs:
+    targetPath: '$(Build.ArtifactStagingDirectory)/$(APP_NAME)-x86_64.7z'
+    artifact: '$(APP_NAME)_Windows_Release'
+    publishLocation: 'pipeline'
+  displayName: 'Publish Release Artifact'

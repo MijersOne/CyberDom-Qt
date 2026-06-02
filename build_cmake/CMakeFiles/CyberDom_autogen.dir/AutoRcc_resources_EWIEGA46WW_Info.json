@@ -1,0 +1,38 @@
+{
+	"BUILD_DIR" : "G:/Git/CyberDom-Qt/build_cmake/CyberDom_autogen",
+	"CMAKE_BINARY_DIR" : "G:/Git/CyberDom-Qt/build_cmake",
+	"CMAKE_CURRENT_BINARY_DIR" : "G:/Git/CyberDom-Qt/build_cmake",
+	"CMAKE_CURRENT_SOURCE_DIR" : "G:/Git/CyberDom-Qt",
+	"CMAKE_SOURCE_DIR" : "G:/Git/CyberDom-Qt",
+	"CROSS_CONFIG" : false,
+	"GENERATOR" : "MinGW Makefiles",
+	"INCLUDE_DIR" : "G:/Git/CyberDom-Qt/build_cmake/CyberDom_autogen/include",
+	"INPUTS" : 
+	[
+		"G:/Git/CyberDom-Qt/cyberdom.png",
+		"G:/Git/CyberDom-Qt/images/cyberdom_16x16@2x.png",
+		"G:/Git/CyberDom-Qt/images/cyberdom_128x128.png",
+		"G:/Git/CyberDom-Qt/images/cyberdom_512x512.png",
+		"G:/Git/CyberDom-Qt/images/cyberdom_128x128@2x.png",
+		"G:/Git/CyberDom-Qt/images/cyberdom_512x512@2x.png",
+		"G:/Git/CyberDom-Qt/images/cyberdom_256x256.png",
+		"G:/Git/CyberDom-Qt/images/cyberdom_16x16.png",
+		"G:/Git/CyberDom-Qt/images/cyberdom_256x256@2x.png",
+		"G:/Git/CyberDom-Qt/images/cyberdom_32x32.png",
+		"G:/Git/CyberDom-Qt/images/cyberdom_64x64.png",
+		"G:/Git/CyberDom-Qt/src/Gui/reportclothing.qml",
+		"G:/Git/CyberDom-Qt/src/Gui/cyberdom.qml",
+		"G:/Git/CyberDom-Qt/src/Widgets/cybercalendar.qml"
+	],
+	"LOCK_FILE" : "G:/Git/CyberDom-Qt/build_cmake/CMakeFiles/CyberDom_autogen.dir/AutoRcc_resources_EWIEGA46WW_Lock.lock",
+	"MULTI_CONFIG" : false,
+	"OPTIONS" : [ "--no-zstd", "-name", "resources" ],
+	"OUTPUT_CHECKSUM" : "EWIEGA46WW",
+	"OUTPUT_NAME" : "qrc_resources.cpp",
+	"RCC_EXECUTABLE" : "C:/Qt/6.10.2/mingw_64/bin/rcc.exe",
+	"RCC_LIST_OPTIONS" : [ "--list" ],
+	"SETTINGS_FILE" : "G:/Git/CyberDom-Qt/build_cmake/CMakeFiles/CyberDom_autogen.dir/AutoRcc_resources_EWIEGA46WW_Used.txt",
+	"SOURCE" : "G:/Git/CyberDom-Qt/resources.qrc",
+	"USE_BETTER_GRAPH" : true,
+	"VERBOSITY" : 0
+}

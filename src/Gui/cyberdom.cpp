@@ -7,6 +7,7 @@
 #include "scriptparser.h"
 #include "selectpopup.h"      // Include the header for the SelectPopups UI
 #include "selectpunishment.h" // Include the header for the SelectPunishments UI
+#include "src/Gui/ui_cyberdom.h"
 #include "ui_cyberdom.h"
 
 // #include "ui_assignments.h" // Include the header for Assignments UI
@@ -47,6 +48,8 @@
 #include <QStandardPaths>
 #include <QTextStream>
 #include <QUrl>
+#include <QApplication>
+#include <QProcess>
 #include <QtMath>
 #include <cstdlib>
 #include <ctime>
@@ -132,6 +135,9 @@ CyberDom::CyberDom(QWidget *parent)
     : QMainWindow(parent), ui(new Ui::CyberDom) {
 
   ui->setupUi(this);
+
+  // Check if we are waking up from a Paused state
+  processStandbyWakeUp();
 
   // Load Clothing Inventory
   loadClothingInventory();
@@ -1450,6 +1456,54 @@ void CyberDom::openPermission(const QString &name) {
         executeStringAction(action.type, action.value);
         break;
 
+      case ScriptActionType::PgmAction:
+          if (action.value.compare("Close", Qt::CaseInsensitive) == 0) {
+              qDebug() << "[ACTION] PgmAction=Close triggered by report. Shutting down...";
+              QApplication::quit();
+              return;
+          }
+          else if (action.value.compare("Restart", Qt::CaseInsensitive) == 0) {
+              qDebug() << "[ACTION] PgmAction=Restart triggered. Reloading app...";
+
+              // Spawn a new instance
+              QProcess::startDetached(QCoreApplication::applicationFilePath(), QStringList());
+
+              // Kill the current instance
+              QApplication::quit();
+
+              return;
+          }
+          else if (action.value.compare("Minimize", Qt::CaseInsensitive) == 0) {
+              qDebug() << "[ACTION] PgmAction=Minimize triggered. Reloading app...";
+
+              this->showMinimized();
+              break;
+          }
+          else if (action.value.compare("Maximize", Qt::CaseInsensitive) == 0) {
+              qDebug() << "[ACTION] PgmAction=Maximize triggered. Reloading app...";
+
+              this->showMaximized();
+              break;
+          }
+          else if (action.value.compare("Normalize", Qt::CaseInsensitive) == 0) {
+              qDebug() << "[ACTION] PgmAction=Normalize triggered. Restoring window...";
+              this->showNormal();
+              break;
+          }
+          else if (action.value.compare("Pause", Qt::CaseInsensitive) == 0) {
+              qDebug() << "[ACTION] PgmAction=Pause triggered. Entering Standby Mode...";
+
+              // Save the exact moment the app closed to the system settings
+              QSettings settings(settingsFile, QSettings::IniFormat);
+              settings.setValue("StandbyStartTime", internalClock);
+
+              // Shutdown the application
+              QApplication::quit();
+
+              return;
+            }
+          break;
+
       default:
         break;
       }
@@ -1825,6 +1879,54 @@ void CyberDom::openConfession(const QString &name) {
     case ScriptActionType::DropString:
       executeStringAction(action.type, action.value);
       break;
+
+    case ScriptActionType::PgmAction:
+        if (action.value.compare("Close", Qt::CaseInsensitive) == 0) {
+            qDebug() << "[ACTION] PgmAction=Close triggered by report. Shutting down...";
+            QApplication::quit();
+            return;
+        }
+        else if (action.value.compare("Restart", Qt::CaseInsensitive) == 0) {
+            qDebug() << "[ACTION] PgmAction=Restart triggered. Reloading app...";
+
+            // Spawn new instance
+            QProcess::startDetached(QCoreApplication::applicationFilePath(), QStringList());
+
+            // Kill current instance
+            QApplication::quit();
+
+            return;
+        }
+        else if (action.value.compare("Minimize", Qt::CaseInsensitive) == 0) {
+            qDebug() << "[ACTION] PgmAction=Minimize triggered. Minimizing window...";
+
+            this->showMinimized();
+            break;
+        }
+        else if (action.value.compare("Maximize", Qt::CaseInsensitive) == 0) {
+            qDebug() << "[ACTION] PgmAction=Maximize triggered. Maximizing window...";
+
+            this->showMaximized();
+            break;
+        }
+        else if (action.value.compare("Normalize", Qt::CaseInsensitive) == 0) {
+            qDebug() << "[ACTION] PgmAction=Normalize triggered. Restoring window...";
+            this->showNormal();
+            break;
+        }
+        else if (action.value.compare("Pause", Qt::CaseInsensitive) == 0) {
+            qDebug() << "[ACTION] PgmAction=Pause triggered. Entering Standby Mode...";
+
+            // Save the exact moment the app closed to the system settings
+            QSettings settings(settingsFile, QSettings::IniFormat);
+            settings.setValue("StandbyStartTime", internalClock);
+
+            //Shutdown the application
+            QApplication::quit();
+
+            return;
+        }
+        break;
 
     default:
       qDebug() << "[WARN] Unhandled action type in confession:"
@@ -6749,9 +6851,57 @@ bool CyberDom::runProcedure(const QString &procedureName) {
     case ScriptActionType::ChangeString:
     case ScriptActionType::InputLongString:
     case ScriptActionType::ChangeLongString:
-    case ScriptActionType::DropString:
+    case ScriptActionType::DropString: {
       executeStringAction(action.type, action.value);
       break;
+    }
+    case ScriptActionType::PgmAction:
+        if (action.value.compare("Close", Qt::CaseInsensitive) == 0) {
+            qDebug() << "[ACTION] PgmAction=Close triggered by report. Shutting down...";
+            QApplication::quit();
+            return true;
+        }
+        else if (action.value.compare("Restart", Qt::CaseInsensitive) == 0) {
+            qDebug() << "[ACTION] PgmAction=Restart triggered. Reloading app...";
+
+            // Spawn new instance of the application
+            QProcess::startDetached(QCoreApplication::applicationFilePath(), QStringList());
+
+            // Kill the current instance
+            QApplication::quit();
+
+            return true;
+        }
+        else if (action.value.compare("Minimize", Qt::CaseInsensitive) == 0) {
+            qDebug() << "[ACTION] PgmAction=Minimize triggered. Reloading app...";
+
+            this->showMinimized();
+            break;
+        }
+        else if (action.value.compare("Maximize", Qt::CaseInsensitive) == 0) {
+            qDebug() << "[ACTION] PgmAction=Maximize triggered. Reloading app...";
+
+            this->showMaximized();
+            break;
+        }
+        else if (action.value.compare("Normalize", Qt::CaseInsensitive) == 0) {
+            qDebug() << "[ACTION] PgmAction=Normalize triggered. Restoring window...";
+            this->showNormal();
+            break;
+        }
+        else if (action.value.compare("Pause", Qt::CaseInsensitive) == 0) {
+            qDebug() << "[ACTION] PgmAction=Pause triggered. Entering Standby Mode...";
+
+            // Save the exact moment the app closed to the system settings
+            QSettings settings(settingsFile, QSettings::IniFormat);
+            settings.setValue("StandbyStartTime", internalClock);
+
+            // Shutdown the application
+            QApplication::quit();
+
+            return true;
+        }
+        break;
     default:
       break;
     }
@@ -7055,6 +7205,45 @@ void CyberDom::executeReport(const QString &name) {
     case ScriptActionType::DropString:
       executeStringAction(action.type, action.value);
       break;
+
+    case ScriptActionType::PgmAction:
+        if (action.value.compare("Close", Qt::CaseInsensitive) == 0) {
+            qDebug() << "[ACTION] PgmAction=Close triggered by report. Shutting down...";
+            QApplication::quit();
+            return;
+        }
+        else if (action.value.compare("Restart", Qt::CaseInsensitive) == 0) {
+            qDebug() << "[ACTION] PgmAction=Restart triggered. Reloading app...";
+
+            QProcess::startDetached(QCoreApplication::applicationFilePath(), QStringList());
+
+            QApplication::quit();
+
+            return;
+        }
+        else if (action.value.compare("Minimize", Qt::CaseInsensitive) == 0) {
+            qDebug() << "[ACTION] PgmAction=Minimize triggered. Minimizing window...";
+            this->showMinimized();
+            break;
+        }
+        else if (action.value.compare("Maximize", Qt::CaseInsensitive) == 0) {
+            qDebug() << "[ACTION] PgmAction=Maximize triggered. Maximizing window...";
+            this->showMaximized();
+            break;
+        }
+        else if (action.value.compare("Normalize", Qt::CaseInsensitive) == 0) {
+            qDebug() << "[ACTION] PgmAction=Normalize triggered. Restoring window...";
+            this->showNormal();
+            break;
+        }
+        else if (action.value.compare("Pause", Qt::CaseInsensitive) == 0) {
+            qDebug() << "[ACTION] PgmAction=Pause triggered. Entering Standby Mode...";
+
+            setStandbyMode(true);
+
+            break;
+        }
+    break;
 
     default:
       qDebug() << "[WARN] Unhandled action type in report:"
@@ -10609,4 +10798,78 @@ void CyberDom::processJobLists(const JobDefinition &def)  {
   //   def.listClears,
   //   resolver
   // );
+}
+
+void CyberDom::setStandbyMode(bool active) {
+    if (active == isStandbyMode) return;
+
+    isStandbyMode = active;
+
+    // Use QSettings to save this state so it survives if the app is closed!
+    QSettings settings("DesireGames", "CyberDom");
+
+    if (active) {
+        // --- ENTERING STANDBY ---
+        standbyStartTime = QDateTime::currentDateTime();
+        settings.setValue("StandbyMode", true);
+        settings.setValue("StandbyStartTime", standbyStartTime);
+
+        qDebug() << "[STANDBY] Program paused. Start time:" << standbyStartTime.toString();
+
+        // TODO: Add locking code
+    } else {
+        // --- EXITING STANDBY ---
+        QDateTime now = QDateTime::currentDateTime();
+
+        // Grab the start time from settings in case the app was completely closed
+        QDateTime savedStartTime = settings.value("StandbyStartTime", now).toDateTime();
+
+        // Calculate exactly how many seconds they were gone
+        qint64 secondsOnStandby = savedStartTime.secsTo(now);
+
+        qDebug() << "[STANDBY] Program resumed. Pushing deadlines forward by" << secondsOnStandby << "seconds.";
+
+        // TODO: Loop through deadlines/assignments
+
+        // Clean up the settings
+        settings.setValue("StandbyMode", false);
+        settings.remove("StandbyStartTime");
+    }
+}
+
+void CyberDom::processStandbyWakeUp() {
+    QSettings settings(settingsFile, QSettings::IniFormat);
+
+    // If the app wasn't put on Pause last time, just skip this entirel
+    if (!settings.contains("StandbyStartTime")) {
+        return;
+    }
+
+    // Grab the saved time and the current time
+    QDateTime standbyStart = settings.value("StandbyStartTime").toDateTime();
+    QDateTime now = internalClock;
+
+    // Calculate exactly how many seconds the app was closed
+    qint64 secondsOffline = standbyStart.secsTo(now);
+
+    if (secondsOffline > 0) {
+        qDebug() << "[STANDBY] Waking up from Pause. Pushing deadlines forward by" << secondsOffline << "seconds.";
+
+        // Push all active Assignment Deadlines forward
+        for (auto it = jobDeadlines.begin(); it != jobDeadlines.end(); ++it) {
+            it.value() = it.value().addSecs(secondsOffline);
+            qDebug() << "[STANDBY] Shifted deadline for" << it.key() << "to" << it.value().toString("MM-dd-yyyy hh:mm AP");
+        }
+
+        // Push all Assignment Expirations forward (so they don't expire while paused!)
+        for (auto it = jobExpiryTimes.begin(); it != jobExpiryTimes.end(); ++it) {
+            it.value() == it.value().addSecs(secondsOffline);
+        }
+    }
+
+    // Erase the timestamp so this only happens once per Pause
+    settings.remove("StandbyStartTime");
+
+    // Refresh job list
+    emit jobListUpdated();
 }

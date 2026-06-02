@@ -989,6 +989,9 @@ void ScriptParser::parseReportSections(const QStringList& lines) {
             currentReport.poseCameraText = value;
             currentReport.actions.append({ScriptActionType::PoseCamera, value});
         }
+        else if (key.compare("PgmAction", Qt::CaseInsensitive) == 0) {
+            currentReport.actions.append({ScriptActionType::PgmAction, value});
+        }
         else if (key.compare("input$", Qt::CaseInsensitive) == 0) {
             currentReport.actions.append({ScriptActionType::InputString, value});
         }
@@ -1226,6 +1229,9 @@ void ScriptParser::parseConfessionSections(const QStringList& lines) {
         else if (key.compare("PoseCamera", Qt::CaseInsensitive) == 0) {
             currentConf.poseCameraText = value;
             currentConf.actions.append({ScriptActionType::PoseCamera, value});
+        }
+        else if (key.compare("PgmAction", Qt::CaseInsensitive) == 0) {
+            currentConf.actions.append({ScriptActionType::PgmAction, value});
         }
         else if (key.compare("Set$", Qt::CaseInsensitive) == 0) {
             currentConf.actions.append({ScriptActionType::SetString, value});
@@ -1598,6 +1604,9 @@ void ScriptParser::parsePermissionSections(const QStringList& lines) {
         else if (key.compare("PoseCamera", Qt::CaseInsensitive) == 0) {
             currentPermission.poseCameraText = value;
             currentPermission.actions.append({ScriptActionType::PoseCamera, value});
+        }
+        else if (key.compare("PgmAction", Qt::CaseInsensitive) == 0) {
+            currentPermission.actions.append({ScriptActionType::PgmAction, value});
         }
         else if (key.compare("input$", Qt::CaseInsensitive) == 0) {
             currentPermission.actions.append({ScriptActionType::InputString, value});
@@ -3062,6 +3071,9 @@ void ScriptParser::parseProcedureSections(const QStringList& lines) {
             currentProc.poseCameraText = value;
             currentProc.actions.append({ScriptActionType::PoseCamera, value});
         }
+        else if (key.compare("PgmAction", Qt::CaseInsensitive) == 0) {
+            currentProc.actions.append({ScriptActionType::PgmAction, value});
+        }
 
         if (inProcSection) {
             scriptData.procedures.insert(currentProc.name, currentProc);
@@ -3143,6 +3155,9 @@ void ScriptParser::parsePopupSections(const QMap<QString, QMap<QString, QStringL
                 }
                 else if (key.compare("Question", Qt::CaseInsensitive) == 0) {
                     p.actions.append({ScriptActionType::Question, value});
+                }
+                else if (key.compare("PgmAction", Qt::CaseInsensitive) == 0) {
+                    p.actions.append({ScriptActionType::PgmAction, value});
                 }
                 else if (key.compare("Input", Qt::CaseInsensitive) == 0) {
                     p.actions.append({ScriptActionType::Input, value});
@@ -3398,6 +3413,9 @@ void ScriptParser::parseTimerSections(const QStringList& lines) {
         else if (key.compare("PoseCamera", Qt::CaseInsensitive) == 0) {
             currentTimer.poseCameraText = value;
             currentTimer.actions.append({ScriptActionType::PoseCamera, value});
+        }
+        else if (key.compare("PgmAction", Qt::CaseInsensitive) == 0) {
+            currentTimer.actions.append({ScriptActionType::PgmAction, value});
         }
         else if (key.compare("Set$", Qt::CaseInsensitive) == 0) {
             currentTimer.actions.append({ScriptActionType::SetString, value});

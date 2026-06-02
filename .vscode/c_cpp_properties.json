@@ -1,0 +1,19 @@
+{
+    "configurations": [
+        {
+            "name": "Win32",
+            "includePath": [
+                "${workspaceFolder}/**"
+            ],
+            "defines": [
+                "_DEBUG",
+                "UNICODE",
+                "_UNICODE"
+            ],
+            "compileCommands": [
+                "${workspaceFolder}/build/Desktop_Qt_6_10_2_MinGW_64_bit-Debug/compile_commands.json"
+            ]
+        }
+    ],
+    "version": 4
+}

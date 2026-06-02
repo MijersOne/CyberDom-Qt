@@ -1,0 +1,10 @@
+G:/Git/CyberDom-Qt/build_cmake/CMakeFiles/CyberDom.dir
+G:/Git/CyberDom-Qt/build_cmake/CMakeFiles/CyberDom_qmlimportscan.dir
+G:/Git/CyberDom-Qt/build_cmake/CMakeFiles/edit_cache.dir
+G:/Git/CyberDom-Qt/build_cmake/CMakeFiles/rebuild_cache.dir
+G:/Git/CyberDom-Qt/build_cmake/CMakeFiles/list_install_components.dir
+G:/Git/CyberDom-Qt/build_cmake/CMakeFiles/install.dir
+G:/Git/CyberDom-Qt/build_cmake/CMakeFiles/install/local.dir
+G:/Git/CyberDom-Qt/build_cmake/CMakeFiles/install/strip.dir
+G:/Git/CyberDom-Qt/build_cmake/CMakeFiles/CyberDom_autogen_timestamp_deps.dir
+G:/Git/CyberDom-Qt/build_cmake/CMakeFiles/CyberDom_autogen.dir

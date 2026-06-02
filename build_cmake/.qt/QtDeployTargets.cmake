@@ -1,0 +1,3 @@
+set(__QT_DEPLOY_TARGET_CyberDom_FILE G:/Git/CyberDom-Qt/build_cmake/CyberDom.exe)
+set(__QT_DEPLOY_TARGET_CyberDom_TYPE EXECUTABLE)
+set(__QT_DEPLOY_TARGET_CyberDom_RUNTIME_DLLS C:/Qt/6.10.2/mingw_64/bin/Qt6MultimediaWidgets.dll;C:/Qt/6.10.2/mingw_64/bin/Qt6QuickWidgets.dll;C:/Qt/6.10.2/mingw_64/bin/Qt6Multimedia.dll;C:/Qt/6.10.2/mingw_64/bin/Qt6Concurrent.dll;C:/Qt/6.10.2/mingw_64/bin/Qt6Widgets.dll;C:/Qt/6.10.2/mingw_64/bin/Qt6Quick.dll;C:/Qt/6.10.2/mingw_64/bin/Qt6OpenGL.dll;C:/Qt/6.10.2/mingw_64/bin/Qt6Gui.dll;C:/Qt/6.10.2/mingw_64/bin/Qt6QmlMeta.dll;C:/Qt/6.10.2/mingw_64/bin/Qt6QmlModels.dll;C:/Qt/6.10.2/mingw_64/bin/Qt6QmlWorkerScript.dll;C:/Qt/6.10.2/mingw_64/bin/Qt6Qml.dll;C:/Qt/6.10.2/mingw_64/bin/Qt6Network.dll;C:/Qt/6.10.2/mingw_64/bin/Qt6Core.dll)

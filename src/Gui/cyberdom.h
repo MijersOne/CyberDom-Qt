@@ -504,6 +504,12 @@ private:
   ListManager *listManager;
   void processJobLists(const JobDefinition &def);
 
+  // PgmAction Pause
+  bool isStandbyMode = false;
+  QDateTime standbyStartTime;
+  void setStandbyMode(bool active);
+  void processStandbyWakeUp();
+
 private slots:
   void applyTimeToClock(int days, int hours, int minutes, int seconds);
   void openAboutDialog();
