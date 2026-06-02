@@ -1,0 +1,3 @@
+"C:\Program Files\CMake\bin\cmake.exe" -E rm -f CMakeFiles\CyberDom.dir/objects.a
+C:\Qt\Tools\mingw1310_64\bin\ar.exe qc CMakeFiles\CyberDom.dir/objects.a @CMakeFiles\CyberDom.dir\objects1.rsp
+C:\Qt\Tools\mingw1310_64\bin\c++.exe -O3 -DNDEBUG -mwindows -Wl,--whole-archive CMakeFiles\CyberDom.dir/objects.a -Wl,--no-whole-archive -o CyberDom.exe -Wl,--out-implib,libCyberDom.dll.a -Wl,--major-image-version,0,--minor-image-version,0 @CMakeFiles\CyberDom.dir\linkLibs.rsp

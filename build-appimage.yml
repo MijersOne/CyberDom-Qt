@@ -1,0 +1,82 @@
+trigger:
+  - main
+
+pool:
+  # IMPORTANT: We intentionally use an older LTS release for Linux builds.
+  # Compiling on an older system ensures your AppImage uses an older 'glibc' version,
+  # meaning it will be universally compatible with almost any modern Linux distribution.
+  vmImage: 'ubuntu-22.04'
+
+variables:
+  QT_VERSION: '6.10.2' # Matching the version from your macOS logs
+  QT_HOST: 'linux'
+  QT_TARGET: 'desktop'
+  QT_ARCH: 'linux_gcc_64'
+
+steps:
+# 1. Install Linux-specific build tools and Qt dependencies
+- script: |
+    sudo apt-get update
+    # Installing the comprehensive list of Qt6 libxcb dependencies to prevent ldd errors
+    sudo apt-get install -y build-essential cmake patchelf libgl1-mesa-dev libxcb-xinerama0 libxcb-cursor0 libxkbcommon-x11-0 libpulse-dev fuse libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-shape0 libxcb-sync1 libxcb-xfixes0 libxcb-randr0 libx11-xcb1
+  displayName: 'Install System Dependencies'
+
+# 2. Set up Python for aqtinstall
+- task: UsePythonVersion@0
+  inputs:
+    versionSpec: '3.x'
+  displayName: 'Install Python'
+
+# 3. Install aqtinstall
+- script: |
+    pip install aqtinstall
+  displayName: 'Install aqtinstall'
+
+# 4. Download and install the Qt framework (including qtmultimedia)
+- script: |
+    python -m aqt install-qt $(QT_HOST) $(QT_TARGET) $(QT_VERSION) $(QT_ARCH) -m qtmultimedia --outputdir $(Build.BinariesDirectory)/Qt
+  displayName: 'Install Qt Framework and Modules'
+
+# 5. Configure and compile the application using CMake
+- script: |
+    export PATH="$(Build.BinariesDirectory)/Qt/$(QT_VERSION)/gcc_64/bin:$PATH"
+    
+    mkdir build
+    cd build
+    
+    cmake -DCMAKE_BUILD_TYPE=Release ..
+    cmake --build . --config Release
+  displayName: 'Build CyberDom'
+
+# 6. Bundle dependencies and create the .AppImage
+- script: |
+    export PATH="$(Build.BinariesDirectory)/Qt/$(QT_VERSION)/gcc_64/bin:$PATH"
+    
+    # Strip invisible Windows line endings from the desktop file
+    sed -i 's/\r$//' CyberDom.desktop
+    
+    # Copy the cleaned desktop file and icon into the build folder
+    cp CyberDom.desktop build/
+    cp cyberdom.png build/
+    
+    # Download the linuxdeployqt packaging tool
+    wget -c -nv "https://github.com/probonopd/linuxdeployqt/releases/download/continuous/linuxdeployqt-continuous-x86_64.AppImage"
+    chmod a+x linuxdeployqt-continuous-x86_64.AppImage
+    
+    # Extract the tool
+    ./linuxdeployqt-continuous-x86_64.AppImage --appimage-extract
+    
+    # Run the extracted packager against your compiled binary
+    ./squashfs-root/AppRun build/CyberDom -appimage
+    
+    # Rename the output file to remove the random Git commit hash
+    mv CyberDom-*-x86_64.AppImage CyberDom-x86_64.AppImage
+  displayName: 'Package into AppImage'
+
+# 7. Upload the final AppImage to the Azure DevOps dashboard
+- task: PublishBuildArtifacts@1
+  inputs:
+    PathtoPublish: 'CyberDom-x86_64.AppImage' # linuxdeployqt typically outputs to the pipeline's root working directory
+    ArtifactName: 'Linux-AppImage-Build'
+    publishLocation: 'Container'
+  displayName: 'Publish AppImage Artifact'

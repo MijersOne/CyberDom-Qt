@@ -1,0 +1,224 @@
+[
+{
+  "directory": "G:/Git/CyberDom-Qt/build_cmake",
+  "command": "C:\\Qt\\Tools\\mingw1310_64\\bin\\c++.exe -DBUILD_VER=0.0.8 -DMINGW_HAS_SECURE_API=1 -DQT_CORE_LIB -DQT_GUI_LIB -DQT_MULTIMEDIAWIDGETS_LIB -DQT_MULTIMEDIA_LIB -DQT_NEEDS_QMAIN -DQT_NETWORK_LIB -DQT_NO_DEBUG -DQT_OPENGL_LIB -DQT_QMLINTEGRATION_LIB -DQT_QML_LIB -DQT_QUICKWIDGETS_LIB -DQT_QUICK_LIB -DQT_WIDGETS_LIB -DUNICODE -DWIN32 -DWIN64 -D_ENABLE_EXTENDED_ALIGNED_STORAGE -D_UNICODE -D_WIN64 @CMakeFiles/CyberDom.dir/includes_CXX.rsp -O3 -DNDEBUG -std=gnu++17 -o CMakeFiles\\CyberDom.dir\\CyberDom_autogen\\mocs_compilation.cpp.obj -c G:\\Git\\CyberDom-Qt\\build_cmake\\CyberDom_autogen\\mocs_compilation.cpp",
+  "file": "G:/Git/CyberDom-Qt/build_cmake/CyberDom_autogen/mocs_compilation.cpp",
+  "output": "CMakeFiles/CyberDom.dir/CyberDom_autogen/mocs_compilation.cpp.obj"
+},
+{
+  "directory": "G:/Git/CyberDom-Qt/build_cmake",
+  "command": "C:\\Qt\\Tools\\mingw1310_64\\bin\\c++.exe -DBUILD_VER=0.0.8 -DMINGW_HAS_SECURE_API=1 -DQT_CORE_LIB -DQT_GUI_LIB -DQT_MULTIMEDIAWIDGETS_LIB -DQT_MULTIMEDIA_LIB -DQT_NEEDS_QMAIN -DQT_NETWORK_LIB -DQT_NO_DEBUG -DQT_OPENGL_LIB -DQT_QMLINTEGRATION_LIB -DQT_QML_LIB -DQT_QUICKWIDGETS_LIB -DQT_QUICK_LIB -DQT_WIDGETS_LIB -DUNICODE -DWIN32 -DWIN64 -D_ENABLE_EXTENDED_ALIGNED_STORAGE -D_UNICODE -D_WIN64 @CMakeFiles/CyberDom.dir/includes_CXX.rsp -O3 -DNDEBUG -std=gnu++17 -o CMakeFiles\\CyberDom.dir\\src\\Core\\ScriptUtils.cpp.obj -c G:\\Git\\CyberDom-Qt\\src\\Core\\ScriptUtils.cpp",
+  "file": "G:/Git/CyberDom-Qt/src/Core/ScriptUtils.cpp",
+  "output": "CMakeFiles/CyberDom.dir/src/Core/ScriptUtils.cpp.obj"
+},
+{
+  "directory": "G:/Git/CyberDom-Qt/build_cmake",
+  "command": "C:\\Qt\\Tools\\mingw1310_64\\bin\\c++.exe -DBUILD_VER=0.0.8 -DMINGW_HAS_SECURE_API=1 -DQT_CORE_LIB -DQT_GUI_LIB -DQT_MULTIMEDIAWIDGETS_LIB -DQT_MULTIMEDIA_LIB -DQT_NEEDS_QMAIN -DQT_NETWORK_LIB -DQT_NO_DEBUG -DQT_OPENGL_LIB -DQT_QMLINTEGRATION_LIB -DQT_QML_LIB -DQT_QUICKWIDGETS_LIB -DQT_QUICK_LIB -DQT_WIDGETS_LIB -DUNICODE -DWIN32 -DWIN64 -D_ENABLE_EXTENDED_ALIGNED_STORAGE -D_UNICODE -D_WIN64 @CMakeFiles/CyberDom.dir/includes_CXX.rsp -O3 -DNDEBUG -std=gnu++17 -o CMakeFiles\\CyberDom.dir\\src\\Core\\clothingitem.cpp.obj -c G:\\Git\\CyberDom-Qt\\src\\Core\\clothingitem.cpp",
+  "file": "G:/Git/CyberDom-Qt/src/Core/clothingitem.cpp",
+  "output": "CMakeFiles/CyberDom.dir/src/Core/clothingitem.cpp.obj"
+},
+{
+  "directory": "G:/Git/CyberDom-Qt/build_cmake",
+  "command": "C:\\Qt\\Tools\\mingw1310_64\\bin\\c++.exe -DBUILD_VER=0.0.8 -DMINGW_HAS_SECURE_API=1 -DQT_CORE_LIB -DQT_GUI_LIB -DQT_MULTIMEDIAWIDGETS_LIB -DQT_MULTIMEDIA_LIB -DQT_NEEDS_QMAIN -DQT_NETWORK_LIB -DQT_NO_DEBUG -DQT_OPENGL_LIB -DQT_QMLINTEGRATION_LIB -DQT_QML_LIB -DQT_QUICKWIDGETS_LIB -DQT_QUICK_LIB -DQT_WIDGETS_LIB -DUNICODE -DWIN32 -DWIN64 -D_ENABLE_EXTENDED_ALIGNED_STORAGE -D_UNICODE -D_WIN64 @CMakeFiles/CyberDom.dir/includes_CXX.rsp -O3 -DNDEBUG -std=gnu++17 -o CMakeFiles\\CyberDom.dir\\src\\Core\\main.cpp.obj -c G:\\Git\\CyberDom-Qt\\src\\Core\\main.cpp",
+  "file": "G:/Git/CyberDom-Qt/src/Core/main.cpp",
+  "output": "CMakeFiles/CyberDom.dir/src/Core/main.cpp.obj"
+},
+{
+  "directory": "G:/Git/CyberDom-Qt/build_cmake",
+  "command": "C:\\Qt\\Tools\\mingw1310_64\\bin\\c++.exe -DBUILD_VER=0.0.8 -DMINGW_HAS_SECURE_API=1 -DQT_CORE_LIB -DQT_GUI_LIB -DQT_MULTIMEDIAWIDGETS_LIB -DQT_MULTIMEDIA_LIB -DQT_NEEDS_QMAIN -DQT_NETWORK_LIB -DQT_NO_DEBUG -DQT_OPENGL_LIB -DQT_QMLINTEGRATION_LIB -DQT_QML_LIB -DQT_QUICKWIDGETS_LIB -DQT_QUICK_LIB -DQT_WIDGETS_LIB -DUNICODE -DWIN32 -DWIN64 -D_ENABLE_EXTENDED_ALIGNED_STORAGE -D_UNICODE -D_WIN64 @CMakeFiles/CyberDom.dir/includes_CXX.rsp -O3 -DNDEBUG -std=gnu++17 -o CMakeFiles\\CyberDom.dir\\src\\Core\\scriptparser.cpp.obj -c G:\\Git\\CyberDom-Qt\\src\\Core\\scriptparser.cpp",
+  "file": "G:/Git/CyberDom-Qt/src/Core/scriptparser.cpp",
+  "output": "CMakeFiles/CyberDom.dir/src/Core/scriptparser.cpp.obj"
+},
+{
+  "directory": "G:/Git/CyberDom-Qt/build_cmake",
+  "command": "C:\\Qt\\Tools\\mingw1310_64\\bin\\c++.exe -DBUILD_VER=0.0.8 -DMINGW_HAS_SECURE_API=1 -DQT_CORE_LIB -DQT_GUI_LIB -DQT_MULTIMEDIAWIDGETS_LIB -DQT_MULTIMEDIA_LIB -DQT_NEEDS_QMAIN -DQT_NETWORK_LIB -DQT_NO_DEBUG -DQT_OPENGL_LIB -DQT_QMLINTEGRATION_LIB -DQT_QML_LIB -DQT_QUICKWIDGETS_LIB -DQT_QUICK_LIB -DQT_WIDGETS_LIB -DUNICODE -DWIN32 -DWIN64 -D_ENABLE_EXTENDED_ALIGNED_STORAGE -D_UNICODE -D_WIN64 @CMakeFiles/CyberDom.dir/includes_CXX.rsp -O3 -DNDEBUG -std=gnu++17 -o CMakeFiles\\CyberDom.dir\\src\\Core\\ListManager.cpp.obj -c G:\\Git\\CyberDom-Qt\\src\\Core\\ListManager.cpp",
+  "file": "G:/Git/CyberDom-Qt/src/Core/ListManager.cpp",
+  "output": "CMakeFiles/CyberDom.dir/src/Core/ListManager.cpp.obj"
+},
+{
+  "directory": "G:/Git/CyberDom-Qt/build_cmake",
+  "command": "C:\\Qt\\Tools\\mingw1310_64\\bin\\c++.exe -DBUILD_VER=0.0.8 -DMINGW_HAS_SECURE_API=1 -DQT_CORE_LIB -DQT_GUI_LIB -DQT_MULTIMEDIAWIDGETS_LIB -DQT_MULTIMEDIA_LIB -DQT_NEEDS_QMAIN -DQT_NETWORK_LIB -DQT_NO_DEBUG -DQT_OPENGL_LIB -DQT_QMLINTEGRATION_LIB -DQT_QML_LIB -DQT_QUICKWIDGETS_LIB -DQT_QUICK_LIB -DQT_WIDGETS_LIB -DUNICODE -DWIN32 -DWIN64 -D_ENABLE_EXTENDED_ALIGNED_STORAGE -D_UNICODE -D_WIN64 @CMakeFiles/CyberDom.dir/includes_CXX.rsp -O3 -DNDEBUG -std=gnu++17 -o CMakeFiles\\CyberDom.dir\\src\\Dialogs\\Clothing\\addclothing.cpp.obj -c G:\\Git\\CyberDom-Qt\\src\\Dialogs\\Clothing\\addclothing.cpp",
+  "file": "G:/Git/CyberDom-Qt/src/Dialogs/Clothing/addclothing.cpp",
+  "output": "CMakeFiles/CyberDom.dir/src/Dialogs/Clothing/addclothing.cpp.obj"
+},
+{
+  "directory": "G:/Git/CyberDom-Qt/build_cmake",
+  "command": "C:\\Qt\\Tools\\mingw1310_64\\bin\\c++.exe -DBUILD_VER=0.0.8 -DMINGW_HAS_SECURE_API=1 -DQT_CORE_LIB -DQT_GUI_LIB -DQT_MULTIMEDIAWIDGETS_LIB -DQT_MULTIMEDIA_LIB -DQT_NEEDS_QMAIN -DQT_NETWORK_LIB -DQT_NO_DEBUG -DQT_OPENGL_LIB -DQT_QMLINTEGRATION_LIB -DQT_QML_LIB -DQT_QUICKWIDGETS_LIB -DQT_QUICK_LIB -DQT_WIDGETS_LIB -DUNICODE -DWIN32 -DWIN64 -D_ENABLE_EXTENDED_ALIGNED_STORAGE -D_UNICODE -D_WIN64 @CMakeFiles/CyberDom.dir/includes_CXX.rsp -O3 -DNDEBUG -std=gnu++17 -o CMakeFiles\\CyberDom.dir\\src\\Dialogs\\Clothing\\addclothtype.cpp.obj -c G:\\Git\\CyberDom-Qt\\src\\Dialogs\\Clothing\\addclothtype.cpp",
+  "file": "G:/Git/CyberDom-Qt/src/Dialogs/Clothing/addclothtype.cpp",
+  "output": "CMakeFiles/CyberDom.dir/src/Dialogs/Clothing/addclothtype.cpp.obj"
+},
+{
+  "directory": "G:/Git/CyberDom-Qt/build_cmake",
+  "command": "C:\\Qt\\Tools\\mingw1310_64\\bin\\c++.exe -DBUILD_VER=0.0.8 -DMINGW_HAS_SECURE_API=1 -DQT_CORE_LIB -DQT_GUI_LIB -DQT_MULTIMEDIAWIDGETS_LIB -DQT_MULTIMEDIA_LIB -DQT_NEEDS_QMAIN -DQT_NETWORK_LIB -DQT_NO_DEBUG -DQT_OPENGL_LIB -DQT_QMLINTEGRATION_LIB -DQT_QML_LIB -DQT_QUICKWIDGETS_LIB -DQT_QUICK_LIB -DQT_WIDGETS_LIB -DUNICODE -DWIN32 -DWIN64 -D_ENABLE_EXTENDED_ALIGNED_STORAGE -D_UNICODE -D_WIN64 @CMakeFiles/CyberDom.dir/includes_CXX.rsp -O3 -DNDEBUG -std=gnu++17 -o CMakeFiles\\CyberDom.dir\\src\\Dialogs\\Clothing\\askclothing.cpp.obj -c G:\\Git\\CyberDom-Qt\\src\\Dialogs\\Clothing\\askclothing.cpp",
+  "file": "G:/Git/CyberDom-Qt/src/Dialogs/Clothing/askclothing.cpp",
+  "output": "CMakeFiles/CyberDom.dir/src/Dialogs/Clothing/askclothing.cpp.obj"
+},
+{
+  "directory": "G:/Git/CyberDom-Qt/build_cmake",
+  "command": "C:\\Qt\\Tools\\mingw1310_64\\bin\\c++.exe -DBUILD_VER=0.0.8 -DMINGW_HAS_SECURE_API=1 -DQT_CORE_LIB -DQT_GUI_LIB -DQT_MULTIMEDIAWIDGETS_LIB -DQT_MULTIMEDIA_LIB -DQT_NEEDS_QMAIN -DQT_NETWORK_LIB -DQT_NO_DEBUG -DQT_OPENGL_LIB -DQT_QMLINTEGRATION_LIB -DQT_QML_LIB -DQT_QUICKWIDGETS_LIB -DQT_QUICK_LIB -DQT_WIDGETS_LIB -DUNICODE -DWIN32 -DWIN64 -D_ENABLE_EXTENDED_ALIGNED_STORAGE -D_UNICODE -D_WIN64 @CMakeFiles/CyberDom.dir/includes_CXX.rsp -O3 -DNDEBUG -std=gnu++17 -o CMakeFiles\\CyberDom.dir\\src\\Dialogs\\Clothing\\reportclothing.cpp.obj -c G:\\Git\\CyberDom-Qt\\src\\Dialogs\\Clothing\\reportclothing.cpp",
+  "file": "G:/Git/CyberDom-Qt/src/Dialogs/Clothing/reportclothing.cpp",
+  "output": "CMakeFiles/CyberDom.dir/src/Dialogs/Clothing/reportclothing.cpp.obj"
+},
+{
+  "directory": "G:/Git/CyberDom-Qt/build_cmake",
+  "command": "C:\\Qt\\Tools\\mingw1310_64\\bin\\c++.exe -DBUILD_VER=0.0.8 -DMINGW_HAS_SECURE_API=1 -DQT_CORE_LIB -DQT_GUI_LIB -DQT_MULTIMEDIAWIDGETS_LIB -DQT_MULTIMEDIA_LIB -DQT_NEEDS_QMAIN -DQT_NETWORK_LIB -DQT_NO_DEBUG -DQT_OPENGL_LIB -DQT_QMLINTEGRATION_LIB -DQT_QML_LIB -DQT_QUICKWIDGETS_LIB -DQT_QUICK_LIB -DQT_WIDGETS_LIB -DUNICODE -DWIN32 -DWIN64 -D_ENABLE_EXTENDED_ALIGNED_STORAGE -D_UNICODE -D_WIN64 @CMakeFiles/CyberDom.dir/includes_CXX.rsp -O3 -DNDEBUG -std=gnu++17 -o CMakeFiles\\CyberDom.dir\\src\\Dialogs\\General\\about.cpp.obj -c G:\\Git\\CyberDom-Qt\\src\\Dialogs\\General\\about.cpp",
+  "file": "G:/Git/CyberDom-Qt/src/Dialogs/General/about.cpp",
+  "output": "CMakeFiles/CyberDom.dir/src/Dialogs/General/about.cpp.obj"
+},
+{
+  "directory": "G:/Git/CyberDom-Qt/build_cmake",
+  "command": "C:\\Qt\\Tools\\mingw1310_64\\bin\\c++.exe -DBUILD_VER=0.0.8 -DMINGW_HAS_SECURE_API=1 -DQT_CORE_LIB -DQT_GUI_LIB -DQT_MULTIMEDIAWIDGETS_LIB -DQT_MULTIMEDIA_LIB -DQT_NEEDS_QMAIN -DQT_NETWORK_LIB -DQT_NO_DEBUG -DQT_OPENGL_LIB -DQT_QMLINTEGRATION_LIB -DQT_QML_LIB -DQT_QUICKWIDGETS_LIB -DQT_QUICK_LIB -DQT_WIDGETS_LIB -DUNICODE -DWIN32 -DWIN64 -D_ENABLE_EXTENDED_ALIGNED_STORAGE -D_UNICODE -D_WIN64 @CMakeFiles/CyberDom.dir/includes_CXX.rsp -O3 -DNDEBUG -std=gnu++17 -o CMakeFiles\\CyberDom.dir\\src\\Dialogs\\General\\askinstructions.cpp.obj -c G:\\Git\\CyberDom-Qt\\src\\Dialogs\\General\\askinstructions.cpp",
+  "file": "G:/Git/CyberDom-Qt/src/Dialogs/General/askinstructions.cpp",
+  "output": "CMakeFiles/CyberDom.dir/src/Dialogs/General/askinstructions.cpp.obj"
+},
+{
+  "directory": "G:/Git/CyberDom-Qt/build_cmake",
+  "command": "C:\\Qt\\Tools\\mingw1310_64\\bin\\c++.exe -DBUILD_VER=0.0.8 -DMINGW_HAS_SECURE_API=1 -DQT_CORE_LIB -DQT_GUI_LIB -DQT_MULTIMEDIAWIDGETS_LIB -DQT_MULTIMEDIA_LIB -DQT_NEEDS_QMAIN -DQT_NETWORK_LIB -DQT_NO_DEBUG -DQT_OPENGL_LIB -DQT_QMLINTEGRATION_LIB -DQT_QML_LIB -DQT_QUICKWIDGETS_LIB -DQT_QUICK_LIB -DQT_WIDGETS_LIB -DUNICODE -DWIN32 -DWIN64 -D_ENABLE_EXTENDED_ALIGNED_STORAGE -D_UNICODE -D_WIN64 @CMakeFiles/CyberDom.dir/includes_CXX.rsp -O3 -DNDEBUG -std=gnu++17 -o CMakeFiles\\CyberDom.dir\\src\\Dialogs\\General\\datainspectordialog.cpp.obj -c G:\\Git\\CyberDom-Qt\\src\\Dialogs\\General\\datainspectordialog.cpp",
+  "file": "G:/Git/CyberDom-Qt/src/Dialogs/General/datainspectordialog.cpp",
+  "output": "CMakeFiles/CyberDom.dir/src/Dialogs/General/datainspectordialog.cpp.obj"
+},
+{
+  "directory": "G:/Git/CyberDom-Qt/build_cmake",
+  "command": "C:\\Qt\\Tools\\mingw1310_64\\bin\\c++.exe -DBUILD_VER=0.0.8 -DMINGW_HAS_SECURE_API=1 -DQT_CORE_LIB -DQT_GUI_LIB -DQT_MULTIMEDIAWIDGETS_LIB -DQT_MULTIMEDIA_LIB -DQT_NEEDS_QMAIN -DQT_NETWORK_LIB -DQT_NO_DEBUG -DQT_OPENGL_LIB -DQT_QMLINTEGRATION_LIB -DQT_QML_LIB -DQT_QUICKWIDGETS_LIB -DQT_QUICK_LIB -DQT_WIDGETS_LIB -DUNICODE -DWIN32 -DWIN64 -D_ENABLE_EXTENDED_ALIGNED_STORAGE -D_UNICODE -D_WIN64 @CMakeFiles/CyberDom.dir/includes_CXX.rsp -O3 -DNDEBUG -std=gnu++17 -o CMakeFiles\\CyberDom.dir\\src\\Dialogs\\General\\rules.cpp.obj -c G:\\Git\\CyberDom-Qt\\src\\Dialogs\\General\\rules.cpp",
+  "file": "G:/Git/CyberDom-Qt/src/Dialogs/General/rules.cpp",
+  "output": "CMakeFiles/CyberDom.dir/src/Dialogs/General/rules.cpp.obj"
+},
+{
+  "directory": "G:/Git/CyberDom-Qt/build_cmake",
+  "command": "C:\\Qt\\Tools\\mingw1310_64\\bin\\c++.exe -DBUILD_VER=0.0.8 -DMINGW_HAS_SECURE_API=1 -DQT_CORE_LIB -DQT_GUI_LIB -DQT_MULTIMEDIAWIDGETS_LIB -DQT_MULTIMEDIA_LIB -DQT_NEEDS_QMAIN -DQT_NETWORK_LIB -DQT_NO_DEBUG -DQT_OPENGL_LIB -DQT_QMLINTEGRATION_LIB -DQT_QML_LIB -DQT_QUICKWIDGETS_LIB -DQT_QUICK_LIB -DQT_WIDGETS_LIB -DUNICODE -DWIN32 -DWIN64 -D_ENABLE_EXTENDED_ALIGNED_STORAGE -D_UNICODE -D_WIN64 @CMakeFiles/CyberDom.dir/includes_CXX.rsp -O3 -DNDEBUG -std=gnu++17 -o CMakeFiles\\CyberDom.dir\\src\\Dialogs\\General\\timeadd.cpp.obj -c G:\\Git\\CyberDom-Qt\\src\\Dialogs\\General\\timeadd.cpp",
+  "file": "G:/Git/CyberDom-Qt/src/Dialogs/General/timeadd.cpp",
+  "output": "CMakeFiles/CyberDom.dir/src/Dialogs/General/timeadd.cpp.obj"
+},
+{
+  "directory": "G:/Git/CyberDom-Qt/build_cmake",
+  "command": "C:\\Qt\\Tools\\mingw1310_64\\bin\\c++.exe -DBUILD_VER=0.0.8 -DMINGW_HAS_SECURE_API=1 -DQT_CORE_LIB -DQT_GUI_LIB -DQT_MULTIMEDIAWIDGETS_LIB -DQT_MULTIMEDIA_LIB -DQT_NEEDS_QMAIN -DQT_NETWORK_LIB -DQT_NO_DEBUG -DQT_OPENGL_LIB -DQT_QMLINTEGRATION_LIB -DQT_QML_LIB -DQT_QUICKWIDGETS_LIB -DQT_QUICK_LIB -DQT_WIDGETS_LIB -DUNICODE -DWIN32 -DWIN64 -D_ENABLE_EXTENDED_ALIGNED_STORAGE -D_UNICODE -D_WIN64 @CMakeFiles/CyberDom.dir/includes_CXX.rsp -O3 -DNDEBUG -std=gnu++17 -o CMakeFiles\\CyberDom.dir\\src\\Dialogs\\Management\\askpunishment.cpp.obj -c G:\\Git\\CyberDom-Qt\\src\\Dialogs\\Management\\askpunishment.cpp",
+  "file": "G:/Git/CyberDom-Qt/src/Dialogs/Management/askpunishment.cpp",
+  "output": "CMakeFiles/CyberDom.dir/src/Dialogs/Management/askpunishment.cpp.obj"
+},
+{
+  "directory": "G:/Git/CyberDom-Qt/build_cmake",
+  "command": "C:\\Qt\\Tools\\mingw1310_64\\bin\\c++.exe -DBUILD_VER=0.0.8 -DMINGW_HAS_SECURE_API=1 -DQT_CORE_LIB -DQT_GUI_LIB -DQT_MULTIMEDIAWIDGETS_LIB -DQT_MULTIMEDIA_LIB -DQT_NEEDS_QMAIN -DQT_NETWORK_LIB -DQT_NO_DEBUG -DQT_OPENGL_LIB -DQT_QMLINTEGRATION_LIB -DQT_QML_LIB -DQT_QUICKWIDGETS_LIB -DQT_QUICK_LIB -DQT_WIDGETS_LIB -DUNICODE -DWIN32 -DWIN64 -D_ENABLE_EXTENDED_ALIGNED_STORAGE -D_UNICODE -D_WIN64 @CMakeFiles/CyberDom.dir/includes_CXX.rsp -O3 -DNDEBUG -std=gnu++17 -o CMakeFiles\\CyberDom.dir\\src\\Dialogs\\Management\\assignments.cpp.obj -c G:\\Git\\CyberDom-Qt\\src\\Dialogs\\Management\\assignments.cpp",
+  "file": "G:/Git/CyberDom-Qt/src/Dialogs/Management/assignments.cpp",
+  "output": "CMakeFiles/CyberDom.dir/src/Dialogs/Management/assignments.cpp.obj"
+},
+{
+  "directory": "G:/Git/CyberDom-Qt/build_cmake",
+  "command": "C:\\Qt\\Tools\\mingw1310_64\\bin\\c++.exe -DBUILD_VER=0.0.8 -DMINGW_HAS_SECURE_API=1 -DQT_CORE_LIB -DQT_GUI_LIB -DQT_MULTIMEDIAWIDGETS_LIB -DQT_MULTIMEDIA_LIB -DQT_NEEDS_QMAIN -DQT_NETWORK_LIB -DQT_NO_DEBUG -DQT_OPENGL_LIB -DQT_QMLINTEGRATION_LIB -DQT_QML_LIB -DQT_QUICKWIDGETS_LIB -DQT_QUICK_LIB -DQT_WIDGETS_LIB -DUNICODE -DWIN32 -DWIN64 -D_ENABLE_EXTENDED_ALIGNED_STORAGE -D_UNICODE -D_WIN64 @CMakeFiles/CyberDom.dir/includes_CXX.rsp -O3 -DNDEBUG -std=gnu++17 -o CMakeFiles\\CyberDom.dir\\src\\Dialogs\\Management\\changemerits.cpp.obj -c G:\\Git\\CyberDom-Qt\\src\\Dialogs\\Management\\changemerits.cpp",
+  "file": "G:/Git/CyberDom-Qt/src/Dialogs/Management/changemerits.cpp",
+  "output": "CMakeFiles/CyberDom.dir/src/Dialogs/Management/changemerits.cpp.obj"
+},
+{
+  "directory": "G:/Git/CyberDom-Qt/build_cmake",
+  "command": "C:\\Qt\\Tools\\mingw1310_64\\bin\\c++.exe -DBUILD_VER=0.0.8 -DMINGW_HAS_SECURE_API=1 -DQT_CORE_LIB -DQT_GUI_LIB -DQT_MULTIMEDIAWIDGETS_LIB -DQT_MULTIMEDIA_LIB -DQT_NEEDS_QMAIN -DQT_NETWORK_LIB -DQT_NO_DEBUG -DQT_OPENGL_LIB -DQT_QMLINTEGRATION_LIB -DQT_QML_LIB -DQT_QUICKWIDGETS_LIB -DQT_QUICK_LIB -DQT_WIDGETS_LIB -DUNICODE -DWIN32 -DWIN64 -D_ENABLE_EXTENDED_ALIGNED_STORAGE -D_UNICODE -D_WIN64 @CMakeFiles/CyberDom.dir/includes_CXX.rsp -O3 -DNDEBUG -std=gnu++17 -o CMakeFiles\\CyberDom.dir\\src\\Dialogs\\Management\\changestatus.cpp.obj -c G:\\Git\\CyberDom-Qt\\src\\Dialogs\\Management\\changestatus.cpp",
+  "file": "G:/Git/CyberDom-Qt/src/Dialogs/Management/changestatus.cpp",
+  "output": "CMakeFiles/CyberDom.dir/src/Dialogs/Management/changestatus.cpp.obj"
+},
+{
+  "directory": "G:/Git/CyberDom-Qt/build_cmake",
+  "command": "C:\\Qt\\Tools\\mingw1310_64\\bin\\c++.exe -DBUILD_VER=0.0.8 -DMINGW_HAS_SECURE_API=1 -DQT_CORE_LIB -DQT_GUI_LIB -DQT_MULTIMEDIAWIDGETS_LIB -DQT_MULTIMEDIA_LIB -DQT_NEEDS_QMAIN -DQT_NETWORK_LIB -DQT_NO_DEBUG -DQT_OPENGL_LIB -DQT_QMLINTEGRATION_LIB -DQT_QML_LIB -DQT_QUICKWIDGETS_LIB -DQT_QUICK_LIB -DQT_WIDGETS_LIB -DUNICODE -DWIN32 -DWIN64 -D_ENABLE_EXTENDED_ALIGNED_STORAGE -D_UNICODE -D_WIN64 @CMakeFiles/CyberDom.dir/includes_CXX.rsp -O3 -DNDEBUG -std=gnu++17 -o CMakeFiles\\CyberDom.dir\\src\\Dialogs\\Management\\deleteassignments.cpp.obj -c G:\\Git\\CyberDom-Qt\\src\\Dialogs\\Management\\deleteassignments.cpp",
+  "file": "G:/Git/CyberDom-Qt/src/Dialogs/Management/deleteassignments.cpp",
+  "output": "CMakeFiles/CyberDom.dir/src/Dialogs/Management/deleteassignments.cpp.obj"
+},
+{
+  "directory": "G:/Git/CyberDom-Qt/build_cmake",
+  "command": "C:\\Qt\\Tools\\mingw1310_64\\bin\\c++.exe -DBUILD_VER=0.0.8 -DMINGW_HAS_SECURE_API=1 -DQT_CORE_LIB -DQT_GUI_LIB -DQT_MULTIMEDIAWIDGETS_LIB -DQT_MULTIMEDIA_LIB -DQT_NEEDS_QMAIN -DQT_NETWORK_LIB -DQT_NO_DEBUG -DQT_OPENGL_LIB -DQT_QMLINTEGRATION_LIB -DQT_QML_LIB -DQT_QUICKWIDGETS_LIB -DQT_QUICK_LIB -DQT_WIDGETS_LIB -DUNICODE -DWIN32 -DWIN64 -D_ENABLE_EXTENDED_ALIGNED_STORAGE -D_UNICODE -D_WIN64 @CMakeFiles/CyberDom.dir/includes_CXX.rsp -O3 -DNDEBUG -std=gnu++17 -o CMakeFiles\\CyberDom.dir\\src\\Dialogs\\Management\\joblaunch.cpp.obj -c G:\\Git\\CyberDom-Qt\\src\\Dialogs\\Management\\joblaunch.cpp",
+  "file": "G:/Git/CyberDom-Qt/src/Dialogs/Management/joblaunch.cpp",
+  "output": "CMakeFiles/CyberDom.dir/src/Dialogs/Management/joblaunch.cpp.obj"
+},
+{
+  "directory": "G:/Git/CyberDom-Qt/build_cmake",
+  "command": "C:\\Qt\\Tools\\mingw1310_64\\bin\\c++.exe -DBUILD_VER=0.0.8 -DMINGW_HAS_SECURE_API=1 -DQT_CORE_LIB -DQT_GUI_LIB -DQT_MULTIMEDIAWIDGETS_LIB -DQT_MULTIMEDIA_LIB -DQT_NEEDS_QMAIN -DQT_NETWORK_LIB -DQT_NO_DEBUG -DQT_OPENGL_LIB -DQT_QMLINTEGRATION_LIB -DQT_QML_LIB -DQT_QUICKWIDGETS_LIB -DQT_QUICK_LIB -DQT_WIDGETS_LIB -DUNICODE -DWIN32 -DWIN64 -D_ENABLE_EXTENDED_ALIGNED_STORAGE -D_UNICODE -D_WIN64 @CMakeFiles/CyberDom.dir/includes_CXX.rsp -O3 -DNDEBUG -std=gnu++17 -o CMakeFiles\\CyberDom.dir\\src\\Dialogs\\Management\\listflags.cpp.obj -c G:\\Git\\CyberDom-Qt\\src\\Dialogs\\Management\\listflags.cpp",
+  "file": "G:/Git/CyberDom-Qt/src/Dialogs/Management/listflags.cpp",
+  "output": "CMakeFiles/CyberDom.dir/src/Dialogs/Management/listflags.cpp.obj"
+},
+{
+  "directory": "G:/Git/CyberDom-Qt/build_cmake",
+  "command": "C:\\Qt\\Tools\\mingw1310_64\\bin\\c++.exe -DBUILD_VER=0.0.8 -DMINGW_HAS_SECURE_API=1 -DQT_CORE_LIB -DQT_GUI_LIB -DQT_MULTIMEDIAWIDGETS_LIB -DQT_MULTIMEDIA_LIB -DQT_NEEDS_QMAIN -DQT_NETWORK_LIB -DQT_NO_DEBUG -DQT_OPENGL_LIB -DQT_QMLINTEGRATION_LIB -DQT_QML_LIB -DQT_QUICKWIDGETS_LIB -DQT_QUICK_LIB -DQT_WIDGETS_LIB -DUNICODE -DWIN32 -DWIN64 -D_ENABLE_EXTENDED_ALIGNED_STORAGE -D_UNICODE -D_WIN64 @CMakeFiles/CyberDom.dir/includes_CXX.rsp -O3 -DNDEBUG -std=gnu++17 -o CMakeFiles\\CyberDom.dir\\src\\Dialogs\\Management\\newassignmentpopup.cpp.obj -c G:\\Git\\CyberDom-Qt\\src\\Dialogs\\Management\\newassignmentpopup.cpp",
+  "file": "G:/Git/CyberDom-Qt/src/Dialogs/Management/newassignmentpopup.cpp",
+  "output": "CMakeFiles/CyberDom.dir/src/Dialogs/Management/newassignmentpopup.cpp.obj"
+},
+{
+  "directory": "G:/Git/CyberDom-Qt/build_cmake",
+  "command": "C:\\Qt\\Tools\\mingw1310_64\\bin\\c++.exe -DBUILD_VER=0.0.8 -DMINGW_HAS_SECURE_API=1 -DQT_CORE_LIB -DQT_GUI_LIB -DQT_MULTIMEDIAWIDGETS_LIB -DQT_MULTIMEDIA_LIB -DQT_NEEDS_QMAIN -DQT_NETWORK_LIB -DQT_NO_DEBUG -DQT_OPENGL_LIB -DQT_QMLINTEGRATION_LIB -DQT_QML_LIB -DQT_QUICKWIDGETS_LIB -DQT_QUICK_LIB -DQT_WIDGETS_LIB -DUNICODE -DWIN32 -DWIN64 -D_ENABLE_EXTENDED_ALIGNED_STORAGE -D_UNICODE -D_WIN64 @CMakeFiles/CyberDom.dir/includes_CXX.rsp -O3 -DNDEBUG -std=gnu++17 -o CMakeFiles\\CyberDom.dir\\src\\Dialogs\\Management\\selectpopup.cpp.obj -c G:\\Git\\CyberDom-Qt\\src\\Dialogs\\Management\\selectpopup.cpp",
+  "file": "G:/Git/CyberDom-Qt/src/Dialogs/Management/selectpopup.cpp",
+  "output": "CMakeFiles/CyberDom.dir/src/Dialogs/Management/selectpopup.cpp.obj"
+},
+{
+  "directory": "G:/Git/CyberDom-Qt/build_cmake",
+  "command": "C:\\Qt\\Tools\\mingw1310_64\\bin\\c++.exe -DBUILD_VER=0.0.8 -DMINGW_HAS_SECURE_API=1 -DQT_CORE_LIB -DQT_GUI_LIB -DQT_MULTIMEDIAWIDGETS_LIB -DQT_MULTIMEDIA_LIB -DQT_NEEDS_QMAIN -DQT_NETWORK_LIB -DQT_NO_DEBUG -DQT_OPENGL_LIB -DQT_QMLINTEGRATION_LIB -DQT_QML_LIB -DQT_QUICKWIDGETS_LIB -DQT_QUICK_LIB -DQT_WIDGETS_LIB -DUNICODE -DWIN32 -DWIN64 -D_ENABLE_EXTENDED_ALIGNED_STORAGE -D_UNICODE -D_WIN64 @CMakeFiles/CyberDom.dir/includes_CXX.rsp -O3 -DNDEBUG -std=gnu++17 -o CMakeFiles\\CyberDom.dir\\src\\Dialogs\\Management\\selectpunishment.cpp.obj -c G:\\Git\\CyberDom-Qt\\src\\Dialogs\\Management\\selectpunishment.cpp",
+  "file": "G:/Git/CyberDom-Qt/src/Dialogs/Management/selectpunishment.cpp",
+  "output": "CMakeFiles/CyberDom.dir/src/Dialogs/Management/selectpunishment.cpp.obj"
+},
+{
+  "directory": "G:/Git/CyberDom-Qt/build_cmake",
+  "command": "C:\\Qt\\Tools\\mingw1310_64\\bin\\c++.exe -DBUILD_VER=0.0.8 -DMINGW_HAS_SECURE_API=1 -DQT_CORE_LIB -DQT_GUI_LIB -DQT_MULTIMEDIAWIDGETS_LIB -DQT_MULTIMEDIA_LIB -DQT_NEEDS_QMAIN -DQT_NETWORK_LIB -DQT_NO_DEBUG -DQT_OPENGL_LIB -DQT_QMLINTEGRATION_LIB -DQT_QML_LIB -DQT_QUICKWIDGETS_LIB -DQT_QUICK_LIB -DQT_WIDGETS_LIB -DUNICODE -DWIN32 -DWIN64 -D_ENABLE_EXTENDED_ALIGNED_STORAGE -D_UNICODE -D_WIN64 @CMakeFiles/CyberDom.dir/includes_CXX.rsp -O3 -DNDEBUG -std=gnu++17 -o CMakeFiles\\CyberDom.dir\\src\\Dialogs\\Management\\setflags.cpp.obj -c G:\\Git\\CyberDom-Qt\\src\\Dialogs\\Management\\setflags.cpp",
+  "file": "G:/Git/CyberDom-Qt/src/Dialogs/Management/setflags.cpp",
+  "output": "CMakeFiles/CyberDom.dir/src/Dialogs/Management/setflags.cpp.obj"
+},
+{
+  "directory": "G:/Git/CyberDom-Qt/build_cmake",
+  "command": "C:\\Qt\\Tools\\mingw1310_64\\bin\\c++.exe -DBUILD_VER=0.0.8 -DMINGW_HAS_SECURE_API=1 -DQT_CORE_LIB -DQT_GUI_LIB -DQT_MULTIMEDIAWIDGETS_LIB -DQT_MULTIMEDIA_LIB -DQT_NEEDS_QMAIN -DQT_NETWORK_LIB -DQT_NO_DEBUG -DQT_OPENGL_LIB -DQT_QMLINTEGRATION_LIB -DQT_QML_LIB -DQT_QUICKWIDGETS_LIB -DQT_QUICK_LIB -DQT_WIDGETS_LIB -DUNICODE -DWIN32 -DWIN64 -D_ENABLE_EXTENDED_ALIGNED_STORAGE -D_UNICODE -D_WIN64 @CMakeFiles/CyberDom.dir/includes_CXX.rsp -O3 -DNDEBUG -std=gnu++17 -o CMakeFiles\\CyberDom.dir\\src\\Dialogs\\Tasks\\detention.cpp.obj -c G:\\Git\\CyberDom-Qt\\src\\Dialogs\\Tasks\\detention.cpp",
+  "file": "G:/Git/CyberDom-Qt/src/Dialogs/Tasks/detention.cpp",
+  "output": "CMakeFiles/CyberDom.dir/src/Dialogs/Tasks/detention.cpp.obj"
+},
+{
+  "directory": "G:/Git/CyberDom-Qt/build_cmake",
+  "command": "C:\\Qt\\Tools\\mingw1310_64\\bin\\c++.exe -DBUILD_VER=0.0.8 -DMINGW_HAS_SECURE_API=1 -DQT_CORE_LIB -DQT_GUI_LIB -DQT_MULTIMEDIAWIDGETS_LIB -DQT_MULTIMEDIA_LIB -DQT_NEEDS_QMAIN -DQT_NETWORK_LIB -DQT_NO_DEBUG -DQT_OPENGL_LIB -DQT_QMLINTEGRATION_LIB -DQT_QML_LIB -DQT_QUICKWIDGETS_LIB -DQT_QUICK_LIB -DQT_WIDGETS_LIB -DUNICODE -DWIN32 -DWIN64 -D_ENABLE_EXTENDED_ALIGNED_STORAGE -D_UNICODE -D_WIN64 @CMakeFiles/CyberDom.dir/includes_CXX.rsp -O3 -DNDEBUG -std=gnu++17 -o CMakeFiles\\CyberDom.dir\\src\\Dialogs\\Tasks\\linewriter.cpp.obj -c G:\\Git\\CyberDom-Qt\\src\\Dialogs\\Tasks\\linewriter.cpp",
+  "file": "G:/Git/CyberDom-Qt/src/Dialogs/Tasks/linewriter.cpp",
+  "output": "CMakeFiles/CyberDom.dir/src/Dialogs/Tasks/linewriter.cpp.obj"
+},
+{
+  "directory": "G:/Git/CyberDom-Qt/build_cmake",
+  "command": "C:\\Qt\\Tools\\mingw1310_64\\bin\\c++.exe -DBUILD_VER=0.0.8 -DMINGW_HAS_SECURE_API=1 -DQT_CORE_LIB -DQT_GUI_LIB -DQT_MULTIMEDIAWIDGETS_LIB -DQT_MULTIMEDIA_LIB -DQT_NEEDS_QMAIN -DQT_NETWORK_LIB -DQT_NO_DEBUG -DQT_OPENGL_LIB -DQT_QMLINTEGRATION_LIB -DQT_QML_LIB -DQT_QUICKWIDGETS_LIB -DQT_QUICK_LIB -DQT_WIDGETS_LIB -DUNICODE -DWIN32 -DWIN64 -D_ENABLE_EXTENDED_ALIGNED_STORAGE -D_UNICODE -D_WIN64 @CMakeFiles/CyberDom.dir/includes_CXX.rsp -O3 -DNDEBUG -std=gnu++17 -o CMakeFiles\\CyberDom.dir\\src\\Dialogs\\Tasks\\pointcameradialog.cpp.obj -c G:\\Git\\CyberDom-Qt\\src\\Dialogs\\Tasks\\pointcameradialog.cpp",
+  "file": "G:/Git/CyberDom-Qt/src/Dialogs/Tasks/pointcameradialog.cpp",
+  "output": "CMakeFiles/CyberDom.dir/src/Dialogs/Tasks/pointcameradialog.cpp.obj"
+},
+{
+  "directory": "G:/Git/CyberDom-Qt/build_cmake",
+  "command": "C:\\Qt\\Tools\\mingw1310_64\\bin\\c++.exe -DBUILD_VER=0.0.8 -DMINGW_HAS_SECURE_API=1 -DQT_CORE_LIB -DQT_GUI_LIB -DQT_MULTIMEDIAWIDGETS_LIB -DQT_MULTIMEDIA_LIB -DQT_NEEDS_QMAIN -DQT_NETWORK_LIB -DQT_NO_DEBUG -DQT_OPENGL_LIB -DQT_QMLINTEGRATION_LIB -DQT_QML_LIB -DQT_QUICKWIDGETS_LIB -DQT_QUICK_LIB -DQT_WIDGETS_LIB -DUNICODE -DWIN32 -DWIN64 -D_ENABLE_EXTENDED_ALIGNED_STORAGE -D_UNICODE -D_WIN64 @CMakeFiles/CyberDom.dir/includes_CXX.rsp -O3 -DNDEBUG -std=gnu++17 -o CMakeFiles\\CyberDom.dir\\src\\Dialogs\\Tasks\\posecameradialog.cpp.obj -c G:\\Git\\CyberDom-Qt\\src\\Dialogs\\Tasks\\posecameradialog.cpp",
+  "file": "G:/Git/CyberDom-Qt/src/Dialogs/Tasks/posecameradialog.cpp",
+  "output": "CMakeFiles/CyberDom.dir/src/Dialogs/Tasks/posecameradialog.cpp.obj"
+},
+{
+  "directory": "G:/Git/CyberDom-Qt/build_cmake",
+  "command": "C:\\Qt\\Tools\\mingw1310_64\\bin\\c++.exe -DBUILD_VER=0.0.8 -DMINGW_HAS_SECURE_API=1 -DQT_CORE_LIB -DQT_GUI_LIB -DQT_MULTIMEDIAWIDGETS_LIB -DQT_MULTIMEDIA_LIB -DQT_NEEDS_QMAIN -DQT_NETWORK_LIB -DQT_NO_DEBUG -DQT_OPENGL_LIB -DQT_QMLINTEGRATION_LIB -DQT_QML_LIB -DQT_QUICKWIDGETS_LIB -DQT_QUICK_LIB -DQT_WIDGETS_LIB -DUNICODE -DWIN32 -DWIN64 -D_ENABLE_EXTENDED_ALIGNED_STORAGE -D_UNICODE -D_WIN64 @CMakeFiles/CyberDom.dir/includes_CXX.rsp -O3 -DNDEBUG -std=gnu++17 -o CMakeFiles\\CyberDom.dir\\src\\Dialogs\\Tasks\\questiondialog.cpp.obj -c G:\\Git\\CyberDom-Qt\\src\\Dialogs\\Tasks\\questiondialog.cpp",
+  "file": "G:/Git/CyberDom-Qt/src/Dialogs/Tasks/questiondialog.cpp",
+  "output": "CMakeFiles/CyberDom.dir/src/Dialogs/Tasks/questiondialog.cpp.obj"
+},
+{
+  "directory": "G:/Git/CyberDom-Qt/build_cmake",
+  "command": "C:\\Qt\\Tools\\mingw1310_64\\bin\\c++.exe -DBUILD_VER=0.0.8 -DMINGW_HAS_SECURE_API=1 -DQT_CORE_LIB -DQT_GUI_LIB -DQT_MULTIMEDIAWIDGETS_LIB -DQT_MULTIMEDIA_LIB -DQT_NEEDS_QMAIN -DQT_NETWORK_LIB -DQT_NO_DEBUG -DQT_OPENGL_LIB -DQT_QMLINTEGRATION_LIB -DQT_QML_LIB -DQT_QUICKWIDGETS_LIB -DQT_QUICK_LIB -DQT_WIDGETS_LIB -DUNICODE -DWIN32 -DWIN64 -D_ENABLE_EXTENDED_ALIGNED_STORAGE -D_UNICODE -D_WIN64 @CMakeFiles/CyberDom.dir/includes_CXX.rsp -O3 -DNDEBUG -std=gnu++17 -o CMakeFiles\\CyberDom.dir\\src\\Gui\\cyberdom.cpp.obj -c G:\\Git\\CyberDom-Qt\\src\\Gui\\cyberdom.cpp",
+  "file": "G:/Git/CyberDom-Qt/src/Gui/cyberdom.cpp",
+  "output": "CMakeFiles/CyberDom.dir/src/Gui/cyberdom.cpp.obj"
+},
+{
+  "directory": "G:/Git/CyberDom-Qt/build_cmake",
+  "command": "C:\\Qt\\Tools\\mingw1310_64\\bin\\c++.exe -DBUILD_VER=0.0.8 -DMINGW_HAS_SECURE_API=1 -DQT_CORE_LIB -DQT_GUI_LIB -DQT_MULTIMEDIAWIDGETS_LIB -DQT_MULTIMEDIA_LIB -DQT_NEEDS_QMAIN -DQT_NETWORK_LIB -DQT_NO_DEBUG -DQT_OPENGL_LIB -DQT_QMLINTEGRATION_LIB -DQT_QML_LIB -DQT_QUICKWIDGETS_LIB -DQT_QUICK_LIB -DQT_WIDGETS_LIB -DUNICODE -DWIN32 -DWIN64 -D_ENABLE_EXTENDED_ALIGNED_STORAGE -D_UNICODE -D_WIN64 @CMakeFiles/CyberDom.dir/includes_CXX.rsp -O3 -DNDEBUG -std=gnu++17 -o CMakeFiles\\CyberDom.dir\\src\\Gui\\mainwindow.cpp.obj -c G:\\Git\\CyberDom-Qt\\src\\Gui\\mainwindow.cpp",
+  "file": "G:/Git/CyberDom-Qt/src/Gui/mainwindow.cpp",
+  "output": "CMakeFiles/CyberDom.dir/src/Gui/mainwindow.cpp.obj"
+},
+{
+  "directory": "G:/Git/CyberDom-Qt/build_cmake",
+  "command": "C:\\Qt\\Tools\\mingw1310_64\\bin\\c++.exe -DBUILD_VER=0.0.8 -DMINGW_HAS_SECURE_API=1 -DQT_CORE_LIB -DQT_GUI_LIB -DQT_MULTIMEDIAWIDGETS_LIB -DQT_MULTIMEDIA_LIB -DQT_NEEDS_QMAIN -DQT_NETWORK_LIB -DQT_NO_DEBUG -DQT_OPENGL_LIB -DQT_QMLINTEGRATION_LIB -DQT_QML_LIB -DQT_QUICKWIDGETS_LIB -DQT_QUICK_LIB -DQT_WIDGETS_LIB -DUNICODE -DWIN32 -DWIN64 -D_ENABLE_EXTENDED_ALIGNED_STORAGE -D_UNICODE -D_WIN64 @CMakeFiles/CyberDom.dir/includes_CXX.rsp -O3 -DNDEBUG -std=gnu++17 -o CMakeFiles\\CyberDom.dir\\src\\Widgets\\calendarview.cpp.obj -c G:\\Git\\CyberDom-Qt\\src\\Widgets\\calendarview.cpp",
+  "file": "G:/Git/CyberDom-Qt/src/Widgets/calendarview.cpp",
+  "output": "CMakeFiles/CyberDom.dir/src/Widgets/calendarview.cpp.obj"
+},
+{
+  "directory": "G:/Git/CyberDom-Qt/build_cmake",
+  "command": "C:\\Qt\\Tools\\mingw1310_64\\bin\\c++.exe -DBUILD_VER=0.0.8 -DMINGW_HAS_SECURE_API=1 -DQT_CORE_LIB -DQT_GUI_LIB -DQT_MULTIMEDIAWIDGETS_LIB -DQT_MULTIMEDIA_LIB -DQT_NEEDS_QMAIN -DQT_NETWORK_LIB -DQT_NO_DEBUG -DQT_OPENGL_LIB -DQT_QMLINTEGRATION_LIB -DQT_QML_LIB -DQT_QUICKWIDGETS_LIB -DQT_QUICK_LIB -DQT_WIDGETS_LIB -DUNICODE -DWIN32 -DWIN64 -D_ENABLE_EXTENDED_ALIGNED_STORAGE -D_UNICODE -D_WIN64 @CMakeFiles/CyberDom.dir/includes_CXX.rsp -O3 -DNDEBUG -std=gnu++17 -o CMakeFiles\\CyberDom.dir\\src\\Widgets\\eventcalendarwidget.cpp.obj -c G:\\Git\\CyberDom-Qt\\src\\Widgets\\eventcalendarwidget.cpp",
+  "file": "G:/Git/CyberDom-Qt/src/Widgets/eventcalendarwidget.cpp",
+  "output": "CMakeFiles/CyberDom.dir/src/Widgets/eventcalendarwidget.cpp.obj"
+},
+{
+  "directory": "G:/Git/CyberDom-Qt/build_cmake",
+  "command": "C:\\Qt\\Tools\\mingw1310_64\\bin\\c++.exe -DBUILD_VER=0.0.8 -DMINGW_HAS_SECURE_API=1 -DQT_CORE_LIB -DQT_GUI_LIB -DQT_MULTIMEDIAWIDGETS_LIB -DQT_MULTIMEDIA_LIB -DQT_NEEDS_QMAIN -DQT_NETWORK_LIB -DQT_NO_DEBUG -DQT_OPENGL_LIB -DQT_QMLINTEGRATION_LIB -DQT_QML_LIB -DQT_QUICKWIDGETS_LIB -DQT_QUICK_LIB -DQT_WIDGETS_LIB -DUNICODE -DWIN32 -DWIN64 -D_ENABLE_EXTENDED_ALIGNED_STORAGE -D_UNICODE -D_WIN64 @CMakeFiles/CyberDom.dir/includes_CXX.rsp -O3 -DNDEBUG -std=gnu++17 -o CMakeFiles\\CyberDom.dir\\src\\Widgets\\googlecalendarwidget.cpp.obj -c G:\\Git\\CyberDom-Qt\\src\\Widgets\\googlecalendarwidget.cpp",
+  "file": "G:/Git/CyberDom-Qt/src/Widgets/googlecalendarwidget.cpp",
+  "output": "CMakeFiles/CyberDom.dir/src/Widgets/googlecalendarwidget.cpp.obj"
+},
+{
+  "directory": "G:/Git/CyberDom-Qt/build_cmake",
+  "command": "C:\\Qt\\Tools\\mingw1310_64\\bin\\c++.exe -DBUILD_VER=0.0.8 -DMINGW_HAS_SECURE_API=1 -DQT_CORE_LIB -DQT_GUI_LIB -DQT_MULTIMEDIAWIDGETS_LIB -DQT_MULTIMEDIA_LIB -DQT_NEEDS_QMAIN -DQT_NETWORK_LIB -DQT_NO_DEBUG -DQT_OPENGL_LIB -DQT_QMLINTEGRATION_LIB -DQT_QML_LIB -DQT_QUICKWIDGETS_LIB -DQT_QUICK_LIB -DQT_WIDGETS_LIB -DUNICODE -DWIN32 -DWIN64 -D_ENABLE_EXTENDED_ALIGNED_STORAGE -D_UNICODE -D_WIN64 @CMakeFiles/CyberDom.dir/includes_CXX.rsp -O3 -DNDEBUG -std=gnu++17 -o CMakeFiles\\CyberDom.dir\\CyberDom_autogen\\EWIEGA46WW\\qrc_resources.cpp.obj -c G:\\Git\\CyberDom-Qt\\build_cmake\\CyberDom_autogen\\EWIEGA46WW\\qrc_resources.cpp",
+  "file": "G:/Git/CyberDom-Qt/build_cmake/CyberDom_autogen/EWIEGA46WW/qrc_resources.cpp",
+  "output": "CMakeFiles/CyberDom.dir/CyberDom_autogen/EWIEGA46WW/qrc_resources.cpp.obj"
+}
+]

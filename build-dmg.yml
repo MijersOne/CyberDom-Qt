@@ -1,0 +1,60 @@
+trigger:
+  - main
+
+pool:
+  # Uses the latest available macOS image on Azure
+  vmImage: 'macos-latest'
+
+variables:
+  # Define your target Qt version and architecture
+  QT_VERSION: '6.10.2' 
+  QT_HOST: 'mac'
+  QT_TARGET: 'desktop'
+  QT_ARCH: 'clang_64'
+
+steps:
+# 1. Set up Python (required for aqtinstall)
+- task: UsePythonVersion@0
+  inputs:
+    versionSpec: '3.x'
+  displayName: 'Install Python'
+
+# 2. Install aqtinstall via pip
+- script: |
+    pip install aqtinstall
+  displayName: 'Install aqtinstall'
+
+# 3. Download and install the Qt framework to a local pipeline directory
+- script: |
+    python -m aqt install-qt $(QT_HOST) $(QT_TARGET) $(QT_VERSION) $(QT_ARCH) -m qtmultimedia --outputdir $(Build.BinariesDirectory)/Qt
+  displayName: 'Install Qt Framework'
+
+# 4. Configure and compile the application using CMake
+- script: |
+    # Temporarily add the newly downloaded Qt binaries to the system PATH
+    export PATH="$(Build.BinariesDirectory)/Qt/$(QT_VERSION)/macos/bin:$PATH"
+    
+    mkdir build
+    cd build
+    
+    # Configure and build the project
+    cmake -DCMAKE_BUILD_TYPE=Release ..
+    cmake --build . --config Release
+  displayName: 'Build CyberDom'
+
+# 5. Bundle dependencies and create the .dmg installer
+- script: |
+    export PATH="$(Build.BinariesDirectory)/Qt/$(QT_VERSION)/macos/bin:$PATH"
+    
+    # macdeployqt pulls all the required Qt libraries into the .app so it can run on any Mac.
+    # The -dmg flag tells it to automatically generate the disk image.
+    macdeployqt build/CyberDom.app -dmg
+  displayName: 'Package into .DMG'
+
+# 6. Upload the final .dmg so you can download it from the Azure DevOps dashboard
+- task: PublishBuildArtifacts@1
+  inputs:
+    PathtoPublish: 'build/CyberDom.dmg' # Adjust this path if your CMake output goes somewhere else
+    ArtifactName: 'macOS-Build'
+    publishLocation: 'Container'
+  displayName: 'Publish .DMG Artifact'
